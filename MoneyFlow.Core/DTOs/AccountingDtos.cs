@@ -136,3 +136,32 @@ public class TrialBalanceDto
     public bool IsBalanced => TotalClosingDebit == TotalClosingCredit;
     public decimal Difference => Math.Abs(TotalClosingDebit - TotalClosingCredit);
 }
+
+public class DayBookItemDto
+{
+    public int VoucherId { get; set; }
+    public string VoucherNumber { get; set; } = string.Empty;
+    public VoucherTypeEnum VoucherType { get; set; }
+    public string VoucherTypeName { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public string Particulars { get; set; } = string.Empty;
+    public decimal DebitAmount { get; set; }
+    public decimal CreditAmount { get; set; }
+    public string Narration { get; set; } = string.Empty;
+}
+
+public class DayBookReportDto
+{
+    public int CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public VoucherTypeEnum? FilterVoucherType { get; set; }
+    public List<DayBookItemDto> Items { get; set; } = new();
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public int TotalTransactions => Items.Count;
+    public bool IsBalanced => TotalDebit == TotalCredit;
+    public decimal Difference => Math.Abs(TotalDebit - TotalCredit);
+}
+

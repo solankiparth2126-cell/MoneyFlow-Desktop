@@ -2,6 +2,32 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 16: Day Book Report] - 2026-09-10
+### Added
+- Created `DayBookForm`:
+  - Full Tally-inspired Section 16, 29, 30 Day Book interface for chronological transaction auditing across all 8 voucher types (Payment, Receipt, Contra, Journal, Sales, Purchase, Debit Note, Credit Note).
+  - Date Range filtering: `From Date (F2)` and `To Date` constrained to active Financial Year.
+  - Voucher Type filtering: Dropdown filter to view all vouchers or isolate specific types (Contra, Payment, Receipt, Journal, Sales, Purchase, Debit Note, Credit Note).
+  - Live Text Search: Instant client-side filtering across Voucher Numbers, Voucher Types, Particulars / Account Names, Reference Numbers, and Narrations.
+  - DataGridView: Date, Type, Voucher No, Ref No, Particulars, Debit Amount (₹), Credit Amount (₹), and Narration with alternating row highlights and right-aligned currency formatting.
+  - Voucher Drill-Down: Double-click or `Enter` on any row opens complete voucher audit detail.
+  - Summary Panel: Live transaction counter, Total Debit (₹), Total Credit (₹), and double-entry `[ ✔ ] BALANCED` check verification banner.
+  - Export & Print: CSV export feature with RFC 4180 CSV escaping, print preview (`Ctrl+P`), and keyboard shortcuts (`F2`, `F4`, `F5`, `Esc`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetDayBookAsync`: Queries vouchers in chronological order with eager loading of voucher types and ledger line items.
+  - Generates comprehensive Dr/Cr particulars summaries, debit/credit totals, and balance checks.
+  - Added `DayBookItemDto` and `DayBookReportDto` to `MoneyFlow.Core/DTOs`.
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Day Book` to launch `DayBookForm`.
+  - Wired Gateway of Accounting list item `Day Book` to launch `DayBookForm`.
+  - Registered `DayBookForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/9f5395da99144edaaef0c9a56714292a`).
+- Added automated unit tests in `Phase16DayBookTests.cs`:
+  - Chronological transaction ordering across date ranges with multiple voucher types.
+  - Voucher type filtering (Sales vs Receipt).
+  - Soft-deleted voucher exclusion from Day Book reports.
+  - 3/3 new tests passing (84/84 total tests passing across all test suites).
+
 ## [Phase 15: Credit Note (Ctrl+F8)] - 2026-09-10
 ### Added
 - Created `CreditNoteForm`:

@@ -744,4 +744,94 @@ public class AccountingService : IAccountingService
             .ThenByDescending(v => v.VoucherNumber)
             .ToListAsync(ct);
     }
+
+    public async Task<DayBookReportDto> GetDayBookAsync(
+        int companyId,
+        DateTime fromDate,
+        DateTime toDate,
+        VoucherTypeEnum? voucherType = null,
+        CancellationToken ct = default)
+    {
+        var start = fromDate.Date;
+        var end = toDate.Date.AddDays(1).AddTicks(-1);
+
+        var query = _context.Vouchers
+            .AsNoTracking()
+            .Include(v => v.VoucherType)
+            .Include(v => v.VoucherEntries)
+                .ThenInclude(e => e.Ledger)
+            .Where(v => v.CompanyId == companyId &&
+                        !v.IsDeleted &&
+                        v.VoucherDate >= start &&
+                        v.VoucherDate <= end);
+
+        if (voucherType.HasValue)
+        {
+            query = query.Where(v => v.VoucherType!.Type == voucherType.Value);
+        }
+
+        var vouchers = await query
+            .OrderBy(v => v.VoucherDate)
+            .ThenBy(v => v.VoucherId)
+            .ToListAsync(ct);
+
+        var items = new List<DayBookItemDto>();
+        decimal totalDebit = 0m;
+        decimal totalCredit = 0m;
+
+        foreach (var v in vouchers)
+        {
+            var drEntries = v.VoucherEntries.Where(e => e.Debit > 0).ToList();
+            var crEntries = v.VoucherEntries.Where(e => e.Credit > 0).ToList();
+
+            var vDebit = drEntries.Sum(e => e.Debit);
+            var vCredit = crEntries.Sum(e => e.Credit);
+
+            totalDebit += vDebit;
+            totalCredit += vCredit;
+
+            string particulars;
+            if (drEntries.Count == 1 && crEntries.Count == 1)
+            {
+                var drName = drEntries[0].Ledger?.LedgerName ?? "Account";
+                var crName = crEntries[0].Ledger?.LedgerName ?? "Account";
+                particulars = $"{drName} To {crName}";
+            }
+            else
+            {
+                var drNames = string.Join(", ", drEntries.Select(e => e.Ledger?.LedgerName ?? "Account"));
+                var crNames = string.Join(", ", crEntries.Select(e => e.Ledger?.LedgerName ?? "Account"));
+                particulars = $"Dr: {drNames} | Cr: {crNames}";
+            }
+
+            var typeEnum = v.VoucherType?.Type ?? VoucherTypeEnum.Journal;
+            var typeName = v.VoucherType?.Name ?? typeEnum.ToString();
+
+            items.Add(new DayBookItemDto
+            {
+                VoucherId = v.VoucherId,
+                VoucherNumber = v.VoucherNumber,
+                VoucherType = typeEnum,
+                VoucherTypeName = typeName,
+                Date = v.VoucherDate,
+                ReferenceNumber = v.ReferenceNumber ?? string.Empty,
+                Particulars = particulars,
+                DebitAmount = vDebit,
+                CreditAmount = vCredit,
+                Narration = v.Narration ?? string.Empty
+            });
+        }
+
+        return new DayBookReportDto
+        {
+            CompanyId = companyId,
+            FromDate = fromDate.Date,
+            ToDate = toDate.Date,
+            FilterVoucherType = voucherType,
+            Items = items,
+            TotalDebit = totalDebit,
+            TotalCredit = totalCredit
+        };
+    }
 }
+

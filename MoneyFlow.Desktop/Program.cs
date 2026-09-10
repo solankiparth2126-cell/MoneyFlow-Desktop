@@ -90,6 +90,7 @@ static class Program
                 services.AddTransient<PurchaseVoucherForm>();
                 services.AddTransient<DebitNoteForm>();
                 services.AddTransient<CreditNoteForm>();
+                services.AddTransient<DayBookForm>();
             })
             .Build();
 
