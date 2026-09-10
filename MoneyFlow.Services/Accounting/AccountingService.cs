@@ -456,4 +456,144 @@ public class AccountingService : IAccountingService
             TotalClosingCredit = totalClosingCredit
         };
     }
+
+    public async Task<VoucherType?> GetVoucherTypeByEnumAsync(VoucherTypeEnum type, CancellationToken ct = default)
+    {
+        var voucherType = await _context.VoucherTypes
+            .FirstOrDefaultAsync(vt => vt.Type == type && vt.IsActive, ct);
+
+        if (voucherType != null) return voucherType;
+
+        // Fallback: If not found in DB (e.g. fresh in-memory test), create default
+        string name = type.ToString();
+        string code = type switch
+        {
+            VoucherTypeEnum.Payment => "PMT",
+            VoucherTypeEnum.Receipt => "RCT",
+            VoucherTypeEnum.Contra => "CTR",
+            VoucherTypeEnum.Journal => "JRN",
+            VoucherTypeEnum.Sales => "SLS",
+            VoucherTypeEnum.Purchase => "PUR",
+            VoucherTypeEnum.DebitNote => "DBN",
+            VoucherTypeEnum.CreditNote => "CRN",
+            _ => "VCH"
+        };
+        string prefix = type switch
+        {
+            VoucherTypeEnum.Payment => "PAY-",
+            VoucherTypeEnum.Receipt => "RCT-",
+            VoucherTypeEnum.Contra => "CTR-",
+            VoucherTypeEnum.Journal => "JRN-",
+            VoucherTypeEnum.Sales => "SLS-",
+            VoucherTypeEnum.Purchase => "PUR-",
+            VoucherTypeEnum.DebitNote => "DBN-",
+            VoucherTypeEnum.CreditNote => "CRN-",
+            _ => "VCH-"
+        };
+
+        voucherType = new VoucherType
+        {
+            Name = name,
+            Code = code,
+            Type = type,
+            Prefix = prefix,
+            IsActive = true
+        };
+        _context.VoucherTypes.Add(voucherType);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return voucherType;
+    }
+
+    public async Task<string> GetNextVoucherNumberPreviewAsync(int companyId, int voucherTypeId, int financialYearId, CancellationToken ct = default)
+    {
+        return await _voucherRepo.GetNextVoucherNumberAsync(companyId, voucherTypeId, financialYearId, ct);
+    }
+
+    public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashAndBankLedgersAsync(int companyId, CancellationToken ct = default)
+    {
+        var cashBankGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && (g.GroupName == "Cash-in-Hand" || g.GroupName == "Bank Accounts"))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var childGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && cashBankGroupIds.Contains(g.ParentGroupId.Value))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var allTargetGroupIds = cashBankGroupIds.Concat(childGroupIds).Distinct().ToList();
+
+        return await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
+            .OrderBy(l => l.LedgerName)
+            .Select(l => new LedgerSummaryDto
+            {
+                LedgerId = l.LedgerId,
+                GroupId = l.GroupId,
+                LedgerName = l.LedgerName,
+                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+                OpeningBalance = l.OpeningBalance,
+                OpeningBalanceType = l.OpeningBalanceType,
+                IsActive = l.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<Voucher?> GetVoucherByIdAsync(int voucherId, CancellationToken ct = default)
+    {
+        return await _voucherRepo.GetVoucherWithEntriesAsync(voucherId, ct);
+    }
+
+    public async Task<bool> DeleteVoucherAsync(int voucherId, CancellationToken ct = default)
+    {
+        var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.VoucherId == voucherId, ct);
+        if (voucher == null) return false;
+
+        voucher.IsDeleted = true;
+        voucher.ModifiedAt = DateTime.Now;
+        voucher.ModifiedBy = "System";
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        _logger.LogInformation("Soft deleted voucher {VoucherNumber} (ID: {VoucherId})", voucher.VoucherNumber, voucher.VoucherId);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<Voucher>> GetVouchersByTypeAsync(
+        int companyId,
+        int financialYearId,
+        VoucherTypeEnum type,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        CancellationToken ct = default)
+    {
+        var query = _context.Vouchers
+            .AsNoTracking()
+            .Include(v => v.VoucherType)
+            .Include(v => v.VoucherEntries)
+                .ThenInclude(e => e.Ledger)
+            .Where(v => v.CompanyId == companyId &&
+                        v.FinancialYearId == financialYearId &&
+                        v.VoucherType!.Type == type &&
+                        !v.IsDeleted);
+
+        if (fromDate.HasValue)
+        {
+            var start = fromDate.Value.Date;
+            query = query.Where(v => v.VoucherDate >= start);
+        }
+
+        if (toDate.HasValue)
+        {
+            var end = toDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(v => v.VoucherDate <= end);
+        }
+
+        return await query
+            .OrderByDescending(v => v.VoucherDate)
+            .ThenByDescending(v => v.VoucherNumber)
+            .ToListAsync(ct);
+    }
 }

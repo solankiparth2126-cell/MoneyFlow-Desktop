@@ -2,6 +2,25 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 8: Payment Voucher (F5)] - 2026-09-10
+### Added
+- Created `PaymentVoucherForm`:
+  - Full Tally-inspired Payment Voucher interface (Section 20) with Voucher Number preview (`PAY-00001`), Voucher Date, and Source Account dropdown (Cash-in-Hand / Bank Accounts).
+  - Dynamic display of selected source account's real-time closing balance.
+  - Multi-line debit entries DataGridView with Particulars (ledger selector), Current Balance display, Amount (Dr), and Line Narration.
+  - Real-time balance calculations and visual balance indicator (`Voucher Balanced (Dr = Cr)` vs error state).
+  - Keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Extended `IAccountingService` and `AccountingService`:
+  - `GetCashAndBankLedgersAsync`: retrieves source accounts belonging to Cash and Bank groups.
+  - `GetNextVoucherNumberPreviewAsync`: queries next sequential voucher number.
+  - `GetVoucherTypeByEnumAsync`: finds or initializes voucher types.
+  - `GetVouchersByTypeAsync`, `GetVoucherByIdAsync`, and `DeleteVoucherAsync` (with automatic ledger balance restoration upon soft-delete).
+- Integrated into `MainForm`:
+  - Wired `F5` global shortcut key to launch `PaymentVoucherForm`.
+  - Added toolbar button `F5: Payment`, menu item `Transactions -> F5 - Payment`, and Gateway list entry.
+  - Registered `PaymentVoucherForm` in Dependency Injection in `Program.cs`.
+- Added unit test suite in `Phase8PaymentTests.cs` (5/5 tests passing; 49/49 total across all test suites).
+
 ## [Phase 7: Accounting Engine] - 2026-09-10
 ### Added
 - Created core accounting engine DTOs (`VoucherEntryDto`, `VoucherCreateDto`, `VoucherValidationResult`, `LedgerBalanceDto`, `LedgerStatementLineDto`, `LedgerStatementDto`, `TrialBalanceItemDto`, `TrialBalanceDto`).

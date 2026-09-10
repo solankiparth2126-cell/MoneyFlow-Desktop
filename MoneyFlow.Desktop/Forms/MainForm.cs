@@ -16,6 +16,7 @@ public class MainForm : Form
     private readonly IFinancialYearService _fyService;
     private readonly IGroupService _groupService;
     private readonly ILedgerService _ledgerService;
+    private readonly IAccountingService _accountingService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -38,7 +39,8 @@ public class MainForm : Form
         ICompanyContext companyContext,
         IFinancialYearService fyService,
         IGroupService groupService,
-        ILedgerService ledgerService)
+        ILedgerService ledgerService,
+        IAccountingService accountingService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -47,6 +49,7 @@ public class MainForm : Form
         _fyService = fyService;
         _groupService = groupService;
         _ledgerService = ledgerService;
+        _accountingService = accountingService;
 
         InitializeComponent();
 
@@ -88,7 +91,7 @@ public class MainForm : Form
 
         var menuTransactions = new ToolStripMenuItem("&Transactions");
         menuTransactions.DropDownItems.Add("F4 - Contra", null, (s, e) => ShowNotImplemented("Contra Voucher (Phase 10)"));
-        menuTransactions.DropDownItems.Add("F5 - Payment", null, (s, e) => ShowNotImplemented("Payment Voucher (Phase 8)"));
+        menuTransactions.DropDownItems.Add("F5 - &Payment", null, (s, e) => OpenPaymentVoucher());
         menuTransactions.DropDownItems.Add("F6 - Receipt", null, (s, e) => ShowNotImplemented("Receipt Voucher (Phase 9)"));
         menuTransactions.DropDownItems.Add("F7 - Journal", null, (s, e) => ShowNotImplemented("Journal Voucher (Phase 11)"));
         menuTransactions.DropDownItems.Add("F8 - Sales", null, (s, e) => ShowNotImplemented("Sales Voucher (Phase 12)"));
@@ -128,7 +131,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F2: Period / FY", null, (s, e) => OpenFinancialYearList()));
         toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
         toolStrip.Items.Add(new ToolStripButton("F4: Contra", null, (s, e) => ShowNotImplemented("Contra (Phase 10)")));
-        toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => ShowNotImplemented("Payment (Phase 8)")));
+        toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => OpenPaymentVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => ShowNotImplemented("Receipt (Phase 9)")));
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => ShowNotImplemented("Journal (Phase 11)")));
         toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => ShowNotImplemented("Sales (Phase 12)")));
@@ -253,7 +256,7 @@ public class MainForm : Form
             "  ---------------------------------",
             "  Groups (Chart of Accounts)",
             "  Ledgers",
-            "  Inventory Info (Stock & Units)",
+            "  Payment Voucher (F5)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -330,6 +333,10 @@ public class MainForm : Form
         {
             OpenLedgerList();
         }
+        else if (selected.Contains("Payment"))
+        {
+            OpenPaymentVoucher();
+        }
         else if (selected.Contains("Database Diagnostics"))
         {
             OpenDatabaseDiagnostics();
@@ -374,6 +381,19 @@ public class MainForm : Form
 
         using var ledgerForm = new LedgerListForm(_ledgerService, _groupService, _companyContext);
         ledgerForm.ShowDialog(this);
+    }
+
+    private void OpenPaymentVoucher()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var paymentForm = new PaymentVoucherForm(_accountingService, _ledgerService, _companyContext);
+        paymentForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()
@@ -467,7 +487,7 @@ public class MainForm : Form
                 ShowNotImplemented("Contra Voucher (F4 - Phase 10)");
                 break;
             case Keys.F5:
-                ShowNotImplemented("Payment Voucher (F5 - Phase 8)");
+                OpenPaymentVoucher();
                 break;
             case Keys.F6:
                 ShowNotImplemented("Receipt Voucher (F6 - Phase 9)");
