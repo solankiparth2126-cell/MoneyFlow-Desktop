@@ -6,7 +6,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
+using MoneyFlow.Data.Repositories;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Services;
@@ -39,6 +41,16 @@ static class Program
 
                 services.AddLogging(configure => configure.AddConsole());
                 services.AddScoped<IDatabaseSetupService, DatabaseSetupService>();
+
+                // Repositories & Unit of Work (Phase 2 Foundation)
+                services.AddScoped<IUnitOfWork, UnitOfWork>();
+                services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+                services.AddScoped<ICompanyRepository, CompanyRepository>();
+                services.AddScoped<IFinancialYearRepository, FinancialYearRepository>();
+                services.AddScoped<IGroupRepository, GroupRepository>();
+                services.AddScoped<ILedgerRepository, LedgerRepository>();
+                services.AddScoped<IVoucherRepository, VoucherRepository>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
             })

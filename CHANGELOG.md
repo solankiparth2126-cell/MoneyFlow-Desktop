@@ -2,6 +2,16 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 2: Database Foundation] - 2026-09-10
+### Added
+- Created dedicated `IEntityTypeConfiguration<T>` classes for all 7 primary accounting tables and supporting tables.
+- Refactored `AppDbContext` to use `ApplyConfigurationsFromAssembly` and enforce global `decimal(18,2)` precision on monetary fields.
+- Implemented `MoneyFlow.Data/Scripts/CreateDatabaseAndTables.sql` with production-ready T-SQL DDL, indexes, constraints (`CHECK (Debit >= 0)`, `CHECK (Credit >= 0)`), and seed data.
+- Built Repository and UnitOfWork layer (`IRepository<T>`, `IUnitOfWork`, `ICompanyRepository`, `IFinancialYearRepository`, `IGroupRepository`, `ILedgerRepository`, `IVoucherRepository`).
+- Wired all repositories and `IUnitOfWork` into Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase2DatabaseTests.cs` testing multi-company isolation, hierarchical groups, voucher cascading deletes, and next voucher number generation (7/7 tests passing).
+- Created `DATABASE.md` documenting table schemas, indexes, and relationships.
+
 ## [Phase 1: Environment & Project Setup] - 2026-09-10
 ### Added
 - Checked Windows environment (.NET 8 SDK 8.0.424, SQL Server Express instances).
