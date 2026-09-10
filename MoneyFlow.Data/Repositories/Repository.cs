@@ -87,6 +87,14 @@ public class DbTransactionContext : IDbTransactionContext
     }
 }
 
+public class NoOpDbTransactionContext : IDbTransactionContext
+{
+    public Task CommitAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task RollbackAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public void Dispose() { }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
 public class UnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _context;
@@ -103,6 +111,10 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task<IDbTransactionContext> BeginTransactionAsync(CancellationToken ct = default)
     {
+        if (!_context.Database.IsRelational())
+        {
+            return new NoOpDbTransactionContext();
+        }
         var tx = await _context.Database.BeginTransactionAsync(ct);
         return new DbTransactionContext(tx);
     }

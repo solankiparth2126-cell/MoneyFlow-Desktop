@@ -2,6 +2,17 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 3: Company Management] - 2026-09-10
+### Added
+- Created `CompanyCreateDto`, `CompanyUpdateDto`, `CompanySummaryDto`.
+- Built `ICompanyContext` and `CompanyContext` for thread-safe active company/FY state management.
+- Implemented `ICompanyService` and `CompanyService` with transaction safety, automatic seeding of 17 standard groups (Section 13), initial Financial Year, and optional 11 default ledgers (Section 15).
+- Designed and implemented WinForms UI:
+  - `CompanyCreateEditForm`: Full company creation and alteration with validation and ledger seeding option.
+  - `CompanyListForm`: Interactive company selection, management, and keyboard shortcuts (Enter, Alt+C, Alt+A, Alt+D, Esc).
+  - Updated `MainForm` with Gateway of Accounting company integration, dynamic context updates, and F3 shortcut.
+- Added comprehensive unit tests in `Phase3CompanyTests.cs` (12/12 passing).
+
 ## [Phase 2: Database Foundation] - 2026-09-10
 ### Added
 - Created dedicated `IEntityTypeConfiguration<T>` classes for all 7 primary accounting tables and supporting tables.

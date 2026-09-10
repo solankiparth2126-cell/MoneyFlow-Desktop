@@ -12,6 +12,7 @@ using MoneyFlow.Data.Repositories;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Services;
+using MoneyFlow.Services.Company;
 
 namespace MoneyFlow.Desktop;
 
@@ -51,8 +52,14 @@ static class Program
                 services.AddScoped<ILedgerRepository, LedgerRepository>();
                 services.AddScoped<IVoucherRepository, VoucherRepository>();
 
+                // Company Services (Phase 3)
+                services.AddSingleton<ICompanyContext, CompanyContext>();
+                services.AddScoped<ICompanyService, CompanyService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
+                services.AddTransient<CompanyListForm>();
+                services.AddTransient<CompanyCreateEditForm>();
             })
             .Build();
 

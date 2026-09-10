@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
 using MoneyFlow.Services;
 
@@ -10,6 +11,8 @@ public class MainForm : Form
 {
     private readonly AppDbContext _context;
     private readonly IDatabaseSetupService _databaseSetupService;
+    private readonly ICompanyService _companyService;
+    private readonly ICompanyContext _companyContext;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -22,12 +25,24 @@ public class MainForm : Form
     // Gateway navigation panel
     private Panel gatewayPanel = null!;
     private ListBox lstGatewayMenu = null!;
+    private Label lblCurrentCompany = null!;
+    private Label lblCurrentFY = null!;
 
-    public MainForm(AppDbContext context, IDatabaseSetupService databaseSetupService)
+    public MainForm(
+        AppDbContext context,
+        IDatabaseSetupService databaseSetupService,
+        ICompanyService companyService,
+        ICompanyContext companyContext)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
+        _companyService = companyService;
+        _companyContext = companyContext;
+
         InitializeComponent();
+
+        _companyContext.OnCompanyChanged += UpdateCompanyContextUI;
+        UpdateCompanyContextUI();
     }
 
     private void InitializeComponent()
@@ -48,11 +63,12 @@ public class MainForm : Form
         };
 
         var menuCompany = new ToolStripMenuItem("&Company");
-        menuCompany.DropDownItems.Add("Select Company", null, (s, e) => ShowNotImplemented("Company Management (Phase 3)"));
-        menuCompany.DropDownItems.Add("Create Company", null, (s, e) => ShowNotImplemented("Create Company (Phase 3)"));
-        menuCompany.DropDownItems.Add("Alter Company", null, (s, e) => ShowNotImplemented("Alter Company (Phase 3)"));
+        menuCompany.DropDownItems.Add("Select Company (F3)", null, (s, e) => OpenCompanyList());
+        menuCompany.DropDownItems.Add("Create Company", null, (s, e) => OpenCreateCompany());
+        menuCompany.DropDownItems.Add("Alter Company", null, (s, e) => OpenAlterCompany());
+        menuCompany.DropDownItems.Add("Close Company", null, (s, e) => CloseActiveCompany());
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
-        menuCompany.DropDownItems.Add("E&xit", null, (s, e) => Application.Exit());
+        menuCompany.DropDownItems.Add("E&xit (Esc)", null, (s, e) => Application.Exit());
 
         var menuMasters = new ToolStripMenuItem("&Masters");
         menuMasters.DropDownItems.Add("Groups (Phase 5)", null, (s, e) => ShowNotImplemented("Groups Master (Phase 5)"));
@@ -99,13 +115,14 @@ public class MainForm : Form
             Font = new Font("Segoe UI", 9F)
         };
         toolStrip.Items.Add(new ToolStripLabel("Shortcuts: "));
-        toolStrip.Items.Add(new ToolStripButton("F2: Date"));
-        toolStrip.Items.Add(new ToolStripButton("F4: Contra"));
-        toolStrip.Items.Add(new ToolStripButton("F5: Payment"));
-        toolStrip.Items.Add(new ToolStripButton("F6: Receipt"));
-        toolStrip.Items.Add(new ToolStripButton("F7: Journal"));
-        toolStrip.Items.Add(new ToolStripButton("F8: Sales"));
-        toolStrip.Items.Add(new ToolStripButton("F9: Purchase"));
+        toolStrip.Items.Add(new ToolStripButton("F2: Date", null, (s, e) => ShowNotImplemented("Change Date (F2)")));
+        toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
+        toolStrip.Items.Add(new ToolStripButton("F4: Contra", null, (s, e) => ShowNotImplemented("Contra (Phase 10)")));
+        toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => ShowNotImplemented("Payment (Phase 8)")));
+        toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => ShowNotImplemented("Receipt (Phase 9)")));
+        toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => ShowNotImplemented("Journal (Phase 11)")));
+        toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => ShowNotImplemented("Sales (Phase 12)")));
+        toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => ShowNotImplemented("Purchase (Phase 13)")));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -120,8 +137,8 @@ public class MainForm : Form
             ForeColor = Color.White
         };
 
-        lblStatusCompany = new ToolStripStatusLabel("Company: [None Selected - Phase 3]") { ForeColor = Color.White };
-        lblStatusFY = new ToolStripStatusLabel(" | FY: 2026-27") { ForeColor = Color.LightGreen };
+        lblStatusCompany = new ToolStripStatusLabel("Company: [None Selected]") { ForeColor = Color.White };
+        lblStatusFY = new ToolStripStatusLabel(" | FY: Not Selected") { ForeColor = Color.LightGreen };
         lblStatusDatabase = new ToolStripStatusLabel(" | DB: MoneyFlowDB (Connected)") { ForeColor = Color.LightSkyBlue };
 
         statusStrip.Items.AddRange(new ToolStripItem[] {
@@ -137,7 +154,6 @@ public class MainForm : Form
 
     private void CreateGatewayLayout()
     {
-        // Central Container Panel
         var centerContainer = new Panel
         {
             Dock = DockStyle.Fill,
@@ -154,27 +170,27 @@ public class MainForm : Form
             ForeColor = Color.FromArgb(24, 43, 73)
         };
 
-        var lblCurrentCompany = new Label
+        lblCurrentCompany = new Label
         {
-            Text = "Current Company:\n(Select or Create Company in Phase 3)",
+            Text = "Current Company:\n[No Company Open — Select or Create Company]",
             Font = new Font("Segoe UI", 10F),
             ForeColor = Color.FromArgb(70, 80, 95),
             Location = new Point(20, 40),
-            Size = new Size(340, 50)
+            Size = new Size(340, 60)
         };
 
-        var lblCurrentFY = new Label
+        lblCurrentFY = new Label
         {
-            Text = "Current Financial Year:\n01-Apr-2026 to 31-Mar-2027",
+            Text = "Current Financial Year:\n[None Selected]",
             Font = new Font("Segoe UI", 10F),
             ForeColor = Color.FromArgb(70, 80, 95),
-            Location = new Point(20, 110),
+            Location = new Point(20, 115),
             Size = new Size(340, 50)
         };
 
         var lblArchitecture = new Label
         {
-            Text = "MONEYFLOW DESKTOP ERP\nVersion 1.0 (Phase 1 Foundation)\n\n• Standalone Windows PC\n• C# + .NET 8 + WinForms\n• SQL Server Express + EF Core\n• Pure Double-Entry Accounting\n• Offline / Single-PC Architecture",
+            Text = "MONEYFLOW DESKTOP ERP\nVersion 1.0 (Phase 3: Company Management)\n\n• Standalone Windows PC\n• C# + .NET 8 + WinForms\n• SQL Server Express + EF Core\n• Pure Double-Entry Accounting\n• Multi-Company Isolation\n• Zero GST (Pure Accounting)",
             Font = new Font("Segoe UI", 9F),
             ForeColor = Color.FromArgb(100, 110, 125),
             Location = new Point(20, 200),
@@ -223,7 +239,7 @@ public class MainForm : Form
         };
 
         lstGatewayMenu.Items.AddRange(new object[] {
-            "  Company Info (Select / Create)",
+            "  Company Info (Select / Create / Alter)",
             "  ---------------------------------",
             "  Accounts Info (Groups & Ledgers)",
             "  Inventory Info (Stock & Units)",
@@ -255,12 +271,47 @@ public class MainForm : Form
         this.Controls.Add(centerContainer);
     }
 
+    private void UpdateCompanyContextUI()
+    {
+        if (_companyContext.IsCompanyOpen && _companyContext.CurrentCompany != null)
+        {
+            var company = _companyContext.CurrentCompany;
+            var fy = _companyContext.CurrentFinancialYear;
+
+            lblCurrentCompany.Text = $"Current Company:\n{company.CompanyName}\n{company.State}, {company.Country}";
+            lblCurrentCompany.ForeColor = Color.FromArgb(16, 185, 129);
+
+            lblCurrentFY.Text = fy != null 
+                ? $"Current Financial Year:\n{fy.YearName} ({fy.StartDate:dd-MMM-yyyy} to {fy.EndDate:dd-MMM-yyyy})" 
+                : "Current Financial Year:\nNot set";
+            lblCurrentFY.ForeColor = Color.FromArgb(37, 99, 235);
+
+            lblStatusCompany.Text = $"Company: {company.CompanyName}";
+            lblStatusFY.Text = fy != null ? $" | FY: {fy.YearName}" : " | FY: Not set";
+        }
+        else
+        {
+            lblCurrentCompany.Text = "Current Company:\n[No Company Open — Select or Create Company]";
+            lblCurrentCompany.ForeColor = Color.FromArgb(70, 80, 95);
+
+            lblCurrentFY.Text = "Current Financial Year:\n[None Selected]";
+            lblCurrentFY.ForeColor = Color.FromArgb(70, 80, 95);
+
+            lblStatusCompany.Text = "Company: [None Selected]";
+            lblStatusFY.Text = " | FY: Not Selected";
+        }
+    }
+
     private void HandleGatewaySelection()
     {
         var selected = lstGatewayMenu.SelectedItem?.ToString()?.Trim();
         if (string.IsNullOrEmpty(selected) || selected.StartsWith("-")) return;
 
-        if (selected.Contains("Database Diagnostics"))
+        if (selected.Contains("Company Info"))
+        {
+            OpenCompanyList();
+        }
+        else if (selected.Contains("Database Diagnostics"))
         {
             OpenDatabaseDiagnostics();
         }
@@ -270,7 +321,58 @@ public class MainForm : Form
         }
         else
         {
+            if (!_companyContext.IsCompanyOpen)
+            {
+                MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                OpenCompanyList();
+                return;
+            }
             ShowNotImplemented(selected);
+        }
+    }
+
+    private void OpenCompanyList()
+    {
+        using var listForm = new CompanyListForm(_companyService, _companyContext);
+        listForm.ShowDialog(this);
+    }
+
+    private void OpenCreateCompany()
+    {
+        using var createForm = new CompanyCreateEditForm(_companyService);
+        createForm.ShowDialog(this);
+    }
+
+    private void OpenAlterCompany()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("No company is currently open to alter. Please select a company first.", "No Active Company", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var alterForm = new CompanyCreateEditForm(_companyService, _companyContext.CurrentCompany.CompanyId);
+        alterForm.ShowDialog(this);
+    }
+
+    private void CloseActiveCompany()
+    {
+        if (!_companyContext.IsCompanyOpen)
+        {
+            MessageBox.Show("No company is currently open.", "MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"Are you sure you want to close company '{_companyContext.CurrentCompany?.CompanyName}'?",
+            "Close Company",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (confirm == DialogResult.Yes)
+        {
+            _companyService.CloseCompany();
         }
     }
 
@@ -294,12 +396,14 @@ public class MainForm : Form
         switch (e.KeyCode)
         {
             case Keys.Escape:
-                // Tally-style Esc back/quit
                 var confirm = MessageBox.Show("Do you want to exit MoneyFlow?", "Quit", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm == DialogResult.Yes) Application.Exit();
                 break;
             case Keys.F2:
                 ShowNotImplemented("Change Date (F2)");
+                break;
+            case Keys.F3:
+                OpenCompanyList();
                 break;
             case Keys.F4:
                 ShowNotImplemented("Contra Voucher (F4 - Phase 10)");
