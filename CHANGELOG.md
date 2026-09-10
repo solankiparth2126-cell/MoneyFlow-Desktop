@@ -2,6 +2,27 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 18: Trial Balance Report] - 2026-09-10
+### Added
+- Created `TrialBalanceForm`:
+  - Full Tally-inspired Section 18, 30 double-entry reconciliation Trial Balance interface.
+  - Multi-Perspective View Modes: Instant toggle between Detailed (Ledger-wise) and Condensed (Group-wise) (`F1`).
+  - Date Range Filtering: `From Date (F2)` and `To Date` pickers constrained to active Financial Year bounds.
+  - 6-Column Double-Entry Matrix: Opening Debit/Credit, Period Transactions Debit/Credit, and Closing Debit/Credit.
+  - Mathematical Integrity Verification: Validates that total closing debits match total closing credits, displaying a green `[ ✔ ] BALANCED (Diff: ₹0.00)` banner or alert difference.
+  - Drill-Down Navigation: Double-click or `Enter` on any ledger row opens its full Ledger Statement (`LedgerStatementForm`).
+  - Search & Export: Real-time text search, RFC 4180 CSV export, and print preview (`Ctrl+P`).
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Trial Balance` to launch `TrialBalanceForm`.
+  - Wired Gateway of Accounting list item `Trial Balance` to launch `TrialBalanceForm`.
+  - Registered `TrialBalanceForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/9753586d61104fcc8e85dd2aa4756281`).
+- Added automated unit tests in `Phase18TrialBalanceTests.cs`:
+  - Full reconciliation across diverse voucher types (Purchases, Sales, Payments, Receipts, Contra).
+  - Mathematical identity check (`NetClosing == NetOpening + NetPeriod`) across every ledger.
+  - Soft-deleted voucher exclusion from Trial Balance figures.
+  - 3/3 new tests passing (90/90 total tests passing across all test suites).
+
 ## [Phase 17: Ledger Statement Report] - 2026-09-10
 ### Added
 - Created `LedgerStatementForm`:

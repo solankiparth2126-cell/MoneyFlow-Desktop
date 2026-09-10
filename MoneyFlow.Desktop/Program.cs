@@ -92,6 +92,7 @@ static class Program
                 services.AddTransient<CreditNoteForm>();
                 services.AddTransient<DayBookForm>();
                 services.AddTransient<LedgerStatementForm>();
+                services.AddTransient<TrialBalanceForm>();
             })
             .Build();
 
