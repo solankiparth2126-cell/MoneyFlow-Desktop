@@ -2,7 +2,32 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
-## [Phase 12: Sales Voucher (F8)] - 2026-09-10
+## [Phase 13: Purchase Voucher (F9)] - 2026-09-10
+### Added
+- Created `PurchaseVoucherForm`:
+  - Full Tally-inspired Section 25 Purchase Invoice interface with pure accounting calculations and strictly ZERO GST.
+  - Header with dynamic Voucher Number preview (`PUR-00001`), Voucher Date with active FY constraints, Supplier Invoice / Reference Number, and Supplier Party selector (Sundry Creditors, Cash, Bank) with live balance indicator.
+  - Purchase Ledger selector (Purchase Accounts, Direct Expenses, Indirect Expenses) with live balance indicator.
+  - Line items DataGridView: Item / Expense Description, Quantity, Rate (₹), Gross Amount (₹), Discount (₹), Net Amount (₹), and Line Narration.
+  - Automatic dynamic line-item recalculation on quantity, rate, and discount changes.
+  - Summary panel tracking Subtotal (Gross), Total Discount, and Net Invoice Total.
+  - Automatic balanced double-entry generation on save (Purchase A/c Dr Net Total, Supplier Party Cr Net Total).
+  - Action buttons and keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetSupplierPartyLedgersAsync`: retrieves supplier accounts belonging to Sundry Creditors, Cash-in-Hand, and Bank Accounts.
+  - Added `GetPurchaseLedgersAsync`: retrieves expense and purchase accounts belonging to Purchase Accounts, Direct Expenses, and Indirect Expenses.
+- Integrated into `MainForm`:
+  - Wired `F9` global shortcut key to launch `PurchaseVoucherForm`.
+  - Added toolbar button `F9: Purchase`, menu item `Transactions -> F9 - Purchase`, and Gateway list item `Purchase Voucher (F9)`.
+  - Registered `PurchaseVoucherForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase13PurchaseTests.cs`:
+  - Credit purchase from Sundry Creditor with line items, rate, discount, and creditor balance tracking.
+  - Cash purchase of office supplies.
+  - Supplier and purchase ledger retrieval filtering.
+  - Purchase voucher deletion and dynamic balance restoration.
+  - 5/5 new tests passing (73/73 total tests passing across all test suites).
+
+
 ### Added
 - Created `SalesVoucherForm`:
   - Full Tally-inspired Section 24 Sales Invoice interface with pure accounting calculations and strictly ZERO GST.

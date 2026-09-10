@@ -95,7 +95,7 @@ public class MainForm : Form
         menuTransactions.DropDownItems.Add("F6 - &Receipt", null, (s, e) => OpenReceiptVoucher());
         menuTransactions.DropDownItems.Add("F7 - &Journal", null, (s, e) => OpenJournalVoucher());
         menuTransactions.DropDownItems.Add("F8 - &Sales", null, (s, e) => OpenSalesVoucher());
-        menuTransactions.DropDownItems.Add("F9 - Purchase", null, (s, e) => ShowNotImplemented("Purchase Voucher (Phase 13)"));
+        menuTransactions.DropDownItems.Add("F9 - &Purchase", null, (s, e) => OpenPurchaseVoucher());
 
         var menuReports = new ToolStripMenuItem("&Reports");
         menuReports.DropDownItems.Add("Day Book (Phase 16)", null, (s, e) => ShowNotImplemented("Day Book Report (Phase 16)"));
@@ -135,7 +135,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => OpenReceiptVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => OpenJournalVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => OpenSalesVoucher()));
-        toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => ShowNotImplemented("Purchase (Phase 13)")));
+        toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => OpenPurchaseVoucher()));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -261,6 +261,7 @@ public class MainForm : Form
             "  Receipt Voucher (F6)",
             "  Journal Voucher (F7)",
             "  Sales Voucher (F8)",
+            "  Purchase Voucher (F9)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -356,6 +357,10 @@ public class MainForm : Form
         else if (selected.Contains("Sales"))
         {
             OpenSalesVoucher();
+        }
+        else if (selected.Contains("Purchase"))
+        {
+            OpenPurchaseVoucher();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -468,6 +473,19 @@ public class MainForm : Form
         salesForm.ShowDialog(this);
     }
 
+    private void OpenPurchaseVoucher()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var purchaseForm = new PurchaseVoucherForm(_accountingService, _companyContext);
+        purchaseForm.ShowDialog(this);
+    }
+
     private void OpenCompanyList()
     {
         using var listForm = new CompanyListForm(_companyService, _companyContext);
@@ -571,7 +589,7 @@ public class MainForm : Form
                 OpenSalesVoucher();
                 break;
             case Keys.F9:
-                ShowNotImplemented("Purchase Voucher (F9 - Phase 13)");
+                OpenPurchaseVoucher();
                 break;
         }
     }
