@@ -2,7 +2,28 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
-## [Phase 10: Contra Voucher (F4)] - 2026-09-10
+## [Phase 11: Journal Voucher (F7)] - 2026-09-10
+### Added
+- Created `JournalVoucherForm`:
+  - Full Tally-inspired Section 23 & 33 Journal Voucher interface for general adjustments, depreciation, provisions, year-end entries, and non-cash ledger transfers.
+  - Pure double-entry grid supporting arbitrary multi-debit and multi-credit compound entries.
+  - Intuitive row editing: dual Debit and Credit numeric columns with automatic mutual exclusivity, Dr/Cr indicator, and live ledger balance lookups.
+  - Header with dynamic Voucher Number preview (`JRN-00001`), Voucher Date with active FY constraints, and Reference Number.
+  - Real-time summary panel tracking Total Debit, Total Credit, and Difference with color-coded balance indicator (`BALANCED` vs `NOT BALANCED`).
+  - Action buttons and keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Integrated into `MainForm`:
+  - Wired `F7` global shortcut key to launch `JournalVoucherForm`.
+  - Added toolbar button `F7: Journal`, menu item `Transactions -> F7 - Journal`, and Gateway list item `Journal Voucher (F7)`.
+  - Registered `JournalVoucherForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase11JournalTests.cs`:
+  - Year-end depreciation adjustment entries on fixed assets.
+  - Compound multi-debit, multi-credit entries (Salaries & Rent expenses with corresponding accrual payables).
+  - Strict rejection of unbalanced vouchers.
+  - Sequential voucher numbering (`JRN-00001`, `JRN-00002`).
+  - Voucher deletion and dynamic balance restoration.
+  - 5/5 new tests passing (63/63 total tests passing across all test suites).
+
+
 ### Added
 - Created `ContraVoucherForm`:
   - Dedicated Section 22 Contra Voucher interface for internal Cash and Bank fund movements:
