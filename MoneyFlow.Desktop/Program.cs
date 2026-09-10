@@ -83,6 +83,7 @@ static class Program
                 services.AddTransient<LedgerListForm>();
                 services.AddTransient<LedgerCreateEditForm>();
                 services.AddTransient<PaymentVoucherForm>();
+                services.AddTransient<ReceiptVoucherForm>();
             })
             .Build();
 

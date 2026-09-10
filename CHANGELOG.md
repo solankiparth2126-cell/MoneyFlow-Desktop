@@ -2,7 +2,26 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
-## [Phase 8: Payment Voucher (F5)] - 2026-09-10
+## [Phase 9: Receipt Voucher (F6)] - 2026-09-10
+### Added
+- Created `ReceiptVoucherForm`:
+  - Full Tally-inspired Receipt Voucher interface (Section 21) with Voucher Number preview (`RCT-00001`), Voucher Date, and Receiving Account dropdown (Cash-in-Hand / Bank Accounts).
+  - Real-time dynamic balance lookup for the receiving account, updated immediately upon account selection.
+  - Multi-line credit entries DataGridView with Particulars (payer/income ledger selector), Current Balance display, Amount (Cr), and Line Narration.
+  - Real-time voucher totals calculation and balance indicator displaying balanced status (`Total Cr == Dr`) and auto-computed receiving Debit.
+  - Full keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Integrated into `MainForm`:
+  - Wired `F6` global shortcut key to launch `ReceiptVoucherForm`.
+  - Added toolbar button `F6: Receipt`, menu item `Transactions -> F6 - Receipt`, and Gateway of Accounting list entry.
+  - Registered `ReceiptVoucherForm` in Dependency Injection in `Program.cs`.
+- Added unit test suite in `Phase9ReceiptTests.cs`:
+  - Receipt voucher double-entry validation (Dr = Cr).
+  - Cash receipt crediting debtor ledger and debiting cash.
+  - Bank receipt crediting sales/direct income ledger and debiting bank.
+  - Rejection of invalid vouchers (zero amount, missing payer).
+  - 4/4 new tests passing (53/53 total tests passing across all test suites).
+
+
 ### Added
 - Created `PaymentVoucherForm`:
   - Full Tally-inspired Payment Voucher interface (Section 20) with Voucher Number preview (`PAY-00001`), Voucher Date, and Source Account dropdown (Cash-in-Hand / Bank Accounts).

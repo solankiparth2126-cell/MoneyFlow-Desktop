@@ -92,7 +92,7 @@ public class MainForm : Form
         var menuTransactions = new ToolStripMenuItem("&Transactions");
         menuTransactions.DropDownItems.Add("F4 - Contra", null, (s, e) => ShowNotImplemented("Contra Voucher (Phase 10)"));
         menuTransactions.DropDownItems.Add("F5 - &Payment", null, (s, e) => OpenPaymentVoucher());
-        menuTransactions.DropDownItems.Add("F6 - Receipt", null, (s, e) => ShowNotImplemented("Receipt Voucher (Phase 9)"));
+        menuTransactions.DropDownItems.Add("F6 - &Receipt", null, (s, e) => OpenReceiptVoucher());
         menuTransactions.DropDownItems.Add("F7 - Journal", null, (s, e) => ShowNotImplemented("Journal Voucher (Phase 11)"));
         menuTransactions.DropDownItems.Add("F8 - Sales", null, (s, e) => ShowNotImplemented("Sales Voucher (Phase 12)"));
         menuTransactions.DropDownItems.Add("F9 - Purchase", null, (s, e) => ShowNotImplemented("Purchase Voucher (Phase 13)"));
@@ -132,7 +132,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
         toolStrip.Items.Add(new ToolStripButton("F4: Contra", null, (s, e) => ShowNotImplemented("Contra (Phase 10)")));
         toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => OpenPaymentVoucher()));
-        toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => ShowNotImplemented("Receipt (Phase 9)")));
+        toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => OpenReceiptVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => ShowNotImplemented("Journal (Phase 11)")));
         toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => ShowNotImplemented("Sales (Phase 12)")));
         toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => ShowNotImplemented("Purchase (Phase 13)")));
@@ -257,6 +257,7 @@ public class MainForm : Form
             "  Groups (Chart of Accounts)",
             "  Ledgers",
             "  Payment Voucher (F5)",
+            "  Receipt Voucher (F6)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -337,6 +338,10 @@ public class MainForm : Form
         {
             OpenPaymentVoucher();
         }
+        else if (selected.Contains("Receipt"))
+        {
+            OpenReceiptVoucher();
+        }
         else if (selected.Contains("Database Diagnostics"))
         {
             OpenDatabaseDiagnostics();
@@ -394,6 +399,19 @@ public class MainForm : Form
 
         using var paymentForm = new PaymentVoucherForm(_accountingService, _ledgerService, _companyContext);
         paymentForm.ShowDialog(this);
+    }
+
+    private void OpenReceiptVoucher()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var receiptForm = new ReceiptVoucherForm(_accountingService, _ledgerService, _companyContext);
+        receiptForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()
@@ -490,7 +508,7 @@ public class MainForm : Form
                 OpenPaymentVoucher();
                 break;
             case Keys.F6:
-                ShowNotImplemented("Receipt Voucher (F6 - Phase 9)");
+                OpenReceiptVoucher();
                 break;
             case Keys.F7:
                 ShowNotImplemented("Journal Voucher (F7 - Phase 11)");
