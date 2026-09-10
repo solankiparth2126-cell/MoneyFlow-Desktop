@@ -13,6 +13,7 @@ public class MainForm : Form
     private readonly IDatabaseSetupService _databaseSetupService;
     private readonly ICompanyService _companyService;
     private readonly ICompanyContext _companyContext;
+    private readonly IFinancialYearService _fyService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -32,12 +33,14 @@ public class MainForm : Form
         AppDbContext context,
         IDatabaseSetupService databaseSetupService,
         ICompanyService companyService,
-        ICompanyContext companyContext)
+        ICompanyContext companyContext,
+        IFinancialYearService fyService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
         _companyService = companyService;
         _companyContext = companyContext;
+        _fyService = fyService;
 
         InitializeComponent();
 
@@ -66,6 +69,7 @@ public class MainForm : Form
         menuCompany.DropDownItems.Add("Select Company (F3)", null, (s, e) => OpenCompanyList());
         menuCompany.DropDownItems.Add("Create Company", null, (s, e) => OpenCreateCompany());
         menuCompany.DropDownItems.Add("Alter Company", null, (s, e) => OpenAlterCompany());
+        menuCompany.DropDownItems.Add("Change Financial Year (F2)", null, (s, e) => OpenFinancialYearList());
         menuCompany.DropDownItems.Add("Close Company", null, (s, e) => CloseActiveCompany());
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
         menuCompany.DropDownItems.Add("E&xit (Esc)", null, (s, e) => Application.Exit());
@@ -115,7 +119,7 @@ public class MainForm : Form
             Font = new Font("Segoe UI", 9F)
         };
         toolStrip.Items.Add(new ToolStripLabel("Shortcuts: "));
-        toolStrip.Items.Add(new ToolStripButton("F2: Date", null, (s, e) => ShowNotImplemented("Change Date (F2)")));
+        toolStrip.Items.Add(new ToolStripButton("F2: Period / FY", null, (s, e) => OpenFinancialYearList()));
         toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
         toolStrip.Items.Add(new ToolStripButton("F4: Contra", null, (s, e) => ShowNotImplemented("Contra (Phase 10)")));
         toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => ShowNotImplemented("Payment (Phase 8)")));
@@ -376,6 +380,19 @@ public class MainForm : Form
         }
     }
 
+    private void OpenFinancialYearList()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var fyListForm = new FinancialYearListForm(_fyService, _companyContext);
+        fyListForm.ShowDialog(this);
+    }
+
     private void OpenDatabaseDiagnostics()
     {
         using var diag = new Dialogs.DatabaseConnectionDialog(_databaseSetupService);
@@ -400,7 +417,7 @@ public class MainForm : Form
                 if (confirm == DialogResult.Yes) Application.Exit();
                 break;
             case Keys.F2:
-                ShowNotImplemented("Change Date (F2)");
+                OpenFinancialYearList();
                 break;
             case Keys.F3:
                 OpenCompanyList();

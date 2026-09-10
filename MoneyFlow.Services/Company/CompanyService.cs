@@ -81,7 +81,7 @@ public class CompanyService : ICompanyService
             int endYear = startYear + 1;
             string fyName = $"{startYear}-{(endYear % 100):D2}";
 
-            var financialYear = new FinancialYear
+            var financialYear = new Core.Entities.FinancialYear
             {
                 CompanyId = company.CompanyId,
                 YearName = fyName,

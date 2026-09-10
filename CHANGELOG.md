@@ -2,6 +2,20 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 4: Financial Year] - 2026-09-10
+### Added
+- Created `FinancialYearCreateDto` and `FinancialYearSummaryDto`.
+- Updated `ICompanyContext` and `CompanyContext` to support active Financial Year switching (`SetActiveFinancialYear`).
+- Implemented `IFinancialYearService` and `FinancialYearService`:
+  - Date overlap validation preventing conflicting financial years for the same company.
+  - Transaction date boundary validation (`ValidateDateInCurrentFY`) enforcing Section 12 rule (*"Do not allow transactions outside the current financial year"*).
+  - Ability to lock and close financial years (`CloseFinancialYearAsync`).
+- Built WinForms UI:
+  - `FinancialYearCreateForm`: Dialog for creating new FY with automated year name computation (`2027-28`).
+  - `FinancialYearListForm`: Management dialog to list, select active, and lock financial years.
+  - Updated `MainForm` with "Change Financial Year (F2)", toolbar button, and F2 keyboard shortcut.
+- Added comprehensive unit tests in `Phase4FinancialYearTests.cs` including Section 54 multi-FY voucher isolation verification (18/18 tests passing).
+
 ## [Phase 3: Company Management] - 2026-09-10
 ### Added
 - Created `CompanyCreateDto`, `CompanyUpdateDto`, `CompanySummaryDto`.

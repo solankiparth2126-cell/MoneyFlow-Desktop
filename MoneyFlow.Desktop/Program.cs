@@ -13,6 +13,7 @@ using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Services;
 using MoneyFlow.Services.Company;
+using MoneyFlow.Services.FinancialYear;
 
 namespace MoneyFlow.Desktop;
 
@@ -56,10 +57,15 @@ static class Program
                 services.AddSingleton<ICompanyContext, CompanyContext>();
                 services.AddScoped<ICompanyService, CompanyService>();
 
+                // Financial Year Services (Phase 4)
+                services.AddScoped<IFinancialYearService, FinancialYearService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
                 services.AddTransient<CompanyCreateEditForm>();
+                services.AddTransient<FinancialYearListForm>();
+                services.AddTransient<FinancialYearCreateForm>();
             })
             .Build();
 

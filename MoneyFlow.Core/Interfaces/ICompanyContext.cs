@@ -12,5 +12,6 @@ public interface ICompanyContext
     event Action? OnCompanyChanged;
 
     void SetActiveCompany(Company company, FinancialYear? financialYear);
+    void SetActiveFinancialYear(FinancialYear financialYear);
     void CloseCompany();
 }
