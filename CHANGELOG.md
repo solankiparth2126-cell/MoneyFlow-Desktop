@@ -2,6 +2,26 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 7: Accounting Engine] - 2026-09-10
+### Added
+- Created core accounting engine DTOs (`VoucherEntryDto`, `VoucherCreateDto`, `VoucherValidationResult`, `LedgerBalanceDto`, `LedgerStatementLineDto`, `LedgerStatementDto`, `TrialBalanceItemDto`, `TrialBalanceDto`).
+- Implemented `IAccountingService` and `AccountingService`:
+  - **Double-Entry Balance Enforcement (Section 7 & 17)**:
+    - Fundamental rule `Total Debit == Total Credit` enforced with zero allowed discrepancy.
+    - Rejects unbalanced vouchers, single-entry vouchers, entries with negative amounts, and entries containing both Debit and Credit amounts.
+    - Generates descriptive imbalance reports with computed difference (`|Total Debit - Total Credit|`).
+  - **Atomic SQL Transaction Pipeline (Section 19)**:
+    - Wraps voucher creation in a strict database transaction (`BeginTransactionAsync`) with rollback on any failure.
+    - Validates company, financial year, FY date boundaries (`ValidateDateInCurrentFY`), voucher type, and ledger ownership.
+    - Automated sequential voucher numbering (`PAY-00001`, `RCT-00001`).
+  - **Dynamic Ledger Calculations (Section 8)**:
+    - Dynamic calculation of opening, period debit/credit, and closing balances on demand (`GetLedgerBalanceAsync`). Never stores pre-calculated balances in database columns.
+    - Chronological running balance and statement generator (`GetLedgerStatementAsync`) with automatic counterpart particulars resolution.
+  - **Trial Balance Engine**:
+    - Calculates dynamic Trial Balance (`GetTrialBalanceAsync`) reconciling opening, period, and closing Dr/Cr across all active ledgers with zero discrepancy.
+- Registered `IAccountingService` and `AccountingService` into Dependency Injection in `Program.cs`.
+- Added comprehensive unit test suite in `Phase7AccountingEngineTests.cs` (10/10 tests passing; 44/44 total across all test suites).
+
 ## [Phase 6: Ledger Master] - 2026-09-10
 ### Added
 - Created DTOs for Ledger management (`LedgerCreateDto`, `LedgerUpdateDto`, `LedgerSummaryDto`, `LedgerDetailDto`).

@@ -16,6 +16,7 @@ using MoneyFlow.Services.Company;
 using MoneyFlow.Services.FinancialYear;
 using MoneyFlow.Services.Group;
 using MoneyFlow.Services.Ledger;
+using MoneyFlow.Services.Accounting;
 
 namespace MoneyFlow.Desktop;
 
@@ -67,6 +68,9 @@ static class Program
 
                 // Ledger Master Services (Phase 6)
                 services.AddScoped<ILedgerService, LedgerService>();
+
+                // Accounting Engine (Phase 7 Milestone)
+                services.AddScoped<IAccountingService, AccountingService>();
 
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
