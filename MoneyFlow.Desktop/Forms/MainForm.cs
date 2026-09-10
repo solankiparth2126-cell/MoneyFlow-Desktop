@@ -94,7 +94,7 @@ public class MainForm : Form
         menuTransactions.DropDownItems.Add("F5 - &Payment", null, (s, e) => OpenPaymentVoucher());
         menuTransactions.DropDownItems.Add("F6 - &Receipt", null, (s, e) => OpenReceiptVoucher());
         menuTransactions.DropDownItems.Add("F7 - &Journal", null, (s, e) => OpenJournalVoucher());
-        menuTransactions.DropDownItems.Add("F8 - Sales", null, (s, e) => ShowNotImplemented("Sales Voucher (Phase 12)"));
+        menuTransactions.DropDownItems.Add("F8 - &Sales", null, (s, e) => OpenSalesVoucher());
         menuTransactions.DropDownItems.Add("F9 - Purchase", null, (s, e) => ShowNotImplemented("Purchase Voucher (Phase 13)"));
 
         var menuReports = new ToolStripMenuItem("&Reports");
@@ -134,7 +134,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F5: Payment", null, (s, e) => OpenPaymentVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F6: Receipt", null, (s, e) => OpenReceiptVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => OpenJournalVoucher()));
-        toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => ShowNotImplemented("Sales (Phase 12)")));
+        toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => OpenSalesVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => ShowNotImplemented("Purchase (Phase 13)")));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
@@ -260,6 +260,7 @@ public class MainForm : Form
             "  Payment Voucher (F5)",
             "  Receipt Voucher (F6)",
             "  Journal Voucher (F7)",
+            "  Sales Voucher (F8)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -351,6 +352,10 @@ public class MainForm : Form
         else if (selected.Contains("Journal"))
         {
             OpenJournalVoucher();
+        }
+        else if (selected.Contains("Sales"))
+        {
+            OpenSalesVoucher();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -448,6 +453,19 @@ public class MainForm : Form
 
         using var journalForm = new JournalVoucherForm(_accountingService, _ledgerService, _companyContext);
         journalForm.ShowDialog(this);
+    }
+
+    private void OpenSalesVoucher()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var salesForm = new SalesVoucherForm(_accountingService, _companyContext);
+        salesForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()
@@ -550,7 +568,7 @@ public class MainForm : Form
                 OpenJournalVoucher();
                 break;
             case Keys.F8:
-                ShowNotImplemented("Sales Voucher (F8 - Phase 12)");
+                OpenSalesVoucher();
                 break;
             case Keys.F9:
                 ShowNotImplemented("Purchase Voucher (F9 - Phase 13)");

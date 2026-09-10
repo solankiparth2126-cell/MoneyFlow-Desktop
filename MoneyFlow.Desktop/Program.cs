@@ -86,6 +86,7 @@ static class Program
                 services.AddTransient<ReceiptVoucherForm>();
                 services.AddTransient<ContraVoucherForm>();
                 services.AddTransient<JournalVoucherForm>();
+                services.AddTransient<SalesVoucherForm>();
             })
             .Build();
 

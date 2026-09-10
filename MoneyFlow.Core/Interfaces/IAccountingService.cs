@@ -18,6 +18,8 @@ public interface IAccountingService
     Task<VoucherType?> GetVoucherTypeByEnumAsync(VoucherTypeEnum type, CancellationToken ct = default);
     Task<string> GetNextVoucherNumberPreviewAsync(int companyId, int voucherTypeId, int financialYearId, CancellationToken ct = default);
     Task<IReadOnlyList<LedgerSummaryDto>> GetCashAndBankLedgersAsync(int companyId, CancellationToken ct = default);
+    Task<IReadOnlyList<LedgerSummaryDto>> GetCustomerPartyLedgersAsync(int companyId, CancellationToken ct = default);
+    Task<IReadOnlyList<LedgerSummaryDto>> GetSalesLedgersAsync(int companyId, CancellationToken ct = default);
     Task<Voucher?> GetVoucherByIdAsync(int voucherId, CancellationToken ct = default);
     Task<bool> DeleteVoucherAsync(int voucherId, CancellationToken ct = default);
     Task<IReadOnlyList<Voucher>> GetVouchersByTypeAsync(int companyId, int financialYearId, VoucherTypeEnum type, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);

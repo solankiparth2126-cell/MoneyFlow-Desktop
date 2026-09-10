@@ -2,7 +2,31 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
-## [Phase 11: Journal Voucher (F7)] - 2026-09-10
+## [Phase 12: Sales Voucher (F8)] - 2026-09-10
+### Added
+- Created `SalesVoucherForm`:
+  - Full Tally-inspired Section 24 Sales Invoice interface with pure accounting calculations and strictly ZERO GST.
+  - Header with dynamic Voucher Number preview (`SLS-00001`), Voucher Date with active FY constraints, Reference / Invoice Number, and Party A/c selector (Sundry Debtors, Cash, Bank) with live balance indicator.
+  - Sales Ledger selector (Sales Accounts, Direct Income) with live balance indicator.
+  - Line items DataGridView: Item / Service Description, Quantity, Rate (₹), Gross Amount (₹), Discount (₹), Net Amount (₹), and Line Narration.
+  - Automatic dynamic line-item recalculation on quantity, rate, and discount changes.
+  - Summary panel tracking Subtotal (Gross), Total Discount, and Net Invoice Total.
+  - Action buttons and keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetCustomerPartyLedgersAsync`: retrieves customer accounts belonging to Sundry Debtors, Cash-in-Hand, and Bank Accounts.
+  - Added `GetSalesLedgersAsync`: retrieves revenue accounts belonging to Sales Accounts, Direct Income, and Indirect Income.
+- Integrated into `MainForm`:
+  - Wired `F8` global shortcut key to launch `SalesVoucherForm`.
+  - Added toolbar button `F8: Sales`, menu item `Transactions -> F8 - Sales`, and Gateway list item `Sales Voucher (F8)`.
+  - Registered `SalesVoucherForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase12SalesTests.cs`:
+  - Credit sales to Sundry Debtor with line items, rate, discount, and balance updates.
+  - Cash sales over the counter.
+  - Party and sales ledger retrieval filtering.
+  - Sales voucher deletion and dynamic balance restoration.
+  - 5/5 new tests passing (68/68 total tests passing across all test suites).
+
+
 ### Added
 - Created `JournalVoucherForm`:
   - Full Tally-inspired Section 23 & 33 Journal Voucher interface for general adjustments, depreciation, provisions, year-end entries, and non-cash ledger transfers.
