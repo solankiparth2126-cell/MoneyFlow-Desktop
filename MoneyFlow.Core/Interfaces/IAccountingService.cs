@@ -27,4 +27,5 @@ public interface IAccountingService
     Task<IReadOnlyList<Voucher>> GetVouchersByTypeAsync(int companyId, int financialYearId, VoucherTypeEnum type, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default);
     Task<DayBookReportDto> GetDayBookAsync(int companyId, DateTime fromDate, DateTime toDate, VoucherTypeEnum? voucherType = null, CancellationToken ct = default);
     Task<ProfitLossStatementDto> GetProfitAndLossAsync(int companyId, DateTime fromDate, DateTime toDate, CancellationToken ct = default);
+    Task<BalanceSheetDto> GetBalanceSheetAsync(int companyId, DateTime asOfDate, CancellationToken ct = default);
 }

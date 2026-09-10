@@ -216,4 +216,50 @@ public class ProfitLossStatementDto
     public decimal GrandPLTotal => Math.Max(TotalIncomeSide, TotalExpenseSide);
 }
 
+public class BalanceSheetLineDto
+{
+    public int LedgerId { get; set; }
+    public string LedgerName { get; set; } = string.Empty;
+    public int GroupId { get; set; }
+    public string GroupName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public BalanceType BalanceType { get; set; }
+}
+
+public class BalanceSheetGroupDto
+{
+    public int GroupId { get; set; }
+    public string GroupName { get; set; } = string.Empty;
+    public GroupNature Nature { get; set; }
+    public List<BalanceSheetLineDto> Lines { get; set; } = new();
+    public decimal TotalAmount => Lines.Sum(l => l.Amount);
+}
+
+public class BalanceSheetDto
+{
+    public int CompanyId { get; set; }
+    public DateTime AsOfDate { get; set; }
+
+    // Capital & Liabilities
+    public List<BalanceSheetGroupDto> Liabilities { get; set; } = new();
+    public decimal TotalGroupLiabilities => Liabilities.Sum(g => g.TotalAmount);
+
+    // Current Period Profit / Loss
+    public decimal NetProfit { get; set; }
+    public decimal NetLoss { get; set; }
+    public bool HasNetProfit => NetProfit >= NetLoss;
+
+    // Assets
+    public List<BalanceSheetGroupDto> Assets { get; set; } = new();
+    public decimal TotalGroupAssets => Assets.Sum(g => g.TotalAmount);
+
+    // Side Totals (Net Profit on Liabilities side, Net Loss on Assets side)
+    public decimal TotalLiabilitiesSide => TotalGroupLiabilities + (HasNetProfit ? NetProfit : 0m);
+    public decimal TotalAssetsSide => TotalGroupAssets + (!HasNetProfit ? NetLoss : 0m);
+
+    public decimal Difference => Math.Abs(TotalLiabilitiesSide - TotalAssetsSide);
+    public bool IsBalanced => Math.Round(TotalLiabilitiesSide, 2) == Math.Round(TotalAssetsSide, 2);
+}
+
+
 

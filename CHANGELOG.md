@@ -2,6 +2,31 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 20: Balance Sheet Report] - 2026-09-10
+### Added
+- Created `BalanceSheetForm`:
+  - Full Tally-inspired Section 20, 29, 30 classic two-column T-Format Balance Sheet.
+  - Left Side (Credit / Capital & Liabilities): Capital Accounts, Reserves, Loans, Current Liabilities (Sundry Creditors, Duties & Taxes), and Profit & Loss surplus (Current Period Net Profit).
+  - Right Side (Debit / Property & Assets): Fixed Assets, Investments, Current Assets (Sundry Debtors, Bank Accounts, Cash-in-Hand), and Profit & Loss deficit (Current Period Net Loss).
+  - Mathematical Double-Entry Verification: Prominent dynamic balance badge displaying `[ ✔ ] BALANCED (Diff: ₹0.00)` when `Total Liabilities == Total Assets` or alerting differences.
+  - Drill-Down Navigation: Double-click or `Enter` on any ledger row instantly opens its detailed `LedgerStatementForm`.
+  - Search, Filter & Export: As-of Date picker (`F2`), real-time text filter (`F3`), RFC 4180 CSV export, and print preview (`Ctrl+P`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetBalanceSheetAsync(companyId, asOfDate)` computing dynamic closing balances up to `asOfDate` across all non-P&L ledger accounts.
+  - Automatically incorporates Current Period Net Profit or Net Loss from `GetProfitAndLossAsync`.
+  - Added DTOs: `BalanceSheetLineDto`, `BalanceSheetGroupDto`, and `BalanceSheetDto`.
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Balance Sheet` to launch `BalanceSheetForm`.
+  - Wired Gateway of Accounting list item `Balance Sheet` to launch `BalanceSheetForm`.
+  - Registered `BalanceSheetForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/4abee7a901ed40fdb6e27cecd64675c6`).
+- Added automated unit tests in `Phase20BalanceSheetTests.cs`:
+  - Balanced double-entry identity (`Total Liabilities == Total Assets`) across Capital, Fixed Assets, Bank, Creditors, Debtors.
+  - Net Profit from operating revenues & expenses integrated into Liabilities side.
+  - Net Loss scenario integrated into Assets side.
+  - Exclusion of soft-deleted vouchers and historical as-of-date filtering.
+  - 4/4 new tests passing (98/98 total tests passing across all test suites).
+
 ## [Phase 19: Profit & Loss Statement Report] - 2026-09-10
 ### Added
 - Created `ProfitLossForm`:

@@ -104,7 +104,7 @@ public class MainForm : Form
         menuReports.DropDownItems.Add("&Ledger Statement", null, (s, e) => OpenLedgerStatement());
         menuReports.DropDownItems.Add("&Trial Balance", null, (s, e) => OpenTrialBalance());
         menuReports.DropDownItems.Add("&Profit & Loss", null, (s, e) => OpenProfitLoss());
-        menuReports.DropDownItems.Add("Balance Sheet (Phase 20)", null, (s, e) => ShowNotImplemented("Balance Sheet (Phase 20)"));
+        menuReports.DropDownItems.Add("&Balance Sheet", null, (s, e) => OpenBalanceSheet());
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
         menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
@@ -392,6 +392,10 @@ public class MainForm : Form
         {
             OpenProfitLoss();
         }
+        else if (selected.Contains("Balance Sheet"))
+        {
+            OpenBalanceSheet();
+        }
         else if (selected.Contains("Database Diagnostics"))
         {
             OpenDatabaseDiagnostics();
@@ -592,6 +596,19 @@ public class MainForm : Form
 
         using var plForm = new ProfitLossForm(_accountingService, _ledgerService, _companyContext);
         plForm.ShowDialog(this);
+    }
+
+    private void OpenBalanceSheet()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var bsForm = new BalanceSheetForm(_accountingService, _ledgerService, _companyContext);
+        bsForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

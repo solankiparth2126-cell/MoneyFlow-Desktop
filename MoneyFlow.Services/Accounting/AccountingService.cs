@@ -933,6 +933,117 @@ public class AccountingService : IAccountingService
 
         return statement;
     }
+
+    public async Task<BalanceSheetDto> GetBalanceSheetAsync(
+        int companyId,
+        DateTime asOfDate,
+        CancellationToken ct = default)
+    {
+        var asOfEndOfDay = asOfDate.Date.AddDays(1).AddTicks(-1);
+
+        // Find active Financial Year covering asOfDate
+        var fy = await _context.FinancialYears
+            .AsNoTracking()
+            .Where(f => f.CompanyId == companyId && f.StartDate <= asOfDate.Date && f.EndDate >= asOfDate.Date)
+            .FirstOrDefaultAsync(ct);
+
+        DateTime fyStartDate = fy?.StartDate ?? new DateTime(asOfDate.Year, 4, 1);
+        if (fyStartDate > asOfDate.Date)
+        {
+            fyStartDate = asOfDate.Date;
+        }
+
+        // Pull dynamic Profit & Loss statement up to asOfDate
+        var plStatement = await GetProfitAndLossAsync(companyId, fyStartDate, asOfDate.Date, ct);
+
+        // Fetch all Balance Sheet ledgers (where AffectProfitLoss is false)
+        var bsLedgers = await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && l.Group != null && !l.Group.AffectProfitLoss)
+            .OrderBy(l => l.Group!.GroupName)
+            .ThenBy(l => l.LedgerName)
+            .ToListAsync(ct);
+
+        // Fetch cumulative entries up to asOfEndOfDay
+        var cumulativeEntries = await _context.VoucherEntries
+            .AsNoTracking()
+            .Where(ve => ve.Voucher!.CompanyId == companyId &&
+                         !ve.Voucher.IsDeleted &&
+                         ve.Voucher.VoucherDate <= asOfEndOfDay)
+            .GroupBy(ve => ve.LedgerId)
+            .Select(g => new
+            {
+                LedgerId = g.Key,
+                TotalDebit = g.Sum(x => x.Debit),
+                TotalCredit = g.Sum(x => x.Credit)
+            })
+            .ToDictionaryAsync(x => x.LedgerId, ct);
+
+        var statement = new BalanceSheetDto
+        {
+            CompanyId = companyId,
+            AsOfDate = asOfDate.Date,
+            NetProfit = plStatement.NetProfit,
+            NetLoss = plStatement.NetLoss
+        };
+
+        var liabilitiesMap = new Dictionary<string, BalanceSheetGroupDto>(StringComparer.OrdinalIgnoreCase);
+        var assetsMap = new Dictionary<string, BalanceSheetGroupDto>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ledger in bsLedgers)
+        {
+            var grp = ledger.Group!;
+            cumulativeEntries.TryGetValue(ledger.LedgerId, out var entry);
+            var transDebit = entry?.TotalDebit ?? 0m;
+            var transCredit = entry?.TotalCredit ?? 0m;
+
+            var openDebit = ledger.OpeningBalanceType == BalanceType.Debit ? ledger.OpeningBalance : 0m;
+            var openCredit = ledger.OpeningBalanceType == BalanceType.Credit ? ledger.OpeningBalance : 0m;
+
+            var totalDebit = openDebit + transDebit;
+            var totalCredit = openCredit + transCredit;
+
+            bool isLiability = grp.Nature == GroupNature.Liabilities;
+
+            // In Liabilities, normal balance is Credit - Debit. In Assets, normal balance is Debit - Credit.
+            decimal netBalance = isLiability ? (totalCredit - totalDebit) : (totalDebit - totalCredit);
+
+            // Skip zero balance accounts with zero activity
+            if (netBalance == 0 && totalDebit == 0 && totalCredit == 0)
+                continue;
+
+            var targetMap = isLiability ? liabilitiesMap : assetsMap;
+
+            if (!targetMap.TryGetValue(grp.GroupName, out var groupDto))
+            {
+                groupDto = new BalanceSheetGroupDto
+                {
+                    GroupId = grp.GroupId,
+                    GroupName = grp.GroupName,
+                    Nature = grp.Nature
+                };
+                targetMap[grp.GroupName] = groupDto;
+
+                if (isLiability)
+                    statement.Liabilities.Add(groupDto);
+                else
+                    statement.Assets.Add(groupDto);
+            }
+
+            groupDto.Lines.Add(new BalanceSheetLineDto
+            {
+                LedgerId = ledger.LedgerId,
+                LedgerName = ledger.LedgerName,
+                GroupId = grp.GroupId,
+                GroupName = grp.GroupName,
+                Amount = netBalance,
+                BalanceType = totalDebit >= totalCredit ? BalanceType.Debit : BalanceType.Credit
+            });
+        }
+
+        return statement;
+    }
 }
 
 
