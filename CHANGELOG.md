@@ -2,6 +2,21 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 5: Group Master] - 2026-09-10
+### Added
+- Created DTOs for Group management (`GroupCreateDto`, `GroupUpdateDto`, `GroupSummaryDto`, `GroupTreeNodeDto`).
+- Implemented `IGroupService` and `GroupService`:
+  - Hierarchical group tree generation (`GetGroupTreeAsync`) for recursive nested display.
+  - Cycle detection (`DetectCycle`) preventing circular reference loops when reparenting groups.
+  - Delete protection preventing deletion of groups containing child groups or existing ledgers.
+  - Automatic inheritance of `Nature` and `AffectProfitLoss` properties from parent groups.
+  - Duplicate group name validation within the same company.
+- Built WinForms UI:
+  - `GroupCreateEditForm`: Full dialog for creating and editing groups with parent selection dropdown and primary group toggle.
+  - `GroupListForm`: Dual-view management interface featuring both an interactive TreeView and tabular DataGridView, real-time search filtering, and keyboard shortcuts (Alt+C, Alt+A, Alt+D, Esc).
+  - Integrated into `MainForm` (`Masters -> Groups`) and registered `IGroupService` into Dependency Injection in `Program.cs`.
+- Added unit test suite in `Phase5GroupTests.cs` (7/7 tests passing; 25/25 total across all test suites).
+
 ## [Phase 4: Financial Year] - 2026-09-10
 ### Added
 - Created `FinancialYearCreateDto` and `FinancialYearSummaryDto`.

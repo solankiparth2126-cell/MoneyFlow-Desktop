@@ -8,6 +8,8 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
+using Group = MoneyFlow.Core.Entities.Group;
+using FinancialYear = MoneyFlow.Core.Entities.FinancialYear;
 
 namespace MoneyFlow.Services.Company;
 
@@ -216,12 +218,12 @@ public class CompanyService : ICompanyService
         _companyContext.CloseCompany();
     }
 
-    private async Task<Dictionary<string, Group>> SeedDefaultGroupsAsync(int companyId, CancellationToken ct)
+    private async Task<Dictionary<string, MoneyFlow.Core.Entities.Group>> SeedDefaultGroupsAsync(int companyId, CancellationToken ct)
     {
-        var groupsMap = new Dictionary<string, Group>(StringComparer.OrdinalIgnoreCase);
+        var groupsMap = new Dictionary<string, MoneyFlow.Core.Entities.Group>(StringComparer.OrdinalIgnoreCase);
 
         // Primary Groups (Section 13)
-        var primaryGroups = new List<Group>
+        var primaryGroups = new List<MoneyFlow.Core.Entities.Group>
         {
             new() { CompanyId = companyId, GroupName = "Capital Account", Nature = GroupNature.Liabilities, PrimaryGroup = true, AffectProfitLoss = false },
             new() { CompanyId = companyId, GroupName = "Current Assets", Nature = GroupNature.Assets, PrimaryGroup = true, AffectProfitLoss = false },
@@ -253,7 +255,7 @@ public class CompanyService : ICompanyService
         var currentAssets = groupsMap["Current Assets"];
         var currentLiabilities = groupsMap["Current Liabilities"];
 
-        var subGroups = new List<Group>
+        var subGroups = new List<MoneyFlow.Core.Entities.Group>
         {
             new() { CompanyId = companyId, GroupName = "Bank Accounts", ParentGroupId = currentAssets.GroupId, Nature = GroupNature.Assets, PrimaryGroup = false, AffectProfitLoss = false },
             new() { CompanyId = companyId, GroupName = "Cash-in-Hand", ParentGroupId = currentAssets.GroupId, Nature = GroupNature.Assets, PrimaryGroup = false, AffectProfitLoss = false },
@@ -275,7 +277,7 @@ public class CompanyService : ICompanyService
         return groupsMap;
     }
 
-    private async Task SeedDefaultLedgersAsync(int companyId, Dictionary<string, Group> groupsMap, CancellationToken ct)
+    private async Task SeedDefaultLedgersAsync(int companyId, Dictionary<string, MoneyFlow.Core.Entities.Group> groupsMap, CancellationToken ct)
     {
         // Default Ledgers (Section 15)
         var defaultLedgers = new List<(string Name, string GroupName)>
