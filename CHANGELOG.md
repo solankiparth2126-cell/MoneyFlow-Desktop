@@ -2,7 +2,34 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
-## [Phase 9: Receipt Voucher (F6)] - 2026-09-10
+## [Phase 10: Contra Voucher (F4)] - 2026-09-10
+### Added
+- Created `ContraVoucherForm`:
+  - Dedicated Section 22 Contra Voucher interface for internal Cash and Bank fund movements:
+    - Cash Deposit to Bank (Bank Dr, Cash Cr)
+    - Cash Withdrawal from Bank (Cash Dr, Bank Cr)
+    - Inter-Bank Fund Transfers (Destination Bank Dr, Source Bank Cr)
+  - Destination Account (Dr) selector strictly populated with Cash and Bank ledgers, with real-time closing balance display.
+  - Quick Mode transfer templates ("Cash Deposit to Bank" and "Cash Withdrawal from Bank") for one-click setup.
+  - Multi-line credit entries grid with Particulars (Source Cash/Bank A/c), Current Balance lookup, Amount (Cr), Transfer Mode / Instrument Details (Cheque No, NEFT/RTGS/IMPS), and Line Narration.
+  - Real-time balance status indicator (`Voucher Balanced (Dr = Cr)` vs error state) and automatic destination Debit computation.
+  - Keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Enhanced `AccountingService`:
+  - Added strict validation for `VoucherTypeEnum.Contra`: enforces that every ledger involved in a Contra voucher belongs exclusively to `Cash-in-Hand` or `Bank Accounts` groups (or their sub-groups).
+  - Extended `LedgerBalanceDto` with `ClosingBalanceDisplay` and `ClosingBalanceType` compatibility aliases.
+- Integrated into `MainForm`:
+  - Wired `F4` global shortcut key to launch `ContraVoucherForm`.
+  - Added toolbar button `F4: Contra`, menu item `Transactions -> F4 - Contra`, and Gateway list item `Contra Voucher (F4)`.
+  - Registered `ContraVoucherForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase10ContraTests.cs`:
+  - Cash deposit to bank increasing bank balance and decreasing cash balance.
+  - Cash withdrawal from bank increasing cash balance and decreasing bank balance.
+  - Inter-bank fund transfer between multiple bank accounts.
+  - Rejection of non-cash/bank ledgers in Contra vouchers.
+  - Voucher deletion restoring both account balances.
+  - 5/5 new tests passing (58/58 total tests passing across all test suites).
+
+
 ### Added
 - Created `ReceiptVoucherForm`:
   - Full Tally-inspired Receipt Voucher interface (Section 21) with Voucher Number preview (`RCT-00001`), Voucher Date, and Receiving Account dropdown (Cash-in-Hand / Bank Accounts).

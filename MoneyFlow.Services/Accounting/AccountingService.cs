@@ -146,6 +146,18 @@ public class AccountingService : IAccountingService
                 throw new InvalidOperationException("One or more selected ledgers do not exist, are inactive, or do not belong to the active company.");
             }
 
+            // Validate Contra vouchers are strictly between Cash and Bank accounts
+            var voucherType = await _context.VoucherTypes.FirstOrDefaultAsync(vt => vt.VoucherTypeId == dto.VoucherTypeId, ct);
+            if (voucherType?.Type == VoucherTypeEnum.Contra)
+            {
+                var cashBankLedgers = await GetCashAndBankLedgersAsync(companyId, ct);
+                var validCashBankIds = cashBankLedgers.Select(l => l.LedgerId).ToHashSet();
+                if (ledgerIds.Any(id => !validCashBankIds.Contains(id)))
+                {
+                    throw new InvalidOperationException("Contra vouchers can only be recorded between Cash and Bank accounts.");
+                }
+            }
+
             var nextVoucherNumber = await _voucherRepo.GetNextVoucherNumberAsync(companyId, dto.VoucherTypeId, dto.FinancialYearId, ct);
 
             var voucher = new Voucher

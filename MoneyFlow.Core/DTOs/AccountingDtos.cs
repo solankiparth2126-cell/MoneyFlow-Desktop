@@ -66,6 +66,9 @@ public class LedgerBalanceDto
         ClosingBalance == 0
             ? "₹0.00"
             : $"₹{ClosingBalance:N2} {(ClosingType == BalanceType.Debit ? "Dr" : "Cr")}";
+
+    public string ClosingBalanceDisplay => FormattedClosingBalance;
+    public BalanceType ClosingBalanceType => ClosingType;
 }
 
 public class LedgerStatementLineDto
