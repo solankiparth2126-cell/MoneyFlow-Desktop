@@ -101,7 +101,7 @@ public class MainForm : Form
 
         var menuReports = new ToolStripMenuItem("&Reports");
         menuReports.DropDownItems.Add("&Day Book", null, (s, e) => OpenDayBook());
-        menuReports.DropDownItems.Add("Ledger Statement (Phase 17)", null, (s, e) => ShowNotImplemented("Ledger Report (Phase 17)"));
+        menuReports.DropDownItems.Add("&Ledger Statement", null, (s, e) => OpenLedgerStatement());
         menuReports.DropDownItems.Add("Trial Balance (Phase 18)", null, (s, e) => ShowNotImplemented("Trial Balance (Phase 18)"));
         menuReports.DropDownItems.Add("Profit & Loss (Phase 19)", null, (s, e) => ShowNotImplemented("Profit & Loss (Phase 19)"));
         menuReports.DropDownItems.Add("Balance Sheet (Phase 20)", null, (s, e) => ShowNotImplemented("Balance Sheet (Phase 20)"));
@@ -380,6 +380,10 @@ public class MainForm : Form
         {
             OpenDayBook();
         }
+        else if (selected.Contains("Ledger Statement"))
+        {
+            OpenLedgerStatement();
+        }
         else if (selected.Contains("Database Diagnostics"))
         {
             OpenDatabaseDiagnostics();
@@ -541,6 +545,19 @@ public class MainForm : Form
 
         using var dayBookForm = new DayBookForm(_accountingService, _companyContext);
         dayBookForm.ShowDialog(this);
+    }
+
+    private void OpenLedgerStatement()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var statementForm = new LedgerStatementForm(_accountingService, _ledgerService, _companyContext);
+        statementForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

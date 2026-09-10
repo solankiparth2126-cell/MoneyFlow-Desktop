@@ -2,6 +2,29 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 17: Ledger Statement Report] - 2026-09-10
+### Added
+- Created `LedgerStatementForm`:
+  - Full Tally-inspired Section 16, 29, 30 detailed Ledger Statement / Account Extract interface.
+  - Fast Ledger Selection: Searchable dropdown (`_cmbLedger`, `F4`) listing all company ledgers alphabetically.
+  - Date Range Filtering: `From Date (F2)` and `To Date` pickers constrained to active Financial Year.
+  - Ledger Context & Opening Balance Card: Displays ledger name, group hierarchy, and dynamic opening balance as of `From Date` (`₹XX,XXX.XX Dr/Cr`).
+  - Running Balance DataGridView: Date, Particulars (opposing contra ledger account), Voucher Type, Voucher No, Debit (₹), Credit (₹), Running Balance (₹ with Dr/Cr indicator), and Narration.
+  - Explicit Opening Balance Row: Injects row 0 indicating brought-forward balance (`** Opening Balance **`).
+  - Audit Summary Footer: Displays Period Debit Total, Period Credit Total, and Net Closing Balance (`₹XX,XXX.XX Dr/Cr`).
+  - Transaction Drill-Down: Double-click or `Enter` on any row opens detailed voucher information modal.
+  - Export & Print: Full CSV export with RFC 4180 escaping, print preview (`Ctrl+P`), refresh (`F5`), and quick close (`Esc`).
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Ledger Statement` to launch `LedgerStatementForm`.
+  - Wired Gateway of Accounting list item `Ledger Statement` to launch `LedgerStatementForm`.
+  - Registered `LedgerStatementForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/6e558dab2e4d4255920b0e099214ea74`).
+- Added automated unit tests in `Phase17LedgerStatementTests.cs`:
+  - Dynamic opening balance calculation from prior period transactions.
+  - Running balance tracking and opposing contra particulars resolution across sequential transactions.
+  - Soft-deleted voucher exclusion from opening, period lines, and closing balances.
+  - 3/3 new tests passing (87/87 total tests passing across all test suites).
+
 ## [Phase 16: Day Book Report] - 2026-09-10
 ### Added
 - Created `DayBookForm`:
