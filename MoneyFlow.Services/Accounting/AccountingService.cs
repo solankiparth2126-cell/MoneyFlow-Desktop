@@ -1044,6 +1044,132 @@ public class AccountingService : IAccountingService
 
         return statement;
     }
+
+    public async Task<OutstandingReportDto> GetOutstandingReportAsync(
+        int companyId,
+        DateTime asOfDate,
+        bool isReceivables,
+        CancellationToken ct = default)
+    {
+        var asOfEndOfDay = asOfDate.Date.AddDays(1).AddTicks(-1);
+
+        string targetGroupName = isReceivables ? "Sundry Debtors" : "Sundry Creditors";
+
+        var parentGroupIds = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId && g.GroupName == targetGroupName)
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var childGroupIds = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+
+        var parties = await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
+            .OrderBy(l => l.LedgerName)
+            .ToListAsync(ct);
+
+        var ledgerIds = parties.Select(p => p.LedgerId).ToList();
+
+        // Fetch cumulative entries up to asOfEndOfDay
+        var allEntries = await _context.VoucherEntries
+            .AsNoTracking()
+            .Include(ve => ve.Voucher)
+            .Where(ve => ve.Voucher!.CompanyId == companyId &&
+                         !ve.Voucher.IsDeleted &&
+                         ledgerIds.Contains(ve.LedgerId) &&
+                         ve.Voucher.VoucherDate <= asOfEndOfDay)
+            .OrderByDescending(ve => ve.Voucher!.VoucherDate)
+            .ToListAsync(ct);
+
+        var entriesByLedger = allEntries
+            .GroupBy(ve => ve.LedgerId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var report = new OutstandingReportDto
+        {
+            CompanyId = companyId,
+            AsOfDate = asOfDate.Date,
+            IsReceivables = isReceivables
+        };
+
+        foreach (var party in parties)
+        {
+            entriesByLedger.TryGetValue(party.LedgerId, out var partyEntries);
+            partyEntries ??= new List<VoucherEntry>();
+
+            decimal transDebit = partyEntries.Sum(e => e.Debit);
+            decimal transCredit = partyEntries.Sum(e => e.Credit);
+
+            decimal openDebit = party.OpeningBalanceType == BalanceType.Debit ? party.OpeningBalance : 0m;
+            decimal openCredit = party.OpeningBalanceType == BalanceType.Credit ? party.OpeningBalance : 0m;
+
+            decimal totalDebit = openDebit + transDebit;
+            decimal totalCredit = openCredit + transCredit;
+
+            decimal netOutstanding = isReceivables ? (totalDebit - totalCredit) : (totalCredit - totalDebit);
+
+            // Skip zero or negative (prepaid/overpaid) balances
+            if (netOutstanding <= 0)
+                continue;
+
+            var partyDto = new OutstandingPartyDto
+            {
+                LedgerId = party.LedgerId,
+                PartyName = party.LedgerName,
+                GroupId = party.GroupId,
+                GroupName = party.Group != null ? party.Group.GroupName : targetGroupName,
+                TotalOutstanding = netOutstanding,
+                BalanceType = totalDebit >= totalCredit ? BalanceType.Debit : BalanceType.Credit
+            };
+
+            // FIFO Aging Allocation across vouchers in reverse chronological order
+            decimal remaining = netOutstanding;
+
+            var relevantEntries = partyEntries
+                .Where(e => (isReceivables && e.Debit > 0) || (!isReceivables && e.Credit > 0))
+                .OrderByDescending(e => e.Voucher!.VoucherDate);
+
+            foreach (var entry in relevantEntries)
+            {
+                if (remaining <= 0) break;
+
+                decimal entryAmount = isReceivables ? entry.Debit : entry.Credit;
+                decimal allocAmount = Math.Min(remaining, entryAmount);
+
+                int ageInDays = (asOfDate.Date - entry.Voucher!.VoucherDate.Date).Days;
+                if (ageInDays < 0) ageInDays = 0;
+
+                if (ageInDays <= 30)
+                    partyDto.Aging.Days0To30 += allocAmount;
+                else if (ageInDays <= 60)
+                    partyDto.Aging.Days31To60 += allocAmount;
+                else if (ageInDays <= 90)
+                    partyDto.Aging.Days61To90 += allocAmount;
+                else
+                    partyDto.Aging.DaysOver90 += allocAmount;
+
+                remaining -= allocAmount;
+            }
+
+            // Any remainder comes from Opening Balance (which is older than 90 days)
+            if (remaining > 0)
+            {
+                partyDto.Aging.DaysOver90 += remaining;
+            }
+
+            report.Parties.Add(partyDto);
+        }
+
+        return report;
+    }
 }
 
 

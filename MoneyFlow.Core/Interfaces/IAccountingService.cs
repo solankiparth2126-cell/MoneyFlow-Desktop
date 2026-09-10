@@ -28,4 +28,5 @@ public interface IAccountingService
     Task<DayBookReportDto> GetDayBookAsync(int companyId, DateTime fromDate, DateTime toDate, VoucherTypeEnum? voucherType = null, CancellationToken ct = default);
     Task<ProfitLossStatementDto> GetProfitAndLossAsync(int companyId, DateTime fromDate, DateTime toDate, CancellationToken ct = default);
     Task<BalanceSheetDto> GetBalanceSheetAsync(int companyId, DateTime asOfDate, CancellationToken ct = default);
+    Task<OutstandingReportDto> GetOutstandingReportAsync(int companyId, DateTime asOfDate, bool isReceivables, CancellationToken ct = default);
 }

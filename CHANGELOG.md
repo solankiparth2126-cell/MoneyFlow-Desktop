@@ -2,6 +2,32 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 21: Outstanding Receivables & Payables (Aging Analysis)] - 2026-09-10
+### Added
+- Created `OutstandingReportForm`:
+  - Full Tally-inspired Section 21, 30 Outstanding Analysis register with bill-wise / voucher-level aging analysis.
+  - Multi-Perspective View Toggle: Radio/segmented selector between `[ Receivables (Sundry Debtors) ]` and `[ Payables (Sundry Creditors) ]`.
+  - Date Range Filtering: `As of Date (F2)` picker constrained to active Financial Year bounds.
+  - Live Text Search: Instant client-side filtering across Party Names and Parent Groups (`F3`).
+  - High-Density Aging DataGridView: Particulars (Party Name), Parent Group, Total Outstanding (₹), 0–30 Days (₹), 31–60 Days (₹), 61–90 Days (₹), and >90 Days (₹) with colored age-bracket indicators.
+  - Audit Summary Footer: Displays Total Parties listed, Total Outstanding Amount (₹), and aggregated totals for each aging bracket.
+  - Drill-Down Navigation: Double-click or `Enter` on any party row immediately opens its detailed `LedgerStatementForm`.
+  - Export & Print: RFC 4180 CSV export with detailed bucket breakdown, print preview (`Ctrl+P`), and hotkeys (`F2`, `F3`, `F5`, `Esc`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetOutstandingReportAsync(companyId, asOfDate, isReceivables)`: Dynamically calculates outstanding party balances and executes a First-In First-Out (FIFO) chronological aging allocation across unpaid transactions.
+  - Added DTOs: `AgingBucketsDto`, `OutstandingPartyDto`, and `OutstandingReportDto`.
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Outstanding Analysis` to launch `OutstandingReportForm`.
+  - Wired Gateway of Accounting list item `Outstanding Analysis` to launch `OutstandingReportForm`.
+  - Registered `OutstandingReportForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/3a263d5642e1476e89b02cec9ff52170`).
+- Added automated unit tests in `Phase21OutstandingTests.cs`:
+  - Receivables calculation and multi-bucket aging distribution across 0–30, 31–60, 61–90, and >90 day windows.
+  - Payables calculation with partial payments and FIFO allocation against unpaid purchase vouchers.
+  - Exclusion of fully settled zero-balance parties.
+  - Soft-deleted voucher exclusion and historical as-of-date boundary enforcement.
+  - 4/4 new tests passing (102/102 total tests passing across all test suites).
+
 ## [Phase 20: Balance Sheet Report] - 2026-09-10
 ### Added
 - Created `BalanceSheetForm`:

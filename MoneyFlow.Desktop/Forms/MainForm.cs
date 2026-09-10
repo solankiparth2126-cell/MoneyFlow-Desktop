@@ -105,6 +105,7 @@ public class MainForm : Form
         menuReports.DropDownItems.Add("&Trial Balance", null, (s, e) => OpenTrialBalance());
         menuReports.DropDownItems.Add("&Profit & Loss", null, (s, e) => OpenProfitLoss());
         menuReports.DropDownItems.Add("&Balance Sheet", null, (s, e) => OpenBalanceSheet());
+        menuReports.DropDownItems.Add("&Outstanding Analysis", null, (s, e) => OpenOutstandingReport());
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
         menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
@@ -274,6 +275,7 @@ public class MainForm : Form
             "  Trial Balance",
             "  Profit & Loss A/c",
             "  Balance Sheet",
+            "  Outstanding Analysis",
             "  ---------------------------------",
             "  Utilities & Backup",
             "  Database Diagnostics",
@@ -395,6 +397,10 @@ public class MainForm : Form
         else if (selected.Contains("Balance Sheet"))
         {
             OpenBalanceSheet();
+        }
+        else if (selected.Contains("Outstanding"))
+        {
+            OpenOutstandingReport();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -609,6 +615,19 @@ public class MainForm : Form
 
         using var bsForm = new BalanceSheetForm(_accountingService, _ledgerService, _companyContext);
         bsForm.ShowDialog(this);
+    }
+
+    private void OpenOutstandingReport()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var outForm = new OutstandingReportForm(_accountingService, _ledgerService, _companyContext);
+        outForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

@@ -261,5 +261,40 @@ public class BalanceSheetDto
     public bool IsBalanced => Math.Round(TotalLiabilitiesSide, 2) == Math.Round(TotalAssetsSide, 2);
 }
 
+public class AgingBucketsDto
+{
+    public decimal Days0To30 { get; set; }
+    public decimal Days31To60 { get; set; }
+    public decimal Days61To90 { get; set; }
+    public decimal DaysOver90 { get; set; }
+    public decimal Total => Days0To30 + Days31To60 + Days61To90 + DaysOver90;
+}
+
+public class OutstandingPartyDto
+{
+    public int LedgerId { get; set; }
+    public string PartyName { get; set; } = string.Empty;
+    public int GroupId { get; set; }
+    public string GroupName { get; set; } = string.Empty;
+    public decimal TotalOutstanding { get; set; }
+    public BalanceType BalanceType { get; set; }
+    public AgingBucketsDto Aging { get; set; } = new();
+}
+
+public class OutstandingReportDto
+{
+    public int CompanyId { get; set; }
+    public DateTime AsOfDate { get; set; }
+    public bool IsReceivables { get; set; } // true = Receivables (Sundry Debtors), false = Payables (Sundry Creditors)
+    public List<OutstandingPartyDto> Parties { get; set; } = new();
+
+    public decimal TotalOutstandingAmount => Parties.Sum(p => p.TotalOutstanding);
+    public decimal TotalDays0To30 => Parties.Sum(p => p.Aging.Days0To30);
+    public decimal TotalDays31To60 => Parties.Sum(p => p.Aging.Days31To60);
+    public decimal TotalDays61To90 => Parties.Sum(p => p.Aging.Days61To90);
+    public decimal TotalDaysOver90 => Parties.Sum(p => p.Aging.DaysOver90);
+}
+
+
 
 

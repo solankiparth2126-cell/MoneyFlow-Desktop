@@ -95,6 +95,7 @@ static class Program
                 services.AddTransient<TrialBalanceForm>();
                 services.AddTransient<ProfitLossForm>();
                 services.AddTransient<BalanceSheetForm>();
+                services.AddTransient<OutstandingReportForm>();
             })
             .Build();
 
