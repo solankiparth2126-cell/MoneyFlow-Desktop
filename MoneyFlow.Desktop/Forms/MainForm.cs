@@ -96,6 +96,7 @@ public class MainForm : Form
         menuTransactions.DropDownItems.Add("F7 - &Journal", null, (s, e) => OpenJournalVoucher());
         menuTransactions.DropDownItems.Add("F8 - &Sales", null, (s, e) => OpenSalesVoucher());
         menuTransactions.DropDownItems.Add("F9 - &Purchase", null, (s, e) => OpenPurchaseVoucher());
+        menuTransactions.DropDownItems.Add("&Debit Note (Ctrl+F9)", null, (s, e) => OpenDebitNote());
 
         var menuReports = new ToolStripMenuItem("&Reports");
         menuReports.DropDownItems.Add("Day Book (Phase 16)", null, (s, e) => ShowNotImplemented("Day Book Report (Phase 16)"));
@@ -136,6 +137,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => OpenJournalVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => OpenSalesVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => OpenPurchaseVoucher()));
+        toolStrip.Items.Add(new ToolStripButton("Debit Note", null, (s, e) => OpenDebitNote()));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -262,6 +264,7 @@ public class MainForm : Form
             "  Journal Voucher (F7)",
             "  Sales Voucher (F8)",
             "  Purchase Voucher (F9)",
+            "  Debit Note (Ctrl+F9)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -361,6 +364,10 @@ public class MainForm : Form
         else if (selected.Contains("Purchase"))
         {
             OpenPurchaseVoucher();
+        }
+        else if (selected.Contains("Debit Note"))
+        {
+            OpenDebitNote();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -486,6 +493,19 @@ public class MainForm : Form
         purchaseForm.ShowDialog(this);
     }
 
+    private void OpenDebitNote()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var debitNoteForm = new DebitNoteForm(_accountingService, _companyContext);
+        debitNoteForm.ShowDialog(this);
+    }
+
     private void OpenCompanyList()
     {
         using var listForm = new CompanyListForm(_companyService, _companyContext);
@@ -561,6 +581,13 @@ public class MainForm : Form
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
     {
+        if (e.Control && e.KeyCode == Keys.F9)
+        {
+            OpenDebitNote();
+            e.Handled = true;
+            return;
+        }
+
         switch (e.KeyCode)
         {
             case Keys.Escape:

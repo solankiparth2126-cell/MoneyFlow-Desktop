@@ -2,6 +2,28 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 14: Debit Note (Ctrl+F9)] - 2026-09-10
+### Added
+- Created `DebitNoteForm`:
+  - Full Tally-inspired Section 16/29/67 Debit Note interface for Purchase Returns, supplier price adjustments, and damaged goods returns with strictly ZERO GST.
+  - Header with dynamic Voucher Number preview (`DBN-00001`), Voucher Date with active FY constraints, Original Purchase Invoice / Reference Number, and Supplier Party selector (Sundry Creditors, Cash, Bank) with live balance indicator.
+  - Return / Account selector (Purchase Returns, Purchase Accounts, Direct Expenses) with live balance indicator.
+  - Line items DataGridView: Item / Description, Return Quantity, Return Rate (₹), Return Amount (₹), and Reason / Narration.
+  - Automatic dynamic line-item recalculation on quantity and rate changes.
+  - Summary panel tracking Total Return Amount and dynamic live balance impact.
+  - Automatic balanced double-entry generation on save: Supplier Party Dr (reduces supplier payable/refunds cash) and Purchase Returns / Expense Cr.
+  - Action buttons and keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Integrated into `MainForm`:
+  - Wired `Ctrl+F9` global shortcut key to launch `DebitNoteForm`.
+  - Added toolbar button `Debit Note (Ctrl+F9)`, menu item `Transactions -> &Debit Note (Ctrl+F9)`, and Gateway list item `Debit Note (Ctrl+F9)`.
+  - Registered `DebitNoteForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase14DebitNoteTests.cs`:
+  - Purchase return against credit supplier (Sundry Creditor Dr, Purchase Returns Cr) reducing supplier payable balance.
+  - Immediate cash refund debit note (Cash Dr, Purchase Returns Cr).
+  - Debit note voucher deletion with dynamic restoration of original supplier liability.
+  - Zero-sum round-trip test: Purchase Invoice (PUR) followed by complete Debit Note (DBN) return restores net supplier balance to zero.
+  - 4/4 new tests passing (77/77 total tests passing across all test suites).
+
 ## [Phase 13: Purchase Voucher (F9)] - 2026-09-10
 ### Added
 - Created `PurchaseVoucherForm`:
