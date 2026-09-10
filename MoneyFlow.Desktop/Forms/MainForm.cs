@@ -97,6 +97,7 @@ public class MainForm : Form
         menuTransactions.DropDownItems.Add("F8 - &Sales", null, (s, e) => OpenSalesVoucher());
         menuTransactions.DropDownItems.Add("F9 - &Purchase", null, (s, e) => OpenPurchaseVoucher());
         menuTransactions.DropDownItems.Add("&Debit Note (Ctrl+F9)", null, (s, e) => OpenDebitNote());
+        menuTransactions.DropDownItems.Add("&Credit Note (Ctrl+F8)", null, (s, e) => OpenCreditNote());
 
         var menuReports = new ToolStripMenuItem("&Reports");
         menuReports.DropDownItems.Add("Day Book (Phase 16)", null, (s, e) => ShowNotImplemented("Day Book Report (Phase 16)"));
@@ -137,7 +138,8 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F7: Journal", null, (s, e) => OpenJournalVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F8: Sales", null, (s, e) => OpenSalesVoucher()));
         toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => OpenPurchaseVoucher()));
-        toolStrip.Items.Add(new ToolStripButton("Debit Note", null, (s, e) => OpenDebitNote()));
+        toolStrip.Items.Add(new ToolStripButton("Debit Note (Ctrl+F9)", null, (s, e) => OpenDebitNote()));
+        toolStrip.Items.Add(new ToolStripButton("Credit Note (Ctrl+F8)", null, (s, e) => OpenCreditNote()));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -265,6 +267,7 @@ public class MainForm : Form
             "  Sales Voucher (F8)",
             "  Purchase Voucher (F9)",
             "  Debit Note (Ctrl+F9)",
+            "  Credit Note (Ctrl+F8)",
             "  Accounting Vouchers",
             "  ---------------------------------",
             "  Day Book",
@@ -368,6 +371,10 @@ public class MainForm : Form
         else if (selected.Contains("Debit Note"))
         {
             OpenDebitNote();
+        }
+        else if (selected.Contains("Credit Note"))
+        {
+            OpenCreditNote();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -506,6 +513,19 @@ public class MainForm : Form
         debitNoteForm.ShowDialog(this);
     }
 
+    private void OpenCreditNote()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var creditNoteForm = new CreditNoteForm(_accountingService, _companyContext);
+        creditNoteForm.ShowDialog(this);
+    }
+
     private void OpenCompanyList()
     {
         using var listForm = new CompanyListForm(_companyService, _companyContext);
@@ -584,6 +604,12 @@ public class MainForm : Form
         if (e.Control && e.KeyCode == Keys.F9)
         {
             OpenDebitNote();
+            e.Handled = true;
+            return;
+        }
+        if (e.Control && e.KeyCode == Keys.F8)
+        {
+            OpenCreditNote();
             e.Handled = true;
             return;
         }

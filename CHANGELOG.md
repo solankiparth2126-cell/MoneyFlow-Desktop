@@ -2,6 +2,29 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 15: Credit Note (Ctrl+F8)] - 2026-09-10
+### Added
+- Created `CreditNoteForm`:
+  - Full Tally-inspired Section 16/29/67 Credit Note interface for Customer Sales Returns, credit allowances, and damaged goods adjustments with strictly ZERO GST.
+  - Header with dynamic Voucher Number preview (`CRN-00001`), Voucher Date with active FY constraints, Original Sales Invoice / Reference Number, and Customer Party selector (Sundry Debtors, Cash, Bank) with live balance indicator.
+  - Sales Return / Income selector (Sales Returns, Sales Accounts, Direct Income) with live balance indicator.
+  - Line items DataGridView: Item / Description, Return Quantity, Return Rate (₹), Return Amount (₹), and Reason / Narration.
+  - Automatic dynamic line-item recalculation on quantity and rate changes.
+  - Summary panel tracking Total Return Amount and dynamic live balance impact.
+  - Automatic balanced double-entry generation on save: Sales Return Dr (reduces revenue) and Customer Party Cr (reduces debtor receivable/debt or cash refund).
+  - Action buttons and keyboard shortcuts: Save (`Ctrl+A` / `Enter`), Save & New (`Alt+S`), Clear (`Alt+N`), Print (`Ctrl+P`), and Cancel (`Esc`).
+- Integrated into `MainForm`:
+  - Wired `Ctrl+F8` global shortcut key to launch `CreditNoteForm`.
+  - Added toolbar button `Credit Note (Ctrl+F8)`, menu item `Transactions -> &Credit Note (Ctrl+F8)`, and Gateway list item `Credit Note (Ctrl+F8)`.
+  - Registered `CreditNoteForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/c2659c66c4984473a9cb94b20cf2921d`).
+- Added automated unit tests in `Phase15CreditNoteTests.cs`:
+  - Customer sales return against credit debtor (Sales Returns Dr, Sundry Debtor Cr) reducing customer receivable balance.
+  - Immediate cash refund credit note (Sales Returns Dr, Cash Cr).
+  - Credit note voucher deletion with dynamic restoration of original customer receivable balance.
+  - Zero-sum round-trip test: Sales Invoice (SLS) followed by complete Credit Note (CRN) return restores net customer balance to zero.
+  - 4/4 new tests passing (81/81 total tests passing across all test suites).
+
 ## [Phase 14: Debit Note (Ctrl+F9)] - 2026-09-10
 ### Added
 - Created `DebitNoteForm`:
