@@ -15,6 +15,7 @@ public class MainForm : Form
     private readonly ICompanyContext _companyContext;
     private readonly IFinancialYearService _fyService;
     private readonly IGroupService _groupService;
+    private readonly ILedgerService _ledgerService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -36,7 +37,8 @@ public class MainForm : Form
         ICompanyService companyService,
         ICompanyContext companyContext,
         IFinancialYearService fyService,
-        IGroupService groupService)
+        IGroupService groupService,
+        ILedgerService ledgerService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -44,6 +46,7 @@ public class MainForm : Form
         _companyContext = companyContext;
         _fyService = fyService;
         _groupService = groupService;
+        _ledgerService = ledgerService;
 
         InitializeComponent();
 
@@ -79,7 +82,7 @@ public class MainForm : Form
 
         var menuMasters = new ToolStripMenuItem("&Masters");
         menuMasters.DropDownItems.Add("&Groups (Chart of Accounts)", null, (s, e) => OpenGroupList());
-        menuMasters.DropDownItems.Add("&Ledgers (Phase 6)", null, (s, e) => ShowNotImplemented("Ledgers Master (Phase 6)"));
+        menuMasters.DropDownItems.Add("&Ledgers", null, (s, e) => OpenLedgerList());
         menuMasters.DropDownItems.Add("Stock Items (Phase 24)", null, (s, e) => ShowNotImplemented("Stock Items (Phase 24)"));
         menuMasters.DropDownItems.Add("Units of Measure (Phase 24)", null, (s, e) => ShowNotImplemented("Units of Measure (Phase 24)"));
 
@@ -248,7 +251,8 @@ public class MainForm : Form
         lstGatewayMenu.Items.AddRange(new object[] {
             "  Company Info (Select / Create / Alter)",
             "  ---------------------------------",
-            "  Accounts Info (Groups & Ledgers)",
+            "  Groups (Chart of Accounts)",
+            "  Ledgers",
             "  Inventory Info (Stock & Units)",
             "  Accounting Vouchers",
             "  ---------------------------------",
@@ -318,9 +322,13 @@ public class MainForm : Form
         {
             OpenCompanyList();
         }
-        else if (selected.Contains("Accounts Info"))
+        else if (selected.Contains("Groups"))
         {
             OpenGroupList();
+        }
+        else if (selected.Contains("Ledgers"))
+        {
+            OpenLedgerList();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -353,6 +361,19 @@ public class MainForm : Form
 
         using var groupForm = new GroupListForm(_groupService, _companyContext);
         groupForm.ShowDialog(this);
+    }
+
+    private void OpenLedgerList()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var ledgerForm = new LedgerListForm(_ledgerService, _groupService, _companyContext);
+        ledgerForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

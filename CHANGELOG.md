@@ -2,6 +2,21 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 6: Ledger Master] - 2026-09-10
+### Added
+- Created DTOs for Ledger management (`LedgerCreateDto`, `LedgerUpdateDto`, `LedgerSummaryDto`, `LedgerDetailDto`).
+- Implemented `ILedgerService` and `LedgerService`:
+  - Ledger creation, update, delete, and retrieval with strict company isolation.
+  - Opening balance support with explicit Dr / Cr (`₹10,000 Dr` or `₹5,000 Cr`).
+  - Validation: non-negative opening balance (`OpeningBalance >= 0`), unique ledger name per company (case-insensitive), group validation.
+  - Deletion protection: strictly prevents deleting a ledger if voucher entries are recorded against it to safeguard double-entry audit trail integrity.
+  - Search and filter by name or parent group.
+- Built WinForms UI:
+  - `LedgerCreateEditForm`: Full Tally-inspired dialog with Group selector, Dr/Cr opening balance, mailing details, banking details, and credit controls.
+  - `LedgerListForm`: Searchable DataGridView listing all company ledgers, group filter dropdown, opening balance display with Dr/Cr formatting, and keyboard shortcuts (`Alt+C`, `Alt+A` / `Enter`, `Alt+D`, `F5`, `Esc`).
+  - Integrated into `MainForm` (`Masters -> Ledgers` and Gateway of Accounting list) and registered `ILedgerService` into DI in `Program.cs`.
+- Added unit test suite in `Phase6LedgerTests.cs` (9/9 tests passing; 34/34 total across all test suites).
+
 ## [Phase 5: Group Master] - 2026-09-10
 ### Added
 - Created DTOs for Group management (`GroupCreateDto`, `GroupUpdateDto`, `GroupSummaryDto`, `GroupTreeNodeDto`).

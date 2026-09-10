@@ -15,6 +15,7 @@ using MoneyFlow.Services;
 using MoneyFlow.Services.Company;
 using MoneyFlow.Services.FinancialYear;
 using MoneyFlow.Services.Group;
+using MoneyFlow.Services.Ledger;
 
 namespace MoneyFlow.Desktop;
 
@@ -64,6 +65,9 @@ static class Program
                 // Group Master Services (Phase 5)
                 services.AddScoped<IGroupService, GroupService>();
 
+                // Ledger Master Services (Phase 6)
+                services.AddScoped<ILedgerService, LedgerService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -72,6 +76,8 @@ static class Program
                 services.AddTransient<FinancialYearCreateForm>();
                 services.AddTransient<GroupListForm>();
                 services.AddTransient<GroupCreateEditForm>();
+                services.AddTransient<LedgerListForm>();
+                services.AddTransient<LedgerCreateEditForm>();
             })
             .Build();
 

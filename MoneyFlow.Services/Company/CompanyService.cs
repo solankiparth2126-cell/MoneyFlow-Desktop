@@ -10,6 +10,7 @@ using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 using Group = MoneyFlow.Core.Entities.Group;
 using FinancialYear = MoneyFlow.Core.Entities.FinancialYear;
+using Ledger = MoneyFlow.Core.Entities.Ledger;
 
 namespace MoneyFlow.Services.Company;
 
@@ -299,7 +300,7 @@ public class CompanyService : ICompanyService
         {
             if (groupsMap.TryGetValue(groupName, out var group))
             {
-                var ledger = new Ledger
+                var ledger = new MoneyFlow.Core.Entities.Ledger
                 {
                     CompanyId = companyId,
                     GroupId = group.GroupId,
