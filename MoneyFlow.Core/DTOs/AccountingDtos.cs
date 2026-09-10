@@ -165,3 +165,55 @@ public class DayBookReportDto
     public decimal Difference => Math.Abs(TotalDebit - TotalCredit);
 }
 
+public class ProfitLossLineDto
+{
+    public int LedgerId { get; set; }
+    public string LedgerName { get; set; } = string.Empty;
+    public int GroupId { get; set; }
+    public string GroupName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
+public class ProfitLossCategoryDto
+{
+    public string CategoryName { get; set; } = string.Empty;
+    public bool IsExpense { get; set; }
+    public bool IsTrading { get; set; }
+    public List<ProfitLossLineDto> Lines { get; set; } = new();
+    public decimal TotalAmount => Lines.Sum(l => l.Amount);
+}
+
+public class ProfitLossStatementDto
+{
+    public int CompanyId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+
+    // Trading Account (Direct)
+    public List<ProfitLossCategoryDto> TradingRevenues { get; set; } = new();
+    public List<ProfitLossCategoryDto> TradingExpenses { get; set; } = new();
+    public decimal TotalTradingRevenue => TradingRevenues.Sum(c => c.TotalAmount);
+    public decimal TotalTradingExpense => TradingExpenses.Sum(c => c.TotalAmount);
+    public decimal GrossProfit => Math.Max(0, TotalTradingRevenue - TotalTradingExpense);
+    public decimal GrossLoss => Math.Max(0, TotalTradingExpense - TotalTradingRevenue);
+    public bool HasGrossProfit => TotalTradingRevenue >= TotalTradingExpense;
+
+    // Profit & Loss Account (Indirect)
+    public List<ProfitLossCategoryDto> IndirectIncomes { get; set; } = new();
+    public List<ProfitLossCategoryDto> IndirectExpenses { get; set; } = new();
+    public decimal TotalIndirectIncome => IndirectIncomes.Sum(c => c.TotalAmount);
+    public decimal TotalIndirectExpense => IndirectExpenses.Sum(c => c.TotalAmount);
+
+    public decimal TotalIncomeSide => (HasGrossProfit ? GrossProfit : 0m) + TotalIndirectIncome;
+    public decimal TotalExpenseSide => (!HasGrossProfit ? GrossLoss : 0m) + TotalIndirectExpense;
+
+    public decimal NetProfit => Math.Max(0, TotalIncomeSide - TotalExpenseSide);
+    public decimal NetLoss => Math.Max(0, TotalExpenseSide - TotalIncomeSide);
+    public bool HasNetProfit => TotalIncomeSide >= TotalExpenseSide;
+
+    // Balanced Grand Totals
+    public decimal GrandTradingTotal => Math.Max(TotalTradingRevenue, TotalTradingExpense);
+    public decimal GrandPLTotal => Math.Max(TotalIncomeSide, TotalExpenseSide);
+}
+
+

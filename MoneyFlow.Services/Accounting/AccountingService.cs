@@ -833,5 +833,106 @@ public class AccountingService : IAccountingService
             TotalCredit = totalCredit
         };
     }
+
+    public async Task<ProfitLossStatementDto> GetProfitAndLossAsync(
+        int companyId,
+        DateTime fromDate,
+        DateTime toDate,
+        CancellationToken ct = default)
+    {
+        var startOfDay = fromDate.Date;
+        var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
+
+        // Fetch all ledgers that belong to groups affecting Profit & Loss
+        var plLedgers = await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && l.Group != null && l.Group.AffectProfitLoss)
+            .OrderBy(l => l.Group!.GroupName)
+            .ThenBy(l => l.LedgerName)
+            .ToListAsync(ct);
+
+        // Fetch period entries
+        var periodEntries = await _context.VoucherEntries
+            .AsNoTracking()
+            .Where(ve => ve.Voucher!.CompanyId == companyId &&
+                         !ve.Voucher.IsDeleted &&
+                         ve.Voucher.VoucherDate >= startOfDay &&
+                         ve.Voucher.VoucherDate <= endOfDay)
+            .GroupBy(ve => ve.LedgerId)
+            .Select(g => new
+            {
+                LedgerId = g.Key,
+                TotalDebit = g.Sum(x => x.Debit),
+                TotalCredit = g.Sum(x => x.Credit)
+            })
+            .ToDictionaryAsync(x => x.LedgerId, ct);
+
+        var statement = new ProfitLossStatementDto
+        {
+            CompanyId = companyId,
+            FromDate = startOfDay,
+            ToDate = toDate.Date
+        };
+
+        var categoryMap = new Dictionary<string, ProfitLossCategoryDto>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ledger in plLedgers)
+        {
+            var grp = ledger.Group!;
+            periodEntries.TryGetValue(ledger.LedgerId, out var entry);
+            var debit = entry?.TotalDebit ?? 0m;
+            var credit = entry?.TotalCredit ?? 0m;
+
+            bool isIncome = grp.Nature == GroupNature.Income;
+            bool isDirect = !grp.GroupName.Contains("Indirect", StringComparison.OrdinalIgnoreCase) &&
+                            (grp.GroupName.Contains("Direct", StringComparison.OrdinalIgnoreCase) ||
+                             grp.GroupName.Contains("Sales", StringComparison.OrdinalIgnoreCase) ||
+                             grp.GroupName.Contains("Purchase", StringComparison.OrdinalIgnoreCase));
+
+            decimal netAmount = isIncome ? (credit - debit) : (debit - credit);
+
+            if (netAmount == 0 && debit == 0 && credit == 0)
+                continue;
+
+            if (!categoryMap.TryGetValue(grp.GroupName, out var catDto))
+            {
+                catDto = new ProfitLossCategoryDto
+                {
+                    CategoryName = grp.GroupName,
+                    IsExpense = !isIncome,
+                    IsTrading = isDirect
+                };
+                categoryMap[grp.GroupName] = catDto;
+
+                if (isIncome)
+                {
+                    if (isDirect)
+                        statement.TradingRevenues.Add(catDto);
+                    else
+                        statement.IndirectIncomes.Add(catDto);
+                }
+                else
+                {
+                    if (isDirect)
+                        statement.TradingExpenses.Add(catDto);
+                    else
+                        statement.IndirectExpenses.Add(catDto);
+                }
+            }
+
+            catDto.Lines.Add(new ProfitLossLineDto
+            {
+                LedgerId = ledger.LedgerId,
+                LedgerName = ledger.LedgerName,
+                GroupId = grp.GroupId,
+                GroupName = grp.GroupName,
+                Amount = netAmount
+            });
+        }
+
+        return statement;
+    }
 }
+
 

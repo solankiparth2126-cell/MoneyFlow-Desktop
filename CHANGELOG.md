@@ -2,6 +2,33 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 19: Profit & Loss Statement Report] - 2026-09-10
+### Added
+- Created `ProfitLossForm`:
+  - Full Tally-inspired Section 19, 30 classic two-column T-Format Trading & Profit & Loss Statement.
+  - Left Column (Debit / Expenses): Direct Expenses (Trading Account), Gross Loss (if applicable), and Indirect Expenses (P&L Account).
+  - Right Column (Credit / Revenue): Direct Revenues (Trading Account), Gross Profit (if applicable), and Indirect Incomes (P&L Account).
+  - Trading Account Calculation: Automatic Gross Profit / Gross Loss computation (`Total Direct Revenue - Total Direct Expense`).
+  - Profit & Loss Account Calculation: Automatic Net Profit / Net Loss computation (`Gross Profit/Loss + Indirect Income - Indirect Expense`).
+  - Mathematical Grand Totals: Balanced Trading and P&L grand totals dynamically reconciling Dr and Cr sides.
+  - Drill-Down Navigation: Double-click or `Enter` on any ledger row opens its full Ledger Statement (`LedgerStatementForm`).
+  - Search, Filter & Export: Date range filter (`From Date`, `To Date` / `F2`), live ledger search filter, RFC 4180 CSV export, and print preview (`Ctrl+P`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetProfitAndLossAsync(companyId, fromDate, toDate)` calculating period debits and credits across all revenue and expense accounts.
+  - Added robust direct vs. indirect classification logic distinguishing trading components from operating overheads.
+  - Added DTOs: `ProfitLossLineDto`, `ProfitLossCategoryDto`, and `ProfitLossStatementDto`.
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Profit & Loss` to launch `ProfitLossForm`.
+  - Wired Gateway of Accounting list item `Profit & Loss A/c` to launch `ProfitLossForm`.
+  - Registered `ProfitLossForm` in Dependency Injection in `Program.cs`.
+- Generated desktop UI design screen in Stitch MCP (`projects/10546831619592911675/screens/1ff018f9e4f9422cb5d8042f7ef81be8`).
+- Added automated unit tests in `Phase19ProfitLossTests.cs`:
+  - Trading account gross profit calculation from sales, purchases, and direct expenses.
+  - Operating net profit calculation with indirect expenses (Rent, Salaries) and indirect incomes (Interest).
+  - Gross loss and net loss scenario verification.
+  - Soft-deleted voucher exclusion and date-range bounding verification.
+  - 4/4 new tests passing (94/94 total tests passing across all test suites).
+
 ## [Phase 18: Trial Balance Report] - 2026-09-10
 ### Added
 - Created `TrialBalanceForm`:
