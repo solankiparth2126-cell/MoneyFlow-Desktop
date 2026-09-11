@@ -2,6 +2,35 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 30: End-to-End Accounting Suite & Edge-Case Validation] - 2026-09-11
+### Added
+- Created comprehensive End-to-End Integration & Edge-Case Test Suite (`MoneyFlow.Tests/IntegrityAndAccountingSuite/`):
+  - **Multi-Company Data Boundary Isolation (Master Prompt Section 51 & 53)**:
+    - `MultiCompanyIsolationTests.cs`:
+      - Mandatory Section 53 assertion: Creating Company A and Company B, creating "Cash A" in Company A, and guaranteeing "Cash A" does not appear when querying Company B.
+      - Enforced cross-company rejection: Attempting to save a voucher in Company B that references a ledger from Company A throws `InvalidOperationException`.
+      - Enforced cross-company fiscal protection: Attempting to post a transaction with a Financial Year ID belonging to another company is blocked.
+      - Inventory boundary isolation: Stock items and units of measure remain strictly partitioned per company.
+  - **Financial Year Isolation & Boundary Enforcement (Master Prompt Section 54)**:
+    - `FinancialYearIsolationTests.cs`:
+      - Mandatory Section 54 assertion: Creating FY 2025-26 and FY 2026-27, recording transactions in 2025-26, opening 2026-27, and verifying that 2025-26 transactions do not appear in 2026-27 Day Book while opening balances carry forward.
+      - Date boundary enforcement: Voucher dates outside the active fiscal year's StartDate and EndDate are rejected.
+      - Fiscal year lock: Posting vouchers to a closed/locked financial year (`IsClosed = true`) is rejected.
+  - **Double-Entry Mathematical Reconciliation & Accounting Engine (Master Prompt Section 51 & 52)**:
+    - `DoubleEntryAccountingIntegrityTests.cs`:
+      - Mandatory Section 52 assertion: Unbalanced vouchers (`Debit != Credit`, e.g. Cash Dr ₹1,000 without credit) are strictly rejected with detailed validation error diagnostics.
+      - Balanced voucher reconciliation: Cash Dr ₹1,000 / Income Cr ₹1,000 succeeds with Debit = ₹1,000, Credit = ₹1,000, Difference = ₹0.
+      - Full accounting lifecycle test: Sequential posting of Capital setup, Contra (Cash to Bank), Purchase (Credit), Payment (Supplier payout), Sales (Credit), Receipt (Customer collection), Debit Note (Purchase return), Credit Note (Sales return), and Journal (Depreciation) -> Verifies that the resulting Trial Balance mathematically reconciles with `TotalDebit == TotalCredit` and `Difference == 0`.
+  - **Soft-Delete Safety & Financial Integrity (Master Prompt Section 46, 50, 69 & 70)**:
+    - `SoftDeleteAndConcurrencySafetyTests.cs`:
+      - Soft-delete compliance: Canceling/deleting vouchers marks `IsDeleted = true` preserving audit history in database, while dynamically recalculating ledger balances and omitting deleted records from Day Book and reports.
+      - Inactive ledger safeguard: Transactions referencing inactive/disabled ledgers are blocked.
+      - Precise monetary calculations: Section 70 compliance ensuring all money calculations use high-precision `decimal` without floating-point artifacts.
+  - **Test Suite Results**:
+    - 13 new comprehensive integration tests added.
+    - **167/167 total automated tests passing** across all test suites.
+
+
 ## [Phase 29: Application & Company Settings] - 2026-09-11
 ### Added
 - Created `ISettingsService` and `SettingsService` (Master Prompt Section 48 "APPLICATION SETTINGS"):
