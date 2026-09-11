@@ -26,6 +26,7 @@ public class MainForm : Form
     private readonly IUserContext _userContext;
     private readonly ISecurityService _securityService;
     private readonly IAuditService _auditService;
+    private readonly ISettingsService _settingsService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -58,7 +59,8 @@ public class MainForm : Form
         IBackupRestoreService backupRestoreService,
         IUserContext userContext,
         ISecurityService securityService,
-        IAuditService auditService)
+        IAuditService auditService,
+        ISettingsService settingsService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -76,6 +78,7 @@ public class MainForm : Form
         _userContext = userContext;
         _securityService = securityService;
         _auditService = auditService;
+        _settingsService = settingsService;
 
         InitializeComponent();
 
@@ -148,6 +151,7 @@ public class MainForm : Form
         menuUtilities.DropDownItems.Add("&Backup & Restore System (F10)...", null, (s, e) => OpenBackupRestore());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("&User Management & Permissions...", null, (s, e) => OpenUserManagement());
+        menuUtilities.DropDownItems.Add("&Settings & Configuration (F11)...", null, (s, e) => OpenSettings());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("Connection Diagnostics", null, (s, e) => OpenDatabaseDiagnostics());
 
@@ -184,6 +188,7 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("Credit Note (Ctrl+F8)", null, (s, e) => OpenCreditNote()));
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("F10: Backup / Restore", null, (s, e) => OpenBackupRestore()) { BackColor = Color.FromArgb(39, 174, 96), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+        toolStrip.Items.Add(new ToolStripButton("F11: Settings", null, (s, e) => OpenSettings()) { BackColor = Color.FromArgb(0, 105, 92), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -331,6 +336,7 @@ public class MainForm : Form
             "  Import / Export Data",
             "  Backup & Restore (F10)",
             "  User Management & Security",
+            "  Settings & Configuration (F11)",
             "  Database Diagnostics",
             "  Quit (Esc)"
         });
@@ -490,6 +496,10 @@ public class MainForm : Form
         else if (selected.Contains("User Management") || selected.Contains("Security"))
         {
             OpenUserManagement();
+        }
+        else if (selected.Contains("Settings") || selected.Contains("Configuration"))
+        {
+            OpenSettings();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -840,6 +850,12 @@ public class MainForm : Form
         form.ShowDialog(this);
     }
 
+    private void OpenSettings()
+    {
+        using var form = new SettingsForm(_settingsService, _companyService, _auditService);
+        form.ShowDialog(this);
+    }
+
     private void UpdateUserContextUI()
     {
         if (lblStatusUser != null)
@@ -875,6 +891,7 @@ public class MainForm : Form
                     case "ImportExport": OpenImportExport(); break;
                     case "BackupRestore": OpenBackupRestore(); break;
                     case "UserManagement": OpenUserManagement(); break;
+                    case "Settings": OpenSettings(); break;
                     case "DayBook": OpenDayBook(); break;
                     case "TrialBalance": OpenTrialBalance(); break;
                     case "ProfitLoss": OpenProfitLoss(); break;
@@ -1049,6 +1066,9 @@ public class MainForm : Form
                 break;
             case Keys.F10:
                 OpenBackupRestore();
+                break;
+            case Keys.F11:
+                OpenSettings();
                 break;
         }
     }

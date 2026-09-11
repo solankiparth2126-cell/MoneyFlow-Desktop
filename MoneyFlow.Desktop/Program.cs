@@ -23,6 +23,7 @@ using MoneyFlow.Services.Dashboard;
 using MoneyFlow.Services.ImportExport;
 using MoneyFlow.Services.Backup;
 using MoneyFlow.Services.Security;
+using MoneyFlow.Services.Settings;
 
 namespace MoneyFlow.Desktop;
 
@@ -98,6 +99,9 @@ static class Program
                 services.AddScoped<IAuditService, AuditService>();
                 services.AddScoped<ISecurityService, SecurityService>();
 
+                // Application & Company Settings (Phase 29)
+                services.AddScoped<ISettingsService, SettingsService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -134,6 +138,7 @@ static class Program
                 services.AddTransient<BackupRestoreForm>();
                 services.AddTransient<LoginForm>();
                 services.AddTransient<UserManagementForm>();
+                services.AddTransient<SettingsForm>();
             })
             .Build();
 

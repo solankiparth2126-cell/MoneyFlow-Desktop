@@ -2,6 +2,45 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 29: Application & Company Settings] - 2026-09-11
+### Added
+- Created `ISettingsService` and `SettingsService` (Master Prompt Section 48 "APPLICATION SETTINGS"):
+  - **Comprehensive Configuration Management**:
+    - **Company & Accounting Defaults**: Configurable default company opened automatically on startup, voucher lock date cutoff preventing modification of reconciled/audited periods (`IsDateLockedAsync`), automatic invoice round-off split calculation, and post-save print preview triggering.
+    - **Backup & Storage Settings**: Default backup directory path (with automatic `Documents\MoneyFlow\Backups` initialization) and application exit backup reminder prompts.
+    - **Hardware & Printing Settings**: Default Windows printer selection dynamically querying system printers (`PrinterSettings.InstalledPrinters`), standard paper size configuration (A4, Letter, Legal, Continuous Feed), and direct printing options without preview dialogs.
+    - **Regional & Number Formatting**: Flexible date formats (`dd-MM-yyyy`, `dd/MM/yyyy`, `yyyy-MM-dd`, `MM/dd/yyyy`), locale numbering schemes (Indian Lakhs/Crores grouping `₹ 12,34,567.89` vs Western Millions `1,234,567.89`), configurable decimal precision (0 to 4 places), and customizable currency symbol prefix (`₹`, `$`, `€`, `£`).
+    - **Display & Themes**: Application theme selection (`Classic Accounting Teal`, `Modern Dark Slate`, `Light Neutral Office`) and grid density toggle (`Compact` high-density vs `Comfortable` standard padding).
+  - **In-Memory Caching & Performance**:
+    - High-performance cached settings snapshot for rapid UI lookup (`AsNoTracking()`).
+    - Atomic database persistence to EF Core `Settings` table (`AppSetting` entity) updating existing keys or inserting new entries.
+- Created `SettingsForm` (F11):
+  - Multi-tab configuration dialog with Segoe UI typography and professional dark teal accents:
+    - **Tab 1: Accounting & Periods**: Default startup company dropdown, Period Lock & Protection group with enable toggle and DatePicker, Transaction Behavior toggles.
+    - **Tab 2: Backup & Storage**: Default backup path with interactive `Browse...` folder browser, security highlights card, and exit prompt configuration.
+    - **Tab 3: Printing & Output**: Windows installed printer selector, paper size dropdown, and direct print toggle.
+    - **Tab 4: Regional & Numbers**: Date format picker, numbering grouping selector, currency symbol, decimal places spinner, and dynamic live formatting preview banner.
+    - **Tab 5: Display & Theme**: Application theme selector, UI density picker, and global consistency notes.
+  - Action bar with "Restore Defaults", "Save Settings (Enter)", and "Cancel (Esc)".
+- Integrated into `MainForm`:
+  - Added `Settings & Configuration (F11)...` to `Utilities` menu.
+  - Added `F11: Settings` shortcut button to quick action ToolStrip.
+  - Added `Settings & Configuration (F11)` to Gateway of Accounting list.
+  - Added `F11` key handler to global shortcut dispatcher.
+  - Registered in Go-To command palette catalog (`SearchService.cs`).
+  - Registered `ISettingsService` and `SettingsForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase29SettingsTests.cs`:
+  - Factory default values fallback when settings table is initially unpopulated.
+  - Full round-trip persistence and reload of all configuration categories.
+  - Low-level key-value manipulation (`GetSettingValueAsync` / `SetSettingValueAsync`).
+  - Voucher lock date enforcement logic (`IsDateLockedAsync`) verifying dates on, before, and after cutoff.
+  - Date formatting across supported formats (`FormatDate`).
+  - Number formatting with Indian grouping (Lakhs/Crores) and Western grouping (Millions) (`FormatCurrency`).
+  - Negative monetary amounts formatting with currency symbol.
+  - Idempotent updates preventing duplicate setting keys in database.
+  - 10/10 new tests passing (154/154 total tests passing across all test suites).
+
+
 ## [Phase 28: Users, Roles & Security Permissions] - 2026-09-11
 ### Added
 - Created `IUserContext`, `ISecurityService`, and `IAuditService` (Master Prompt Section 46 & 47):

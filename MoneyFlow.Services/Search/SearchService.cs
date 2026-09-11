@@ -41,7 +41,8 @@ public class SearchService : ISearchService
         ("Credit Note (Ctrl+F8)", "credit note sales return customer credit", "Sales returns voucher", "CreditNote"),
         ("Backup & Restore System (F10)", "backup restore database company mfb bak snapshot archive recovery", "Local backup and restore manager with SHA-256 validation", "BackupRestore"),
         ("User Management & Security", "user management users security roles permissions access control password", "User accounts, roles, and permission matrix configuration", "UserManagement"),
-        ("Audit Trail Register", "audit trail log activity history timestamp user changes compliance", "Audit register of user actions, transactions, and system events", "UserManagement")
+        ("Audit Trail Register", "audit trail log activity history timestamp user changes compliance", "Audit register of user actions, transactions, and system events", "UserManagement"),
+        ("Settings & Configuration (F11)", "settings configuration preferences options defaults theme date format printer backup path lock date", "System and company accounting configuration and preferences", "Settings")
     };
 
     public SearchService(
