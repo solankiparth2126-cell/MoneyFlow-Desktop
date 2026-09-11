@@ -295,6 +295,70 @@ public class OutstandingReportDto
     public decimal TotalDaysOver90 => Parties.Sum(p => p.Aging.DaysOver90);
 }
 
+public enum CashBankBookType
+{
+    CashBook,
+    BankBook
+}
 
+public class CashBankBookLineDto
+{
+    public int VoucherId { get; set; }
+    public string VoucherNumber { get; set; } = string.Empty;
+    public string VoucherTypeName { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public string Particulars { get; set; } = string.Empty;
+    public string Narration { get; set; } = string.Empty;
+    public decimal Debit { get; set; } // Receipts / Deposits
+    public decimal Credit { get; set; } // Payments / Withdrawals
+    public decimal RunningBalance { get; set; }
+    public BalanceType RunningType { get; set; } = BalanceType.Debit;
+    public string AccountName { get; set; } = string.Empty;
+}
 
+public class CashBankAccountSummaryDto
+{
+    public int LedgerId { get; set; }
+    public string LedgerName { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public decimal OpeningBalance { get; set; }
+    public BalanceType OpeningType { get; set; } = BalanceType.Debit;
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public decimal ClosingBalance { get; set; }
+    public BalanceType ClosingType { get; set; } = BalanceType.Debit;
 
+    public string FormattedClosingBalance =>
+        ClosingBalance == 0
+            ? "₹0.00"
+            : $"₹{ClosingBalance:N2} {(ClosingType == BalanceType.Debit ? "Dr" : "Cr")}";
+}
+
+public class CashBankBookReportDto
+{
+    public int CompanyId { get; set; }
+    public CashBankBookType BookType { get; set; }
+    public int? SelectedLedgerId { get; set; }
+    public string SelectedLedgerName { get; set; } = string.Empty;
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public decimal OpeningBalance { get; set; }
+    public BalanceType OpeningType { get; set; } = BalanceType.Debit;
+    public List<CashBankBookLineDto> Lines { get; set; } = new();
+    public decimal TotalDebit { get; set; }
+    public decimal TotalCredit { get; set; }
+    public decimal ClosingBalance { get; set; }
+    public BalanceType ClosingType { get; set; } = BalanceType.Debit;
+    public List<CashBankAccountSummaryDto> AccountSummaries { get; set; } = new();
+
+    public string FormattedOpeningBalance =>
+        OpeningBalance == 0
+            ? "₹0.00"
+            : $"₹{OpeningBalance:N2} {(OpeningType == BalanceType.Debit ? "Dr" : "Cr")}";
+
+    public string FormattedClosingBalance =>
+        ClosingBalance == 0
+            ? "₹0.00"
+            : $"₹{ClosingBalance:N2} {(ClosingType == BalanceType.Debit ? "Dr" : "Cr")}";
+}

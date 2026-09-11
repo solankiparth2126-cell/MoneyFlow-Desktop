@@ -2,6 +2,37 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 22: Cash Book & Bank Book Reports] - 2026-09-11
+### Added
+- Created `CashBankBookForm`:
+  - Full Tally-inspired Section 30, 39, 40 Cash Book & Bank Book register interface.
+  - Multi-Perspective View Toggle: Radio selector between `[ Cash Book (Cash-in-Hand) ]` and `[ Bank Book (Bank Accounts) ]`.
+  - Account Selector Dropdown: Dynamically populated with individual cash/bank accounts (e.g., Cash, Petty Cash, HDFC Bank, SBI Bank) plus consolidated views (`[ All Cash Accounts ]` / `[ All Bank Accounts ]`).
+  - Date Range Filtering: `From Date (F2)` and `To Date` pickers constrained to active Financial Year bounds.
+  - Live Text Search: Real-time filtering across Voucher Numbers, Opposing Particulars, Ref / Cheque numbers, and Narrations (`F3`).
+  - Account Context Card: Displays current book/account title and dynamic Opening Balance brought forward as of `From Date` (`₹XX,XXX.XX Dr/Cr`).
+  - High-Density Running Balance DataGridView: Date, Voucher Type, Voucher No, Ref / Instrument No, Opposing Particulars, Account Name, Receipts / Deposits (₹ Dr), Payments / Withdrawals (₹ Cr), Running Balance (₹ Dr/Cr), and Narration.
+  - Explicit Opening Balance Row: Injects row 0 brought forward balance (`** Opening Balance **`).
+  - Audit Summary Footer: Displays total transaction count, Total Receipts / Deposits (₹ Dr), Total Payments / Withdrawals (₹ Cr), Net Closing Balance (`₹XX,XXX.XX Dr/Cr`), and mathematical identity validation badge (`[ ✔ ] RECONCILED`).
+  - Drill-Down Navigation: Double-click or `Enter` on any voucher row opens comprehensive transaction audit dialog.
+  - Export & Print: RFC 4180 CSV export, Print Preview (`Ctrl+P`), and hotkeys (`F2`, `F3`, `F4`, `F5`, `Esc`).
+- Enhanced `IAccountingService` and `AccountingService`:
+  - Added `GetCashLedgersAsync(companyId)`: Retrieves all active ledgers under "Cash-in-Hand" and its sub-groups.
+  - Added `GetBankLedgersAsync(companyId)`: Retrieves all active ledgers under "Bank Accounts", "Bank OD A/c", "Bank OCC A/c" and their sub-groups.
+  - Added `GetCashBankBookAsync(companyId, ledgerId, bookType, fromDate, toDate)`: Computes opening balances, queries period vouchers excluding soft-deletes, tracks running balances, and calculates per-account summaries.
+  - Added DTOs: `CashBankBookType`, `CashBankBookLineDto`, `CashBankAccountSummaryDto`, and `CashBankBookReportDto`.
+- Integrated into `MainForm`:
+  - Wired menu item `Reports -> &Cash / Bank Book` to launch `CashBankBookForm`.
+  - Wired Gateway of Accounting list item `Cash / Bank Book` to launch `CashBankBookForm`.
+  - Added `OpenCashBankBook(CashBankBookType? defaultType = null)` launcher.
+  - Registered `CashBankBookForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase22CashBankBookTests.cs`:
+  - Cash Book calculation: opening balance, receipts, payments, running balance, and closing balance.
+  - Bank Book calculation: multi-bank ledger isolation (HDFC Bank vs SBI Bank), deposits, and withdrawals.
+  - Consolidated Cash & Bank mode aggregating multiple accounts with individual ledger summaries.
+  - Soft-deleted voucher exclusion and historical date-range boundary enforcement.
+  - 4/4 new tests passing (106/106 total tests passing across all test suites).
+
 ## [Phase 21: Outstanding Receivables & Payables (Aging Analysis)] - 2026-09-10
 ### Added
 - Created `OutstandingReportForm`:

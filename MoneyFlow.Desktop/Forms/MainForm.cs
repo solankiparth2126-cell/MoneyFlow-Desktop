@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
 using MoneyFlow.Services;
@@ -105,6 +106,7 @@ public class MainForm : Form
         menuReports.DropDownItems.Add("&Trial Balance", null, (s, e) => OpenTrialBalance());
         menuReports.DropDownItems.Add("&Profit & Loss", null, (s, e) => OpenProfitLoss());
         menuReports.DropDownItems.Add("&Balance Sheet", null, (s, e) => OpenBalanceSheet());
+        menuReports.DropDownItems.Add("&Cash / Bank Book", null, (s, e) => OpenCashBankBook());
         menuReports.DropDownItems.Add("&Outstanding Analysis", null, (s, e) => OpenOutstandingReport());
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
@@ -275,6 +277,7 @@ public class MainForm : Form
             "  Trial Balance",
             "  Profit & Loss A/c",
             "  Balance Sheet",
+            "  Cash / Bank Book",
             "  Outstanding Analysis",
             "  ---------------------------------",
             "  Utilities & Backup",
@@ -397,6 +400,10 @@ public class MainForm : Form
         else if (selected.Contains("Balance Sheet"))
         {
             OpenBalanceSheet();
+        }
+        else if (selected.Contains("Cash / Bank Book") || selected.Contains("Cash Book") || selected.Contains("Bank Book"))
+        {
+            OpenCashBankBook();
         }
         else if (selected.Contains("Outstanding"))
         {
@@ -628,6 +635,23 @@ public class MainForm : Form
 
         using var outForm = new OutstandingReportForm(_accountingService, _ledgerService, _companyContext);
         outForm.ShowDialog(this);
+    }
+
+    private void OpenCashBankBook(CashBankBookType? defaultType = null)
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null || _companyContext.CurrentFinancialYear == null)
+        {
+            MessageBox.Show("Please select or create a company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var cashBankForm = new CashBankBookForm(_accountingService, _companyContext);
+        if (defaultType.HasValue)
+        {
+            cashBankForm.SetInitialBookType(defaultType.Value);
+        }
+        cashBankForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

@@ -554,6 +554,73 @@ public class AccountingService : IAccountingService
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashLedgersAsync(int companyId, CancellationToken ct = default)
+    {
+        var targetGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && g.GroupName == "Cash-in-Hand")
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var childGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && targetGroupIds.Contains(g.ParentGroupId.Value))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var allTargetGroupIds = targetGroupIds.Concat(childGroupIds).Distinct().ToList();
+
+        return await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
+            .OrderBy(l => l.LedgerName)
+            .Select(l => new LedgerSummaryDto
+            {
+                LedgerId = l.LedgerId,
+                GroupId = l.GroupId,
+                LedgerName = l.LedgerName,
+                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+                OpeningBalance = l.OpeningBalance,
+                OpeningBalanceType = l.OpeningBalanceType,
+                IsActive = l.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<LedgerSummaryDto>> GetBankLedgersAsync(int companyId, CancellationToken ct = default)
+    {
+        var targetNames = new[] { "Bank Accounts", "Bank OD A/c", "Bank OCC A/c" };
+        var targetGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && targetNames.Contains(g.GroupName))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var childGroupIds = await _context.Groups
+            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && targetGroupIds.Contains(g.ParentGroupId.Value))
+            .Select(g => g.GroupId)
+            .ToListAsync(ct);
+
+        var allTargetGroupIds = targetGroupIds.Concat(childGroupIds).Distinct().ToList();
+
+        return await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
+            .OrderBy(l => l.LedgerName)
+            .Select(l => new LedgerSummaryDto
+            {
+                LedgerId = l.LedgerId,
+                GroupId = l.GroupId,
+                LedgerName = l.LedgerName,
+                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+                OpeningBalance = l.OpeningBalance,
+                OpeningBalanceType = l.OpeningBalanceType,
+                IsActive = l.IsActive
+            })
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCustomerPartyLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var targetGroupNames = new[] { "Sundry Debtors", "Cash-in-Hand", "Bank Accounts" };
@@ -1169,6 +1236,173 @@ public class AccountingService : IAccountingService
         }
 
         return report;
+    }
+
+    public async Task<CashBankBookReportDto> GetCashBankBookAsync(int companyId, int? ledgerId, CashBankBookType bookType, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    {
+        var startOfDay = fromDate.Date;
+        var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
+
+        List<MoneyFlow.Core.Entities.Ledger> targetLedgers;
+        if (ledgerId.HasValue)
+        {
+            var singleLedger = await _context.Ledgers
+                .AsNoTracking()
+                .Include(l => l.Group)
+                .FirstOrDefaultAsync(l => l.CompanyId == companyId && l.LedgerId == ledgerId.Value, ct);
+
+            targetLedgers = singleLedger != null ? new List<MoneyFlow.Core.Entities.Ledger> { singleLedger } : new List<MoneyFlow.Core.Entities.Ledger>();
+        }
+        else
+        {
+            var availableLedgers = bookType == CashBankBookType.CashBook
+                ? await GetCashLedgersAsync(companyId, ct)
+                : await GetBankLedgersAsync(companyId, ct);
+
+            var ledgerIds = availableLedgers.Select(l => l.LedgerId).ToList();
+            targetLedgers = await _context.Ledgers
+                .AsNoTracking()
+                .Include(l => l.Group)
+                .Where(l => l.CompanyId == companyId && ledgerIds.Contains(l.LedgerId))
+                .OrderBy(l => l.LedgerName)
+                .ToListAsync(ct);
+        }
+
+        var targetLedgerIds = targetLedgers.Select(l => l.LedgerId).ToList();
+
+        // Calculate opening balances as of fromDate
+        decimal totalOpeningNet = 0m;
+        var summaries = new List<CashBankAccountSummaryDto>();
+
+        foreach (var ledg in targetLedgers)
+        {
+            decimal initialMasterNet = ledg.OpeningBalanceType == BalanceType.Debit
+                ? ledg.OpeningBalance
+                : -ledg.OpeningBalance;
+
+            var priorTotals = await _context.VoucherEntries
+                .AsNoTracking()
+                .Where(ve => ve.LedgerId == ledg.LedgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId && ve.Voucher.VoucherDate < startOfDay)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    TotalDebit = g.Sum(x => x.Debit),
+                    TotalCredit = g.Sum(x => x.Credit)
+                })
+                .FirstOrDefaultAsync(ct);
+
+            decimal priorDebit = priorTotals?.TotalDebit ?? 0m;
+            decimal priorCredit = priorTotals?.TotalCredit ?? 0m;
+            decimal ledgOpeningNet = initialMasterNet + priorDebit - priorCredit;
+            totalOpeningNet += ledgOpeningNet;
+
+            var periodTotals = await _context.VoucherEntries
+                .AsNoTracking()
+                .Where(ve => ve.LedgerId == ledg.LedgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId && ve.Voucher.VoucherDate >= startOfDay && ve.Voucher.VoucherDate <= endOfDay)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    TotalDebit = g.Sum(x => x.Debit),
+                    TotalCredit = g.Sum(x => x.Credit)
+                })
+                .FirstOrDefaultAsync(ct);
+
+            decimal periodDebit = periodTotals?.TotalDebit ?? 0m;
+            decimal periodCredit = periodTotals?.TotalCredit ?? 0m;
+            decimal closingNet = ledgOpeningNet + periodDebit - periodCredit;
+
+            summaries.Add(new CashBankAccountSummaryDto
+            {
+                LedgerId = ledg.LedgerId,
+                LedgerName = ledg.LedgerName,
+                GroupName = ledg.Group?.GroupName ?? string.Empty,
+                OpeningBalance = Math.Abs(ledgOpeningNet),
+                OpeningType = ledgOpeningNet >= 0 ? BalanceType.Debit : BalanceType.Credit,
+                TotalDebit = periodDebit,
+                TotalCredit = periodCredit,
+                ClosingBalance = Math.Abs(closingNet),
+                ClosingType = closingNet >= 0 ? BalanceType.Debit : BalanceType.Credit
+            });
+        }
+
+        // Fetch period vouchers involving target ledgers
+        var periodVouchers = await _context.Vouchers
+            .AsNoTracking()
+            .Include(v => v.VoucherType)
+            .Include(v => v.VoucherEntries)
+                .ThenInclude(e => e.Ledger)
+            .Where(v => v.CompanyId == companyId &&
+                        !v.IsDeleted &&
+                        v.VoucherDate >= startOfDay &&
+                        v.VoucherDate <= endOfDay &&
+                        v.VoucherEntries.Any(e => targetLedgerIds.Contains(e.LedgerId)))
+            .OrderBy(v => v.VoucherDate)
+            .ThenBy(v => v.VoucherNumber)
+            .ToListAsync(ct);
+
+        var lines = new List<CashBankBookLineDto>();
+        decimal currentNet = totalOpeningNet;
+
+        foreach (var v in periodVouchers)
+        {
+            var myEntries = v.VoucherEntries.Where(e => targetLedgerIds.Contains(e.LedgerId)).ToList();
+
+            foreach (var entry in myEntries)
+            {
+                var otherEntries = v.VoucherEntries
+                    .Where(e => e.VoucherEntryId != entry.VoucherEntryId && e.LedgerId != entry.LedgerId)
+                    .Select(e => e.Ledger?.LedgerName ?? "Account")
+                    .Distinct()
+                    .ToList();
+
+                string particulars = otherEntries.Count switch
+                {
+                    0 => !string.IsNullOrWhiteSpace(v.Narration) ? v.Narration : "Transfer",
+                    1 => otherEntries[0],
+                    _ => string.Join(", ", otherEntries)
+                };
+
+                currentNet += (entry.Debit - entry.Credit);
+
+                lines.Add(new CashBankBookLineDto
+                {
+                    VoucherId = v.VoucherId,
+                    VoucherNumber = v.VoucherNumber,
+                    VoucherTypeName = v.VoucherType?.Name ?? "Voucher",
+                    Date = v.VoucherDate,
+                    ReferenceNumber = v.ReferenceNumber ?? string.Empty,
+                    Particulars = particulars,
+                    Narration = !string.IsNullOrWhiteSpace(entry.Narration) ? entry.Narration : v.Narration,
+                    Debit = entry.Debit,
+                    Credit = entry.Credit,
+                    RunningBalance = Math.Abs(currentNet),
+                    RunningType = currentNet >= 0 ? BalanceType.Debit : BalanceType.Credit,
+                    AccountName = entry.Ledger?.LedgerName ?? string.Empty
+                });
+            }
+        }
+
+        string selectedName = ledgerId.HasValue && targetLedgers.Count > 0
+            ? targetLedgers[0].LedgerName
+            : (bookType == CashBankBookType.CashBook ? "All Cash Accounts" : "All Bank Accounts");
+
+        return new CashBankBookReportDto
+        {
+            CompanyId = companyId,
+            BookType = bookType,
+            SelectedLedgerId = ledgerId,
+            SelectedLedgerName = selectedName,
+            FromDate = fromDate,
+            ToDate = toDate,
+            OpeningBalance = Math.Abs(totalOpeningNet),
+            OpeningType = totalOpeningNet >= 0 ? BalanceType.Debit : BalanceType.Credit,
+            Lines = lines,
+            TotalDebit = lines.Sum(l => l.Debit),
+            TotalCredit = lines.Sum(l => l.Credit),
+            ClosingBalance = Math.Abs(currentNet),
+            ClosingType = currentNet >= 0 ? BalanceType.Debit : BalanceType.Credit,
+            AccountSummaries = summaries
+        };
     }
 }
 

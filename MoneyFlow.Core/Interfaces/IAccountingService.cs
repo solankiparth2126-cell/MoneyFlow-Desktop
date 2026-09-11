@@ -29,4 +29,7 @@ public interface IAccountingService
     Task<ProfitLossStatementDto> GetProfitAndLossAsync(int companyId, DateTime fromDate, DateTime toDate, CancellationToken ct = default);
     Task<BalanceSheetDto> GetBalanceSheetAsync(int companyId, DateTime asOfDate, CancellationToken ct = default);
     Task<OutstandingReportDto> GetOutstandingReportAsync(int companyId, DateTime asOfDate, bool isReceivables, CancellationToken ct = default);
+    Task<IReadOnlyList<LedgerSummaryDto>> GetCashLedgersAsync(int companyId, CancellationToken ct = default);
+    Task<IReadOnlyList<LedgerSummaryDto>> GetBankLedgersAsync(int companyId, CancellationToken ct = default);
+    Task<CashBankBookReportDto> GetCashBankBookAsync(int companyId, int? ledgerId, CashBankBookType bookType, DateTime fromDate, DateTime toDate, CancellationToken ct = default);
 }
