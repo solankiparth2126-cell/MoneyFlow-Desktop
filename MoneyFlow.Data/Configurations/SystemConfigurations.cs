@@ -31,6 +31,7 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.HasOne(s => s.Company).WithMany(c => c.StockItems).HasForeignKey(s => s.CompanyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.Unit).WithMany().HasForeignKey(s => s.UnitId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(s => new { s.CompanyId, s.ItemName }).IsUnique();
+        builder.HasIndex(s => new { s.CompanyId, s.IsActive });
     }
 }
 
@@ -90,6 +91,8 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
 
         builder.HasIndex(a => a.Timestamp);
         builder.HasIndex(a => a.CompanyId);
+        builder.HasIndex(a => new { a.CompanyId, a.Timestamp });
+        builder.HasIndex(a => new { a.Module, a.Action });
     }
 }
 

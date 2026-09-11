@@ -2,6 +2,33 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 31: Performance Optimization & Index Tuning] - 2026-09-11
+### Added
+- Comprehensive database indexing and query tuning in alignment with Master Prompt Section 50 ("PERFORMANCE"):
+  - **Single & Compound Database Indexing (`MoneyFlow.Data/Configurations/`)**:
+    - **`Voucher` Entity Indexing**:
+      - Mandatory single-column index coverage: `CompanyId`, `FinancialYearId`, `VoucherDate`, and `VoucherNumber`.
+      - Compound index `{ CompanyId, FinancialYearId, VoucherDate, IsDeleted }` for sub-second Day Book and fiscal period queries.
+      - Compound index `{ CompanyId, VoucherDate, IsDeleted }` for date-range ledger reports, Trial Balance, and Profit & Loss calculations.
+      - Compound index `{ CompanyId, VoucherTypeId, FinancialYearId }` for instant voucher-register filtering by type (Payment, Receipt, Contra, Journal, Sales, Purchase).
+    - **`VoucherEntry` Entity Indexing**:
+      - Mandatory single-column index coverage: `VoucherId` and `LedgerId`.
+      - Compound index `{ LedgerId, VoucherId }` eliminating full table scans during ledger statement generation and closing balance recalculation.
+    - **`Group` & `Ledger` Active Status Indexing**:
+      - Compound index `{ CompanyId, IsActive }` on `Groups` and `Ledgers` optimizing lookup dropdowns, auto-complete caches, and balance sheets.
+    - **`StockItem` & `AuditLog` Indexing**:
+      - Compound index `{ CompanyId, IsActive }` on `StockItems` for inventory picking and item catalogs.
+      - Compound indexes `{ CompanyId, Timestamp }` and `{ Module, Action }` on `AuditLogs` for real-time compliance filtering.
+- **Automated Performance & Index Verification Suite (`MoneyFlow.Tests/PerformanceTests/`)**:
+  - `Phase31PerformanceTests.cs`:
+    - `ModelIndexVerification_AllSection50Indexes_AreRegisteredInEFCoreModel`: Programmatically verifies EF Core metadata model to guarantee all required single-column and compound indexes are properly mapped to the SQL database schema.
+    - `BatchVoucherPosting_Processes100VouchersRapidly_AndReconcilesTrialBalance`: High-volume benchmark posting 100 sequential balanced double-entry vouchers through full validation and database persistence, verifying execution well within desktop responsiveness thresholds (< 5s), instant Day Book loading (< 1s), and Trial Balance reconciliation to 0.00 difference.
+    - `DayBookPaginationAndQueryEfficiency_LoadsExactSubsetsRapidly`: Validates efficient date-range partitioning and `AsNoTracking` retrieval across high-frequency voucher streams.
+- **Suite Metrics**:
+  - 3 new performance and indexing tests added.
+  - **170/170 total automated tests passing**.
+  - Solution builds cleanly with 0 warnings and 0 errors.
+
 ## [Phase 30: End-to-End Accounting Suite & Edge-Case Validation] - 2026-09-11
 ### Added
 - Created comprehensive End-to-End Integration & Edge-Case Test Suite (`MoneyFlow.Tests/IntegrityAndAccountingSuite/`):

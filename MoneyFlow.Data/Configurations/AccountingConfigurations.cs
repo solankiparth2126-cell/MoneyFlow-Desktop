@@ -91,6 +91,7 @@ public class GroupConfiguration : IEntityTypeConfiguration<Group>
 
         builder.HasIndex(g => new { g.CompanyId, g.GroupName });
         builder.HasIndex(g => g.ParentGroupId);
+        builder.HasIndex(g => new { g.CompanyId, g.IsActive });
     }
 }
 
@@ -134,6 +135,7 @@ public class LedgerConfiguration : IEntityTypeConfiguration<Ledger>
 
         builder.HasIndex(l => new { l.CompanyId, l.LedgerName });
         builder.HasIndex(l => l.GroupId);
+        builder.HasIndex(l => new { l.CompanyId, l.IsActive });
     }
 }
 
@@ -184,7 +186,11 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.HasIndex(v => v.CompanyId);
         builder.HasIndex(v => v.FinancialYearId);
         builder.HasIndex(v => v.VoucherDate);
+        builder.HasIndex(v => v.VoucherNumber);
         builder.HasIndex(v => new { v.CompanyId, v.VoucherNumber });
+        builder.HasIndex(v => new { v.CompanyId, v.FinancialYearId, v.VoucherDate, v.IsDeleted });
+        builder.HasIndex(v => new { v.CompanyId, v.VoucherDate, v.IsDeleted });
+        builder.HasIndex(v => new { v.CompanyId, v.VoucherTypeId, v.FinancialYearId });
     }
 }
 
@@ -217,5 +223,6 @@ public class VoucherEntryConfiguration : IEntityTypeConfiguration<VoucherEntry>
 
         builder.HasIndex(e => e.VoucherId);
         builder.HasIndex(e => e.LedgerId);
+        builder.HasIndex(e => new { e.LedgerId, e.VoucherId });
     }
 }
