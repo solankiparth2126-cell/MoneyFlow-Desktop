@@ -38,7 +38,8 @@ public class SearchService : ISearchService
         ("Sales Voucher (F8)", "sales f8 invoice customer credit sale bill", "Sales invoice voucher", "Sales"),
         ("Purchase Voucher (F9)", "purchase f9 vendor bill supplier purchase", "Purchase invoice voucher", "Purchase"),
         ("Debit Note (Ctrl+F9)", "debit note purchase return supplier allowance", "Purchase returns voucher", "DebitNote"),
-        ("Credit Note (Ctrl+F8)", "credit note sales return customer credit", "Sales returns voucher", "CreditNote")
+        ("Credit Note (Ctrl+F8)", "credit note sales return customer credit", "Sales returns voucher", "CreditNote"),
+        ("Backup & Restore System (F10)", "backup restore database company mfb bak snapshot archive recovery", "Local backup and restore manager with SHA-256 validation", "BackupRestore")
     };
 
     public SearchService(

@@ -2,6 +2,39 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 27: Local Backup & Restore System] - 2026-09-11
+### Added
+- Created `IBackupRestoreService` and `BackupRestoreService` (Master Prompt Section 43 & 61):
+  - **Dual Backup Format Support**:
+    - `.mfb` (MoneyFlow Backup Archive): Portable compressed ZIP archive storing `manifest.json` and complete company data payload in `data.json` with embedded SHA-256 integrity checksum. Suitable for transferring companies across desktop PCs and flash drives.
+    - `.bak` (Full SQL Server Database Backup): Native relational database backup via T-SQL `BACKUP DATABASE ... TO DISK` with compression for complete instance snapshots.
+  - **Zero-Overwrite Rule**: Automatically enforces incremental filename timestamping (`{CompanyName}_{yyyy-MM-dd_HHmm}.mfb`) and appends collision counters (`_01`, `_02`) if a file of the same name already exists in the target directory.
+  - **Archive Inspection & Manifest Reader**: Reads header metadata (`ReadManifestAsync`) including company name, financial year, record counts (Ledgers, Vouchers, Stock Items), and validates SHA-256 hash without extracting the archive.
+  - **Safe Restore Modes**:
+    - *Restore as New Company (Copy)*: Dynamically recreates the company with a unique company ID and systematically remaps parent-child group hierarchies, unit references, ledger identifiers, and voucher entry foreign keys.
+    - *Overwrite Existing Company*: Replaces child accounts, inventory, and vouchers for an existing selected company following explicit double-confirmation prompts.
+  - **Backup Repository & History Enumeration**: `GetBackupHistoryAsync` scans the backup folder and reports file names, company names, creation dates, sizes, and archive validity status.
+- Created `BackupRestoreForm`:
+  - Tab 1: **Create Backup (F10)**: Source company selector, destination directory browser (defaulting to `Documents\MoneyFlow\Backups`), format radio buttons (`.mfb` vs `.bak`), notes/comment input, "Create Backup Now" button with realtime execution log.
+  - Tab 2: **Restore Wizard**: Backup file picker (`*.mfb;*.bak`), archive inspection card displaying company name, financial year, record counts, and green SHA-256 checksum integrity verification badge. Restore destination options (New Company copy vs Overwrite with safety warnings).
+  - Tab 3: **Backup Repository & History**: Directory browser with "Open in Explorer", DataGridView of historical backups, "Verify Selected Backup" dialog, and "Restore Selected Backup..." action button.
+- Integrated into `MainForm`:
+  - Added `Backup & Restore System (F10)...` to `Utilities` menu.
+  - Added `F10: Backup / Restore` shortcut button to quick action ToolStrip.
+  - Added `Backup & Restore (F10)` item to Gateway of Accounting list.
+  - Added `F10` key handler to global shortcut interceptor.
+  - Registered `Backup & Restore System (F10)` in Go-To command palette catalog (`SearchService.cs`).
+  - Registered `IBackupRestoreService` and `BackupRestoreForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase27BackupRestoreTests.cs`:
+  - Portable ZIP archive creation with `manifest.json` and SHA-256 checksum calculation.
+  - Manifest reading and metadata verification without full archive extraction.
+  - Restore as new company with foreign key and ledger remapping.
+  - Corrupted/tampered archive detection and checksum verification failure handling.
+  - Zero-overwrite rule and incremental counter suffix generation.
+  - Backup history enumeration and validity checks.
+  - Overwrite existing company child records replacement.
+  - 7/7 new tests passing (134/134 total tests passing across all test suites).
+
 ## [Phase 26: Data Import & Export (Masters & Transactions)] - 2026-09-11
 ### Added
 - Created `ImportExportForm` (Data Import & Export Center):

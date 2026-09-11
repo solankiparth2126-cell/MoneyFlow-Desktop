@@ -6,6 +6,8 @@ namespace MoneyFlow.Core.DTOs;
 
 public class VoucherEntryDto
 {
+    public int VoucherEntryId { get; set; }
+    public int VoucherId { get; set; }
     public int LedgerId { get; set; }
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }

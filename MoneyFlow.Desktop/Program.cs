@@ -21,6 +21,7 @@ using MoneyFlow.Services.Inventory;
 using MoneyFlow.Services.Search;
 using MoneyFlow.Services.Dashboard;
 using MoneyFlow.Services.ImportExport;
+using MoneyFlow.Services.Backup;
 
 namespace MoneyFlow.Desktop;
 
@@ -88,6 +89,9 @@ static class Program
                 // Data Import / Export Service (Phase 26)
                 services.AddScoped<IImportExportService, ImportExportService>();
 
+                // Local Backup & Restore Service (Phase 27)
+                services.AddScoped<IBackupRestoreService, BackupRestoreService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -121,6 +125,7 @@ static class Program
                 services.AddTransient<GlobalSearchForm>();
                 services.AddTransient<DashboardForm>();
                 services.AddTransient<ImportExportForm>();
+                services.AddTransient<BackupRestoreForm>();
             })
             .Build();
 

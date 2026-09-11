@@ -22,6 +22,7 @@ public class MainForm : Form
     private readonly ISearchService _searchService;
     private readonly IDashboardService _dashboardService;
     private readonly IImportExportService _importExportService;
+    private readonly IBackupRestoreService _backupRestoreService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -49,7 +50,8 @@ public class MainForm : Form
         IInventoryService inventoryService,
         ISearchService searchService,
         IDashboardService dashboardService,
-        IImportExportService importExportService)
+        IImportExportService importExportService,
+        IBackupRestoreService backupRestoreService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -63,6 +65,7 @@ public class MainForm : Form
         _searchService = searchService;
         _dashboardService = dashboardService;
         _importExportService = importExportService;
+        _backupRestoreService = backupRestoreService;
 
         InitializeComponent();
 
@@ -128,8 +131,7 @@ public class MainForm : Form
         menuUtilities.DropDownItems.Add("&Global Search (Alt+G)", null, (s, e) => OpenGlobalSearch());
         menuUtilities.DropDownItems.Add("&Import / Export Data...", null, (s, e) => OpenImportExport());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
-        menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
-        menuUtilities.DropDownItems.Add("Restore Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Restore (Phase 28)"));
+        menuUtilities.DropDownItems.Add("&Backup & Restore System (F10)...", null, (s, e) => OpenBackupRestore());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("Connection Diagnostics", null, (s, e) => OpenDatabaseDiagnostics());
 
@@ -164,6 +166,8 @@ public class MainForm : Form
         toolStrip.Items.Add(new ToolStripButton("F9: Purchase", null, (s, e) => OpenPurchaseVoucher()));
         toolStrip.Items.Add(new ToolStripButton("Debit Note (Ctrl+F9)", null, (s, e) => OpenDebitNote()));
         toolStrip.Items.Add(new ToolStripButton("Credit Note (Ctrl+F8)", null, (s, e) => OpenCreditNote()));
+        toolStrip.Items.Add(new ToolStripSeparator());
+        toolStrip.Items.Add(new ToolStripButton("F10: Backup / Restore", null, (s, e) => OpenBackupRestore()) { BackColor = Color.FromArgb(39, 174, 96), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("DB Diagnostics", null, (s, e) => OpenDatabaseDiagnostics()));
         this.Controls.Add(toolStrip);
@@ -307,7 +311,7 @@ public class MainForm : Form
             "  Stock Summary",
             "  ---------------------------------",
             "  Import / Export Data",
-            "  Utilities & Backup",
+            "  Backup & Restore (F10)",
             "  Database Diagnostics",
             "  Quit (Esc)"
         });
@@ -459,6 +463,10 @@ public class MainForm : Form
         else if (selected.Contains("Import") || selected.Contains("Export"))
         {
             OpenImportExport();
+        }
+        else if (selected.Contains("Backup") || selected.Contains("Restore"))
+        {
+            OpenBackupRestore();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -788,6 +796,12 @@ public class MainForm : Form
         form.ShowDialog(this);
     }
 
+    private void OpenBackupRestore()
+    {
+        using var form = new BackupRestoreForm(_backupRestoreService, _companyService, _companyContext);
+        form.ShowDialog(this);
+    }
+
     private void OpenGlobalSearch()
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
@@ -813,6 +827,7 @@ public class MainForm : Form
                 {
                     case "Dashboard": OpenDashboard(); break;
                     case "ImportExport": OpenImportExport(); break;
+                    case "BackupRestore": OpenBackupRestore(); break;
                     case "DayBook": OpenDayBook(); break;
                     case "TrialBalance": OpenTrialBalance(); break;
                     case "ProfitLoss": OpenProfitLoss(); break;
@@ -984,6 +999,9 @@ public class MainForm : Form
                 break;
             case Keys.F9:
                 OpenPurchaseVoucher();
+                break;
+            case Keys.F10:
+                OpenBackupRestore();
                 break;
         }
     }
