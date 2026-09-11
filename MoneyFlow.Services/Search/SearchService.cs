@@ -18,6 +18,7 @@ public class SearchService : ISearchService
 
     private static readonly List<(string Title, string Keywords, string Subtitle, string Target)> NavigationCatalog = new()
     {
+        ("Executive Dashboard", "dashboard kpi overview executive summary working capital liquidity", "Executive KPI Overview & Financial Health", "Dashboard"),
         ("Day Book", "day book daily vouchers transactions entries", "Chronological audit register across all 8 voucher types", "DayBook"),
         ("Trial Balance", "trial balance tb debits credits reconciliation", "Double-entry mathematical reconciliation matrix", "TrialBalance"),
         ("Profit & Loss Account", "profit loss p&l pnl income expense trading gross net", "Trading and Profit & Loss Statement", "ProfitLoss"),

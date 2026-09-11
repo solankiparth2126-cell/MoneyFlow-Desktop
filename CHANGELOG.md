@@ -2,6 +2,39 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 25: Executive Accounting Dashboard & Financial KPIs] - 2026-09-11
+### Added
+- Created `DashboardForm`:
+  - Executive Financial Command Center adhering to Master Prompt Section 26, 67.
+  - 4 Dynamic Executive KPI Cards:
+    - *Liquid Funds*: Cash-in-Hand + Bank Accounts total liquid balance with drill-down to Cash/Bank Book.
+    - *Working Capital*: Total Receivables (Sundry Debtors) vs Total Payables (Sundry Creditors) and Net Position with drill-down to Outstanding Analysis.
+    - *Profitability*: FYTD Total Sales, Total Purchases, and Net Profit / Loss (color-coded) with drill-down to Profit & Loss Account.
+    - *Inventory Valuation*: Active Stock Items count and total closing stock valuation with drill-down to Stock Summary.
+  - Multi-tab detailed analytics:
+    - *Monthly Trends*: Monthly breakdown of Sales, Purchases, Receipts (Inflows), and Payments (Outflows) across the active Financial Year.
+    - *Top Outstanding Parties*: Split panels displaying Top 5 Debtors (Receivables) and Top 5 Creditors (Payables) with balances.
+    - *Recent Transactions*: High-density grid of latest 10 vouchers with double-click / `Enter` drill-down into detailed transaction audit modal.
+  - Quick action toolbar: Direct one-click shortcuts for `Payment (F5)`, `Receipt (F6)`, `Sales (F8)`, `Purchase (F9)`, `Day Book`, `Trial Balance`, `P&L`, `Balance Sheet`, `Stock Summary`, and `Go To (Alt+G)`.
+  - Date filtering: `As of Date (F2)` picker, `Refresh (F5)`, `Print / Preview (Ctrl+P)`, and RFC 4180 CSV export.
+- Created `IDashboardService` and `DashboardService`:
+  - Real-time financial synthesis calculating liquid funds, receivables, payables, working capital, profitability (Sales, Purchases, Direct/Indirect Expenses & Incomes, Gross & Net Profit), inventory valuation, and monthly trends.
+  - Strict multi-company data isolation enforcing company boundaries across all calculations.
+  - Added DTOs: `DashboardDto`, `MonthlyFinancialSummaryDto`, `TopPartyOutstandingDto`, and `RecentVoucherDto`.
+- Integrated into `MainForm`:
+  - Added `Dashboard (Executive Overview)` to Gateway of Accounting menu list.
+  - Added `Dashboard` button on top ToolStrip toolbar.
+  - Added `&Dashboard` to `Reports` menu.
+  - Added `Executive Dashboard` to `SearchService` navigation catalog.
+  - Registered `IDashboardService` and `DashboardForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase25DashboardTests.cs`:
+  - Liquid funds calculation across cash and bank accounts with voucher receipts and contra transfers.
+  - Receivables and payables calculation for debtors and creditors.
+  - Profitability metrics (Sales, Purchases, Gross & Net Profit) and monthly trend grouping.
+  - Stock items count and inventory valuation aggregation.
+  - Strict multi-company isolation verification.
+  - 5/5 new tests passing (121/121 total tests passing across all test suites).
+
 ## [Phase 24: Global Search (Alt+G / Ctrl+K Go-To & Search Engine)] - 2026-09-11
 ### Added
 - Created `GlobalSearchForm` (Spotlight / Go-To Command Palette):

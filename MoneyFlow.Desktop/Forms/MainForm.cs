@@ -20,6 +20,7 @@ public class MainForm : Form
     private readonly IAccountingService _accountingService;
     private readonly IInventoryService _inventoryService;
     private readonly ISearchService _searchService;
+    private readonly IDashboardService _dashboardService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -45,7 +46,8 @@ public class MainForm : Form
         ILedgerService ledgerService,
         IAccountingService accountingService,
         IInventoryService inventoryService,
-        ISearchService searchService)
+        ISearchService searchService,
+        IDashboardService dashboardService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -57,6 +59,7 @@ public class MainForm : Form
         _accountingService = accountingService;
         _inventoryService = inventoryService;
         _searchService = searchService;
+        _dashboardService = dashboardService;
 
         InitializeComponent();
 
@@ -107,6 +110,8 @@ public class MainForm : Form
         menuTransactions.DropDownItems.Add("&Credit Note (Ctrl+F8)", null, (s, e) => OpenCreditNote());
 
         var menuReports = new ToolStripMenuItem("&Reports");
+        menuReports.DropDownItems.Add("&Dashboard", null, (s, e) => OpenDashboard());
+        menuReports.DropDownItems.Add(new ToolStripSeparator());
         menuReports.DropDownItems.Add("&Day Book", null, (s, e) => OpenDayBook());
         menuReports.DropDownItems.Add("&Ledger Statement", null, (s, e) => OpenLedgerStatement());
         menuReports.DropDownItems.Add("&Trial Balance", null, (s, e) => OpenTrialBalance());
@@ -143,6 +148,7 @@ public class MainForm : Form
         };
         toolStrip.Items.Add(new ToolStripLabel("Shortcuts: "));
         toolStrip.Items.Add(new ToolStripButton("Go To (Alt+G)", null, (s, e) => OpenGlobalSearch()) { BackColor = Color.FromArgb(24, 43, 73), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+        toolStrip.Items.Add(new ToolStripButton("Dashboard", null, (s, e) => OpenDashboard()) { BackColor = Color.FromArgb(41, 128, 185), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("F2: Period / FY", null, (s, e) => OpenFinancialYearList()));
         toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
@@ -287,6 +293,7 @@ public class MainForm : Form
             "  Credit Note (Ctrl+F8)",
             "  Accounting Vouchers",
             "  ---------------------------------",
+            "  Dashboard (Executive Overview)",
             "  Day Book",
             "  Trial Balance",
             "  Profit & Loss A/c",
@@ -407,6 +414,10 @@ public class MainForm : Form
         else if (selected.Contains("Credit Note"))
         {
             OpenCreditNote();
+        }
+        else if (selected.Contains("Dashboard"))
+        {
+            OpenDashboard();
         }
         else if (selected.Contains("Day Book"))
         {
@@ -724,6 +735,37 @@ public class MainForm : Form
         summaryForm.ShowDialog(this);
     }
 
+    private void OpenDashboard()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var dashForm = new DashboardForm(_dashboardService, _accountingService, _companyContext);
+        dashForm.OnNavigateRequested = (target) =>
+        {
+            switch (target)
+            {
+                case "Payment": OpenPaymentVoucher(); break;
+                case "Receipt": OpenReceiptVoucher(); break;
+                case "Sales": OpenSalesVoucher(); break;
+                case "Purchase": OpenPurchaseVoucher(); break;
+                case "DayBook": OpenDayBook(); break;
+                case "TrialBalance": OpenTrialBalance(); break;
+                case "ProfitLoss": OpenProfitLoss(); break;
+                case "BalanceSheet": OpenBalanceSheet(); break;
+                case "CashBankBook": OpenCashBankBook(); break;
+                case "Outstanding": OpenOutstandingReport(); break;
+                case "StockSummary": OpenStockSummary(); break;
+                case "GoTo": OpenGlobalSearch(); break;
+            }
+        };
+        dashForm.ShowDialog(this);
+    }
+
     private void OpenGlobalSearch()
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
@@ -747,6 +789,7 @@ public class MainForm : Form
             case GlobalSearchCategory.Navigation:
                 switch (result.NavigationTarget)
                 {
+                    case "Dashboard": OpenDashboard(); break;
                     case "DayBook": OpenDayBook(); break;
                     case "TrialBalance": OpenTrialBalance(); break;
                     case "ProfitLoss": OpenProfitLoss(); break;
