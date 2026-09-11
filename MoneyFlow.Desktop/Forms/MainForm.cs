@@ -19,6 +19,7 @@ public class MainForm : Form
     private readonly ILedgerService _ledgerService;
     private readonly IAccountingService _accountingService;
     private readonly IInventoryService _inventoryService;
+    private readonly ISearchService _searchService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -43,7 +44,8 @@ public class MainForm : Form
         IGroupService groupService,
         ILedgerService ledgerService,
         IAccountingService accountingService,
-        IInventoryService inventoryService)
+        IInventoryService inventoryService,
+        ISearchService searchService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -54,6 +56,7 @@ public class MainForm : Form
         _ledgerService = ledgerService;
         _accountingService = accountingService;
         _inventoryService = inventoryService;
+        _searchService = searchService;
 
         InitializeComponent();
 
@@ -114,6 +117,8 @@ public class MainForm : Form
         menuReports.DropDownItems.Add("&Stock Summary", null, (s, e) => OpenStockSummary());
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
+        menuUtilities.DropDownItems.Add("&Global Search (Alt+G)", null, (s, e) => OpenGlobalSearch());
+        menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
         menuUtilities.DropDownItems.Add("Restore Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Restore (Phase 28)"));
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
@@ -137,6 +142,8 @@ public class MainForm : Form
             Font = new Font("Segoe UI", 9F)
         };
         toolStrip.Items.Add(new ToolStripLabel("Shortcuts: "));
+        toolStrip.Items.Add(new ToolStripButton("Go To (Alt+G)", null, (s, e) => OpenGlobalSearch()) { BackColor = Color.FromArgb(24, 43, 73), ForeColor = Color.White, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+        toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("F2: Period / FY", null, (s, e) => OpenFinancialYearList()));
         toolStrip.Items.Add(new ToolStripButton("F3: Company", null, (s, e) => OpenCompanyList()));
         toolStrip.Items.Add(new ToolStripButton("F4: Contra", null, (s, e) => OpenContraVoucher()));
@@ -263,6 +270,7 @@ public class MainForm : Form
         };
 
         lstGatewayMenu.Items.AddRange(new object[] {
+            "  Go To / Search (Alt+G)",
             "  Company Info (Select / Create / Alter)",
             "  ---------------------------------",
             "  Groups (Chart of Accounts)",
@@ -344,7 +352,11 @@ public class MainForm : Form
         var selected = lstGatewayMenu.SelectedItem?.ToString()?.Trim();
         if (string.IsNullOrEmpty(selected) || selected.StartsWith("-")) return;
 
-        if (selected.Contains("Company Info"))
+        if (selected.Contains("Go To") || selected.Contains("Search"))
+        {
+            OpenGlobalSearch();
+        }
+        else if (selected.Contains("Company Info"))
         {
             OpenCompanyList();
         }
@@ -712,6 +724,76 @@ public class MainForm : Form
         summaryForm.ShowDialog(this);
     }
 
+    private void OpenGlobalSearch()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var searchForm = new GlobalSearchForm(_searchService, _companyContext, (result) =>
+        {
+            HandleSearchResultNavigation(result);
+        });
+        searchForm.ShowDialog(this);
+    }
+
+    private void HandleSearchResultNavigation(GlobalSearchResultDto result)
+    {
+        switch (result.Category)
+        {
+            case GlobalSearchCategory.Navigation:
+                switch (result.NavigationTarget)
+                {
+                    case "DayBook": OpenDayBook(); break;
+                    case "TrialBalance": OpenTrialBalance(); break;
+                    case "ProfitLoss": OpenProfitLoss(); break;
+                    case "BalanceSheet": OpenBalanceSheet(); break;
+                    case "CashBankBook": OpenCashBankBook(); break;
+                    case "Outstanding": OpenOutstandingReport(); break;
+                    case "StockSummary": OpenStockSummary(); break;
+                    case "Ledgers": OpenLedgerList(); break;
+                    case "Groups": OpenGroupList(); break;
+                    case "StockItems": OpenStockItemList(); break;
+                    case "Units": OpenUnitList(); break;
+                    case "Contra": OpenContraVoucher(); break;
+                    case "Payment": OpenPaymentVoucher(); break;
+                    case "Receipt": OpenReceiptVoucher(); break;
+                    case "Journal": OpenJournalVoucher(); break;
+                    case "Sales": OpenSalesVoucher(); break;
+                    case "Purchase": OpenPurchaseVoucher(); break;
+                    case "DebitNote": OpenDebitNote(); break;
+                    case "CreditNote": OpenCreditNote(); break;
+                }
+                break;
+
+            case GlobalSearchCategory.Ledger:
+                if (result.EntityId.HasValue)
+                {
+                    using var stmt = new LedgerStatementForm(_accountingService, _ledgerService, _companyContext);
+                    stmt.ShowDialog(this);
+                }
+                break;
+
+            case GlobalSearchCategory.StockItem:
+                if (result.EntityId.HasValue)
+                {
+                    using var editItem = new StockItemCreateEditForm(_inventoryService, _companyContext, result.EntityId.Value);
+                    editItem.ShowDialog(this);
+                }
+                break;
+
+            case GlobalSearchCategory.Voucher:
+                if (result.EntityId.HasValue)
+                {
+                    MessageBox.Show(this, $"{result.Title}\n{result.Subtitle}\nAmount: {result.FormattedAmount}", "Voucher Quick View", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                break;
+        }
+    }
+
     private void OpenCompanyList()
     {
         using var listForm = new CompanyListForm(_companyService, _companyContext);
@@ -787,6 +869,13 @@ public class MainForm : Form
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
     {
+        if ((e.Alt && e.KeyCode == Keys.G) || (e.Control && e.KeyCode == Keys.K))
+        {
+            OpenGlobalSearch();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Control && e.KeyCode == Keys.F9)
         {
             OpenDebitNote();

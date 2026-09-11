@@ -18,6 +18,7 @@ using MoneyFlow.Services.Group;
 using MoneyFlow.Services.Ledger;
 using MoneyFlow.Services.Accounting;
 using MoneyFlow.Services.Inventory;
+using MoneyFlow.Services.Search;
 
 namespace MoneyFlow.Desktop;
 
@@ -76,6 +77,9 @@ static class Program
                 // Inventory Service (Phase 23)
                 services.AddScoped<IInventoryService, InventoryService>();
 
+                // Global Search Service (Phase 24)
+                services.AddScoped<ISearchService, SearchService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -106,6 +110,7 @@ static class Program
                 services.AddTransient<OutstandingReportForm>();
                 services.AddTransient<CashBankBookForm>();
                 services.AddTransient<StockSummaryForm>();
+                services.AddTransient<GlobalSearchForm>();
             })
             .Build();
 

@@ -2,6 +2,33 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 24: Global Search (Alt+G / Ctrl+K Go-To & Search Engine)] - 2026-09-11
+### Added
+- Created `GlobalSearchForm` (Spotlight / Go-To Command Palette):
+  - Tally-inspired Section 64 fast navigation and universal search dialog invoked via `Alt+G` or `Ctrl+K`.
+  - Prominent search input box with placeholder hints and debounced live querying.
+  - Tabbed filter bar for entity classification: `All`, `Ledgers`, `Vouchers`, `Stock Items`, and `Navigation`.
+  - High-density DataGridView with entity category badges (`[Ledger]`, `[Voucher]`, `[StockItem]`, `[Navigation]`), Primary Title, Contextual Subtitle, Formatted Amount (`₹N2`), and Date.
+  - Full keyboard navigation: `Up`/`Down` arrow navigation, `Enter` to jump/drill-down into selected result, `Esc` to close, `Tab` cycle, and hotkey accelerator support.
+- Created `ISearchService` and `SearchService`:
+  - Multi-entity asynchronous search aggregator across Ledgers, Vouchers, Stock Items, and Navigation screens.
+  - Multi-company data isolation enforcing company boundaries across all database queries.
+  - Smart search parsing: exact amount matching (e.g. `7500` finds vouchers with debit/credit ₹7,500.00), voucher numbering, narration matching, and account names.
+  - Comprehensive Navigation Catalog mapping 19 standard accounting reports, registers, master lists, and voucher entry screens (Contra, Payment, Receipt, Journal, Sales, Purchase, Debit Note, Credit Note, Day Book, Trial Balance, P&L, Balance Sheet, Cash/Bank Book, Outstanding Analysis, Stock Summary, Ledgers, Groups, Stock Items, Units).
+  - Added DTOs: `GlobalSearchCategory` enum and `GlobalSearchResultDto`.
+- Integrated into `MainForm`:
+  - Registered global keyboard shortcuts `Alt+G` and `Ctrl+K` for instant command palette launching.
+  - Added `Go To / Search... (Alt+G)` to the Gateway of Accounting menu list, main toolbar icon button, and `Edit -> &Go To / Search (Alt+G)` menu item.
+  - Wired direct drill-down dispatching: selecting a search result instantly routes and opens the appropriate form (e.g. Day Book, Trial Balance, Profit & Loss, Balance Sheet, Cash/Bank Book, Outstanding, Stock Summary, Ledgers, Groups, Stock Items, Units, or specific voucher entry screens).
+  - Registered `ISearchService` and `GlobalSearchForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase24GlobalSearchTests.cs`:
+  - Navigation screen discovery on empty query and keyword matching (e.g. "pnl", "contra", "tb").
+  - Ledger search by name and group with strict multi-company boundary isolation.
+  - Stock item search by name and unit.
+  - Voucher search by voucher number, narration, and parsed numeric amount.
+  - Category filtering across All, Ledgers, and Stock Items.
+  - 5/5 new tests passing (116/116 total tests passing across all test suites).
+
 ## [Phase 23: Basic Inventory (Units of Measure, Stock Items & Stock Summary)] - 2026-09-11
 ### Added
 - Created `UnitListForm` & `UnitCreateEditForm`:
