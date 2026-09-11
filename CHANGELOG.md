@@ -2,6 +2,29 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 33: Windows Installer & Database Deployment] - 2026-09-11
+### Added
+- Created Inno Setup Windows Installer configuration in `installer/MoneyFlowSetup.iss` (Master Prompt Section 58 "INSTALLATION"):
+  - Standard target installation directory: `C:\Program Files\MoneyFlow\`.
+  - Output installer executable: `MoneyFlowSetup.exe` with LZMA2 ultra64 compression and administrator privilege elevation.
+  - Windows shortcuts: Start Menu program group and optional Desktop shortcut.
+  - Automatic launch action post-installation.
+- Created automated packaging pipeline in `installer/build-installer.ps1`:
+  - Compiles release distribution package via `dotnet publish` with win-x64 architecture.
+  - Auto-discovers Inno Setup Compiler (`ISCC.exe`) across registry and standard system paths.
+  - Calculates SHA256 checksums and file sizes for distribution verification.
+- Created production SQL Server database administration scripts in `database/scripts/` (Master Prompt Section 61 "DATABASE MANAGEMENT"):
+  - `01_CreateDatabaseAndTables.sql`: Full DDL script creating `MoneyFlowDB` and all 16 relational tables with primary keys, foreign keys, and cascading rules.
+  - `02_CreateIndexesAndConstraints.sql`: Performance indexes including compound index coverage for Vouchers, VoucherEntries, Groups, Ledgers, StockItems, and AuditLogs per Section 50.
+  - `03_SeedSystemData.sql`: Initial system dataset including standard voucher types, 4 RBAC roles, default administrator user, and default system settings.
+  - `04_BackupAndRestore.sql`: T-SQL automated backup and restore stored procedures (`usp_BackupMoneyFlowDB` and `usp_RestoreMoneyFlowDB`).
+- Created automated installer verification test suite in `MoneyFlow.Tests/InstallerTests/Phase33InstallerTests.cs`:
+  - Validates Inno Setup configuration against Section 58 rules.
+  - Validates build automation script.
+  - Validates SQL deployment scripts completeness and syntax.
+  - Validates release publication binary existence and integrity.
+  - 4 new tests added (**179/179 total tests passing**).
+
 ## [Phase 32: UI/UX Polish, Themes & Keyboard Flow] - 2026-09-11
 ### Added
 - Created `ThemeManager` and design token engine in `MoneyFlow.Desktop/Styling/` (Master Prompt Section 48 & 55):
