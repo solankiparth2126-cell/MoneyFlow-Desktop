@@ -2,6 +2,44 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 23: Basic Inventory (Units of Measure, Stock Items & Stock Summary)] - 2026-09-11
+### Added
+- Created `UnitListForm` & `UnitCreateEditForm`:
+  - Full Tally-inspired Section 26, 30 Units of Measure inventory master interface.
+  - Fields: Unit Symbol / Name (e.g. Nos, Kg, Box, Mtr), Formal Name, and Decimal Places (0–4).
+  - Fast live search filtering by symbol and formal name (`F3`).
+  - Actions: Create (`Alt+C`), Edit (`Enter`), Delete (`Del`), and hotkey shortcuts.
+- Created `StockItemListForm` & `StockItemCreateEditForm`:
+  - Full Tally-inspired Section 26, 30 Stock Item inventory master interface.
+  - High-density DataGridView: Item Name, Unit, Opening Quantity, Opening Rate (₹), Opening Value (₹), and Status.
+  - Auto-calculated Opening Stock Valuation (`OpeningValue = OpeningQuantity * OpeningRate`).
+  - Unit dropdown selector linking stock items to company units of measure.
+  - Duplicate item name prevention and company-isolated catalog management.
+  - Actions: Create (`Alt+C`), Edit (`Enter`), Delete (`Del`), and hotkeys.
+- Created `StockSummaryForm`:
+  - Full Tally-inspired Section 26, 30 Stock Summary inventory overview and valuation register.
+  - High-density DataGridView: Item Name, Unit, Opening Qty, Opening Value (₹), Closing Qty, Closing Rate (₹), and Closing Value (₹).
+  - `As of Date (F2)` date picker, live text search filter (`F3`), summary footer displaying total inventory valuation (`₹XX,XXX.XX`).
+  - Export to RFC 4180 CSV, Print Preview (`Ctrl+P`), and close (`Esc`).
+- Created `IInventoryService` and `InventoryService`:
+  - Full CRUD operations for Units of Measure with company isolation and dependency checking before deletion.
+  - Full CRUD operations for Stock Items with automatic valuation calculations and unique name constraints.
+  - `GetStockSummaryAsync(companyId, asOfDate)` calculating closing stock positions and valuations.
+  - Added DTOs: `UnitDto`, `UnitCreateDto`, `UnitUpdateDto`, `StockItemDto`, `StockItemCreateDto`, `StockItemUpdateDto`, `StockSummaryItemDto`, and `StockSummaryReportDto`.
+- Integrated into `MainForm`:
+  - Replaced placeholders with live menu items `Masters -> &Stock Items` and `Masters -> &Units of Measure`.
+  - Added menu item `Reports -> &Stock Summary`.
+  - Added `Stock Items`, `Units of Measure`, and `Stock Summary` to Gateway of Accounting list.
+  - Added launcher methods `OpenUnitList()`, `OpenStockItemList()`, and `OpenStockSummary()`.
+  - Registered `IInventoryService` and all inventory forms in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase23InventoryTests.cs`:
+  - Unit creation, case-insensitive duplicate prevention, and multi-company isolation.
+  - Foreign key protection: preventing unit deletion when in use by stock items.
+  - Stock item creation with auto-calculated opening value (`Qty * Rate`).
+  - Stock item modification and opening value recalculation.
+  - Stock Summary report generation and total closing inventory valuation.
+  - 5/5 new tests passing (111/111 total tests passing across all test suites).
+
 ## [Phase 22: Cash Book & Bank Book Reports] - 2026-09-11
 ### Added
 - Created `CashBankBookForm`:

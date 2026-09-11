@@ -18,6 +18,7 @@ public class MainForm : Form
     private readonly IGroupService _groupService;
     private readonly ILedgerService _ledgerService;
     private readonly IAccountingService _accountingService;
+    private readonly IInventoryService _inventoryService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -41,7 +42,8 @@ public class MainForm : Form
         IFinancialYearService fyService,
         IGroupService groupService,
         ILedgerService ledgerService,
-        IAccountingService accountingService)
+        IAccountingService accountingService,
+        IInventoryService inventoryService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -51,6 +53,7 @@ public class MainForm : Form
         _groupService = groupService;
         _ledgerService = ledgerService;
         _accountingService = accountingService;
+        _inventoryService = inventoryService;
 
         InitializeComponent();
 
@@ -87,8 +90,8 @@ public class MainForm : Form
         var menuMasters = new ToolStripMenuItem("&Masters");
         menuMasters.DropDownItems.Add("&Groups (Chart of Accounts)", null, (s, e) => OpenGroupList());
         menuMasters.DropDownItems.Add("&Ledgers", null, (s, e) => OpenLedgerList());
-        menuMasters.DropDownItems.Add("Stock Items (Phase 24)", null, (s, e) => ShowNotImplemented("Stock Items (Phase 24)"));
-        menuMasters.DropDownItems.Add("Units of Measure (Phase 24)", null, (s, e) => ShowNotImplemented("Units of Measure (Phase 24)"));
+        menuMasters.DropDownItems.Add("&Stock Items", null, (s, e) => OpenStockItemList());
+        menuMasters.DropDownItems.Add("&Units of Measure", null, (s, e) => OpenUnitList());
 
         var menuTransactions = new ToolStripMenuItem("&Transactions");
         menuTransactions.DropDownItems.Add("F4 - &Contra", null, (s, e) => OpenContraVoucher());
@@ -108,6 +111,7 @@ public class MainForm : Form
         menuReports.DropDownItems.Add("&Balance Sheet", null, (s, e) => OpenBalanceSheet());
         menuReports.DropDownItems.Add("&Cash / Bank Book", null, (s, e) => OpenCashBankBook());
         menuReports.DropDownItems.Add("&Outstanding Analysis", null, (s, e) => OpenOutstandingReport());
+        menuReports.DropDownItems.Add("&Stock Summary", null, (s, e) => OpenStockSummary());
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
         menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
@@ -263,6 +267,8 @@ public class MainForm : Form
             "  ---------------------------------",
             "  Groups (Chart of Accounts)",
             "  Ledgers",
+            "  Stock Items",
+            "  Units of Measure",
             "  Contra Voucher (F4)",
             "  Payment Voucher (F5)",
             "  Receipt Voucher (F6)",
@@ -279,6 +285,7 @@ public class MainForm : Form
             "  Balance Sheet",
             "  Cash / Bank Book",
             "  Outstanding Analysis",
+            "  Stock Summary",
             "  ---------------------------------",
             "  Utilities & Backup",
             "  Database Diagnostics",
@@ -349,6 +356,14 @@ public class MainForm : Form
         {
             OpenLedgerList();
         }
+        else if (selected.Contains("Stock Items"))
+        {
+            OpenStockItemList();
+        }
+        else if (selected.Contains("Units of Measure"))
+        {
+            OpenUnitList();
+        }
         else if (selected.Contains("Contra"))
         {
             OpenContraVoucher();
@@ -408,6 +423,10 @@ public class MainForm : Form
         else if (selected.Contains("Outstanding"))
         {
             OpenOutstandingReport();
+        }
+        else if (selected.Contains("Stock Summary"))
+        {
+            OpenStockSummary();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -652,6 +671,45 @@ public class MainForm : Form
             cashBankForm.SetInitialBookType(defaultType.Value);
         }
         cashBankForm.ShowDialog(this);
+    }
+
+    private void OpenUnitList()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var unitForm = new UnitListForm(_inventoryService, _companyContext);
+        unitForm.ShowDialog(this);
+    }
+
+    private void OpenStockItemList()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var stockForm = new StockItemListForm(_inventoryService, _companyContext);
+        stockForm.ShowDialog(this);
+    }
+
+    private void OpenStockSummary()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var summaryForm = new StockSummaryForm(_inventoryService, _companyContext);
+        summaryForm.ShowDialog(this);
     }
 
     private void OpenCompanyList()

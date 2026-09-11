@@ -17,6 +17,7 @@ using MoneyFlow.Services.FinancialYear;
 using MoneyFlow.Services.Group;
 using MoneyFlow.Services.Ledger;
 using MoneyFlow.Services.Accounting;
+using MoneyFlow.Services.Inventory;
 
 namespace MoneyFlow.Desktop;
 
@@ -72,6 +73,9 @@ static class Program
                 // Accounting Engine (Phase 7 Milestone)
                 services.AddScoped<IAccountingService, AccountingService>();
 
+                // Inventory Service (Phase 23)
+                services.AddScoped<IInventoryService, InventoryService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -82,6 +86,10 @@ static class Program
                 services.AddTransient<GroupCreateEditForm>();
                 services.AddTransient<LedgerListForm>();
                 services.AddTransient<LedgerCreateEditForm>();
+                services.AddTransient<UnitListForm>();
+                services.AddTransient<UnitCreateEditForm>();
+                services.AddTransient<StockItemListForm>();
+                services.AddTransient<StockItemCreateEditForm>();
                 services.AddTransient<PaymentVoucherForm>();
                 services.AddTransient<ReceiptVoucherForm>();
                 services.AddTransient<ContraVoucherForm>();
@@ -97,6 +105,7 @@ static class Program
                 services.AddTransient<BalanceSheetForm>();
                 services.AddTransient<OutstandingReportForm>();
                 services.AddTransient<CashBankBookForm>();
+                services.AddTransient<StockSummaryForm>();
             })
             .Build();
 
