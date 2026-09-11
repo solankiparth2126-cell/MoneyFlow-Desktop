@@ -2,6 +2,40 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 26: Data Import & Export (Masters & Transactions)] - 2026-09-11
+### Added
+- Created `ImportExportForm` (Data Import & Export Center):
+  - Staged Import Wizard adhering strictly to Master Prompt Section 44 ("Never directly insert unvalidated imported data into accounting tables").
+  - Entity selectors for `Chart of Accounts (Ledgers)`, `Stock Items (Inventory)`, and `Day Book (Vouchers / Transactions)`.
+  - Duplicate resolution policies: `Skip Duplicates (Recommended)`, `Update Existing`, and `Reject Batch on Duplicate`.
+  - Download Sample Template button to export pre-formatted CSV template structures with example records.
+  - Staged validation DataGridView displaying row numbers, color-coded status badges (`Valid [✔]`, `Duplicate [!]`, `Error [✖]`), primary identifiers, details, and validation error messages.
+  - Summary counter: `Total Rows | Valid | Duplicates | Errors`.
+  - Execution confirmation with final modal review before committing records to database.
+  - Export Center tab: Multi-entity export with date range filtering (for vouchers) and format options (`CSV RFC 4180`, `JSON`).
+- Created `CsvUtility`:
+  - RFC 4180 compliant CSV parser and writer with support for quoted strings, embedded commas, double quotes (`""`), and multiline fields.
+- Created `IImportExportService` and `ImportExportService`:
+  - Pipeline for template generation, CSV parsing, column mapping, pre-validation, duplicate detection, and atomic transaction execution.
+  - Foreign-key resolution for Groups (Ledgers) and Units (Stock Items).
+  - Validation for non-empty names, positive balances, Dr/Cr types, valid voucher dates, and distinct Dr/Cr ledgers.
+  - Multi-company boundary isolation enforced across all import and export operations.
+  - Multi-format data export to CSV and JSON formats.
+  - Added DTOs: `ImportEntityType`, `DuplicateAction`, `ImportRowStatus`, `ImportPreviewRowDto`, `ImportPreviewResultDto`, `ImportExecutionResultDto`, `ExportFormat`, and `ExportOptionsDto`.
+- Integrated into `MainForm`:
+  - Added `Import / Export Data...` to `Utilities` menu.
+  - Added `Import / Export Data` to Gateway of Accounting list.
+  - Added `Import / Export Data` to Go-To search catalog in `SearchService.cs`.
+  - Registered `IImportExportService` and `ImportExportForm` in Dependency Injection in `Program.cs`.
+- Added automated unit tests in `Phase26ImportExportTests.cs`:
+  - RFC 4180 CSV parser and serializer with quotes, commas, and escapes.
+  - Template CSV generation for all entities.
+  - Staged import preview validation and duplicate detection for ledgers.
+  - Atomic import execution with `Skip` and `Update` duplicate policies.
+  - Stock items import with unit linking and auto-valuation calculation.
+  - Multi-format data export to CSV and JSON.
+  - 6/6 new unit tests passing (127/127 total tests passing across all test suites).
+
 ## [Phase 25: Executive Accounting Dashboard & Financial KPIs] - 2026-09-11
 ### Added
 - Created `DashboardForm`:

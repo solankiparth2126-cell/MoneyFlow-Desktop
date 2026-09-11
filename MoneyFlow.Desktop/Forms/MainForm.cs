@@ -21,6 +21,7 @@ public class MainForm : Form
     private readonly IInventoryService _inventoryService;
     private readonly ISearchService _searchService;
     private readonly IDashboardService _dashboardService;
+    private readonly IImportExportService _importExportService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -47,7 +48,8 @@ public class MainForm : Form
         IAccountingService accountingService,
         IInventoryService inventoryService,
         ISearchService searchService,
-        IDashboardService dashboardService)
+        IDashboardService dashboardService,
+        IImportExportService importExportService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -60,6 +62,7 @@ public class MainForm : Form
         _inventoryService = inventoryService;
         _searchService = searchService;
         _dashboardService = dashboardService;
+        _importExportService = importExportService;
 
         InitializeComponent();
 
@@ -123,6 +126,7 @@ public class MainForm : Form
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
         menuUtilities.DropDownItems.Add("&Global Search (Alt+G)", null, (s, e) => OpenGlobalSearch());
+        menuUtilities.DropDownItems.Add("&Import / Export Data...", null, (s, e) => OpenImportExport());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("Backup Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Backup (Phase 28)"));
         menuUtilities.DropDownItems.Add("Restore Database (Phase 28)", null, (s, e) => ShowNotImplemented("Database Restore (Phase 28)"));
@@ -302,6 +306,7 @@ public class MainForm : Form
             "  Outstanding Analysis",
             "  Stock Summary",
             "  ---------------------------------",
+            "  Import / Export Data",
             "  Utilities & Backup",
             "  Database Diagnostics",
             "  Quit (Esc)"
@@ -450,6 +455,10 @@ public class MainForm : Form
         else if (selected.Contains("Stock Summary"))
         {
             OpenStockSummary();
+        }
+        else if (selected.Contains("Import") || selected.Contains("Export"))
+        {
+            OpenImportExport();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -766,6 +775,19 @@ public class MainForm : Form
         dashForm.ShowDialog(this);
     }
 
+    private void OpenImportExport()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            MessageBox.Show("Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            OpenCompanyList();
+            return;
+        }
+
+        using var form = new ImportExportForm(_importExportService, _companyContext);
+        form.ShowDialog(this);
+    }
+
     private void OpenGlobalSearch()
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
@@ -790,6 +812,7 @@ public class MainForm : Form
                 switch (result.NavigationTarget)
                 {
                     case "Dashboard": OpenDashboard(); break;
+                    case "ImportExport": OpenImportExport(); break;
                     case "DayBook": OpenDayBook(); break;
                     case "TrialBalance": OpenTrialBalance(); break;
                     case "ProfitLoss": OpenProfitLoss(); break;

@@ -20,6 +20,7 @@ using MoneyFlow.Services.Accounting;
 using MoneyFlow.Services.Inventory;
 using MoneyFlow.Services.Search;
 using MoneyFlow.Services.Dashboard;
+using MoneyFlow.Services.ImportExport;
 
 namespace MoneyFlow.Desktop;
 
@@ -84,6 +85,9 @@ static class Program
                 // Executive Dashboard Service (Phase 25)
                 services.AddScoped<IDashboardService, DashboardService>();
 
+                // Data Import / Export Service (Phase 26)
+                services.AddScoped<IImportExportService, ImportExportService>();
+
                 services.AddTransient<MainForm>();
                 services.AddTransient<DatabaseConnectionDialog>();
                 services.AddTransient<CompanyListForm>();
@@ -116,6 +120,7 @@ static class Program
                 services.AddTransient<StockSummaryForm>();
                 services.AddTransient<GlobalSearchForm>();
                 services.AddTransient<DashboardForm>();
+                services.AddTransient<ImportExportForm>();
             })
             .Build();
 
