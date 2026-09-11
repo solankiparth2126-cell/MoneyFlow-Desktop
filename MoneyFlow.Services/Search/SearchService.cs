@@ -39,7 +39,9 @@ public class SearchService : ISearchService
         ("Purchase Voucher (F9)", "purchase f9 vendor bill supplier purchase", "Purchase invoice voucher", "Purchase"),
         ("Debit Note (Ctrl+F9)", "debit note purchase return supplier allowance", "Purchase returns voucher", "DebitNote"),
         ("Credit Note (Ctrl+F8)", "credit note sales return customer credit", "Sales returns voucher", "CreditNote"),
-        ("Backup & Restore System (F10)", "backup restore database company mfb bak snapshot archive recovery", "Local backup and restore manager with SHA-256 validation", "BackupRestore")
+        ("Backup & Restore System (F10)", "backup restore database company mfb bak snapshot archive recovery", "Local backup and restore manager with SHA-256 validation", "BackupRestore"),
+        ("User Management & Security", "user management users security roles permissions access control password", "User accounts, roles, and permission matrix configuration", "UserManagement"),
+        ("Audit Trail Register", "audit trail log activity history timestamp user changes compliance", "Audit register of user actions, transactions, and system events", "UserManagement")
     };
 
     public SearchService(

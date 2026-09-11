@@ -23,6 +23,9 @@ public class MainForm : Form
     private readonly IDashboardService _dashboardService;
     private readonly IImportExportService _importExportService;
     private readonly IBackupRestoreService _backupRestoreService;
+    private readonly IUserContext _userContext;
+    private readonly ISecurityService _securityService;
+    private readonly IAuditService _auditService;
 
     // Controls
     private MenuStrip menuStrip = null!;
@@ -31,6 +34,7 @@ public class MainForm : Form
     private ToolStripStatusLabel lblStatusCompany = null!;
     private ToolStripStatusLabel lblStatusFY = null!;
     private ToolStripStatusLabel lblStatusDatabase = null!;
+    private ToolStripStatusLabel lblStatusUser = null!;
 
     // Gateway navigation panel
     private Panel gatewayPanel = null!;
@@ -51,7 +55,10 @@ public class MainForm : Form
         ISearchService searchService,
         IDashboardService dashboardService,
         IImportExportService importExportService,
-        IBackupRestoreService backupRestoreService)
+        IBackupRestoreService backupRestoreService,
+        IUserContext userContext,
+        ISecurityService securityService,
+        IAuditService auditService)
     {
         _context = context;
         _databaseSetupService = databaseSetupService;
@@ -66,11 +73,16 @@ public class MainForm : Form
         _dashboardService = dashboardService;
         _importExportService = importExportService;
         _backupRestoreService = backupRestoreService;
+        _userContext = userContext;
+        _securityService = securityService;
+        _auditService = auditService;
 
         InitializeComponent();
 
         _companyContext.OnCompanyChanged += UpdateCompanyContextUI;
+        _userContext.OnUserChanged += UpdateUserContextUI;
         UpdateCompanyContextUI();
+        UpdateUserContextUI();
     }
 
     private void InitializeComponent()
@@ -96,6 +108,8 @@ public class MainForm : Form
         menuCompany.DropDownItems.Add("Alter Company", null, (s, e) => OpenAlterCompany());
         menuCompany.DropDownItems.Add("Change Financial Year (F2)", null, (s, e) => OpenFinancialYearList());
         menuCompany.DropDownItems.Add("Close Company", null, (s, e) => CloseActiveCompany());
+        menuCompany.DropDownItems.Add(new ToolStripSeparator());
+        menuCompany.DropDownItems.Add("Switch User / Login...", null, (s, e) => OpenLoginForm());
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
         menuCompany.DropDownItems.Add("E&xit (Esc)", null, (s, e) => Application.Exit());
 
@@ -132,6 +146,8 @@ public class MainForm : Form
         menuUtilities.DropDownItems.Add("&Import / Export Data...", null, (s, e) => OpenImportExport());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("&Backup & Restore System (F10)...", null, (s, e) => OpenBackupRestore());
+        menuUtilities.DropDownItems.Add(new ToolStripSeparator());
+        menuUtilities.DropDownItems.Add("&User Management & Permissions...", null, (s, e) => OpenUserManagement());
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
         menuUtilities.DropDownItems.Add("Connection Diagnostics", null, (s, e) => OpenDatabaseDiagnostics());
 
@@ -185,11 +201,13 @@ public class MainForm : Form
         lblStatusCompany = new ToolStripStatusLabel("Company: [None Selected]") { ForeColor = Color.White };
         lblStatusFY = new ToolStripStatusLabel(" | FY: Not Selected") { ForeColor = Color.LightGreen };
         lblStatusDatabase = new ToolStripStatusLabel(" | DB: MoneyFlowDB (Connected)") { ForeColor = Color.LightSkyBlue };
+        lblStatusUser = new ToolStripStatusLabel(" | User: admin (Administrator)") { ForeColor = Color.LightYellow };
 
         statusStrip.Items.AddRange(new ToolStripItem[] {
             lblStatusCompany,
             lblStatusFY,
-            lblStatusDatabase
+            lblStatusDatabase,
+            lblStatusUser
         });
         this.Controls.Add(statusStrip);
 
@@ -312,6 +330,7 @@ public class MainForm : Form
             "  ---------------------------------",
             "  Import / Export Data",
             "  Backup & Restore (F10)",
+            "  User Management & Security",
             "  Database Diagnostics",
             "  Quit (Esc)"
         });
@@ -467,6 +486,10 @@ public class MainForm : Form
         else if (selected.Contains("Backup") || selected.Contains("Restore"))
         {
             OpenBackupRestore();
+        }
+        else if (selected.Contains("User Management") || selected.Contains("Security"))
+        {
+            OpenUserManagement();
         }
         else if (selected.Contains("Database Diagnostics"))
         {
@@ -802,6 +825,29 @@ public class MainForm : Form
         form.ShowDialog(this);
     }
 
+    private void OpenLoginForm()
+    {
+        using var login = new LoginForm(_securityService, _userContext);
+        if (login.ShowDialog(this) == DialogResult.OK)
+        {
+            UpdateUserContextUI();
+        }
+    }
+
+    private void OpenUserManagement()
+    {
+        using var form = new UserManagementForm(_securityService, _userContext, _auditService, _companyContext);
+        form.ShowDialog(this);
+    }
+
+    private void UpdateUserContextUI()
+    {
+        if (lblStatusUser != null)
+        {
+            lblStatusUser.Text = $" | User: {_userContext.Username} ({_userContext.RoleName})";
+        }
+    }
+
     private void OpenGlobalSearch()
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
@@ -828,6 +874,7 @@ public class MainForm : Form
                     case "Dashboard": OpenDashboard(); break;
                     case "ImportExport": OpenImportExport(); break;
                     case "BackupRestore": OpenBackupRestore(); break;
+                    case "UserManagement": OpenUserManagement(); break;
                     case "DayBook": OpenDayBook(); break;
                     case "TrialBalance": OpenTrialBalance(); break;
                     case "ProfitLoss": OpenProfitLoss(); break;

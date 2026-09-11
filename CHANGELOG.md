@@ -2,6 +2,57 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 28: Users, Roles & Security Permissions] - 2026-09-11
+### Added
+- Created `IUserContext`, `ISecurityService`, and `IAuditService` (Master Prompt Section 46 & 47):
+  - **Zero Plain-Text Password Security**:
+    - `PasswordHasher`: Cryptographically secure PBKDF2 implementation (`Rfc2898DeriveBytes.Pbkdf2`) with HMAC-SHA256, 128-bit random salt, and 100,000 iterations.
+    - Constant-time hash comparison (`CryptographicOperations.FixedTimeEquals`) to prevent timing side-channel attacks.
+    - Automatic legacy plaintext password detection and migration during login.
+  - **Role-Based Access Control (RBAC)**:
+    - 4 Pre-seeded default roles: `Administrator`, `Accountant`, `Operator`, and `Viewer`.
+    - 20 Granular permissions across 6 system modules: Masters, Vouchers, Reports, Inventory, Utilities, and Security.
+    - `Administrator` role serves as superuser with inherent full-system access bypass.
+    - Dynamic permission matrix configuration (`UpdateRolePermissionsAsync`) allowing custom role-permission assignments.
+  - **Session & Identity Management**:
+    - `IUserContext` / `UserContext`: Thread-safe runtime user context tracking active user ID, username, display name, assigned role, and cached permission sets.
+    - `HasPermission`, `HasAnyPermission`, and `IsAdministrator` inspection methods.
+    - Login audit logging with tracking of `LastLoginAt` timestamp.
+  - **Comprehensive Audit Trail System**:
+    - `IAuditService` / `AuditService`: Centralized immutable audit logging recording user actions (Create, Edit, Delete, Login, Logout, Backup, Restore, Security) with target entity names, primary keys, and detail descriptions.
+    - Flexible query engine with date range filtering, module categorization, and search term querying.
+    - Export audit logs to CSV for compliance and external review.
+- Created UI Forms:
+  - `LoginForm`: Dedicated modal authentication dialog with username, password, validation, and session initialization.
+  - `UserManagementForm`:
+    - Tab 1: **User Accounts**: DataGridView listing all users with active status badges, Add User dialog, Edit User dialog, Active toggle (with safety block preventing deactivation of master admin), and Password Reset modal dialog.
+    - Tab 2: **Roles & Permissions**: Interactive hierarchical TreeView grouped by functional module (Masters, Vouchers, Reports, Inventory, Utilities, Security) with checkable permissions per role and "Save Permissions Matrix" action button.
+    - Tab 3: **Audit Trail Register**: Date range filters, module dropdown filter, DataGridView displaying timestamp, username, role, action, entity, and change summary, plus "Export to CSV" report capability.
+- Updated `MainForm`:
+  - Added `Switch User / Login...` menu item under `Company`.
+  - Added `User Management & Permissions...` under `Utilities`.
+  - Added `User Management & Security` to Gateway of Accounting list.
+  - Added reactive `User: {Username} ({Role})` indicator on the status strip that dynamically updates upon user switch.
+- Registered in Go-To command palette (`SearchService.cs`):
+  - `User Management & Security`
+  - `Audit Trail Register`
+- Database Seeding in `DatabaseSetupService`:
+  - Seeds 20 standard system permissions.
+  - Seeds 4 foundational roles with standard permission assignments.
+  - Upgrades default `admin` account with secure PBKDF2 salt and hash if not already hashed.
+- Added automated unit tests in `Phase28SecurityTests.cs`:
+  - PBKDF2 hash generation and verification.
+  - Successful authentication with valid credentials and session initialization.
+  - Authentication rejection on incorrect password.
+  - Authentication rejection for inactive/deactivated users.
+  - Enforced uniqueness on usernames.
+  - User update and status toggling.
+  - Role-permission assignment and dynamic matrix synchronization.
+  - Comprehensive audit trail recording and date/module filtering.
+  - Superuser administrator bypass verification.
+  - 10/10 new tests passing (144/144 total tests passing across all test suites).
+
+
 ## [Phase 27: Local Backup & Restore System] - 2026-09-11
 ### Added
 - Created `IBackupRestoreService` and `BackupRestoreService` (Master Prompt Section 43 & 61):
