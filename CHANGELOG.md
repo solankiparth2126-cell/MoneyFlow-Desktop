@@ -2,6 +2,28 @@
 
 All notable changes to the MoneyFlow Desktop Accounting application will be documented in this file.
 
+## [Phase 32: UI/UX Polish, Themes & Keyboard Flow] - 2026-09-11
+### Added
+- Created `ThemeManager` and design token engine in `MoneyFlow.Desktop/Styling/` (Master Prompt Section 48 & 55):
+  - 3 Distinct visual themes: `ClassicTeal` (classic desktop accounting dark teal/amber), `DarkSlate` (sleek dark mode with sky blue accents), and `LightNeutral` (clean office light theme with royal blue accents).
+  - Configurable DataGridView density modes (`Compact` at 24px row height vs `Comfortable` at 32px row height).
+  - Consistent component styling across menus, toolbars, status strips, buttons, and zebra-striped DataGridViews.
+  - Real-time theme application and dynamic switching upon saving settings in `SettingsForm`.
+- Created reusable `VoucherEntryControl` in `MoneyFlow.Desktop/Controls/` (Master Prompt Section 33):
+  - Complete voucher header: Voucher Type, auto-incremented Voucher Number, Date (F2), Reference Number, and Narration.
+  - Multi-line double-entry grid: Ledger selection dropdown, Debit (Dr), Credit (Cr), and item narration with Enter-as-Tab key movement.
+  - Summary footer: Real-time calculation of Total Debit, Total Credit, Difference, and dynamic `BALANCED` (Green) vs `NOT BALANCED` (Red) status badge.
+  - Save validation lock: Disables saving or signals invalid state whenever Total Debit != Total Credit or total is zero.
+  - Keyboard integration: `Ctrl+S` shortcut triggers save callback.
+- Enhanced global keyboard navigation in `MainForm.cs` (Master Prompt Section 32):
+  - Added `Ctrl+F` alongside `Alt+G` and `Ctrl+K` for instant Go-To search palette invocation.
+  - Retained all standard accounting hotkeys: F2 (Period/Date), F3 (Company), F4 (Contra), F5 (Payment), F6 (Receipt), F7 (Journal), F8 (Sales), F9 (Purchase), Ctrl+F8 (Credit Note), Ctrl+F9 (Debit Note), F10 (Backup/Restore), F11 (Settings), Esc (Quit/Back).
+- Created automated UI test suite in `MoneyFlow.Tests/UiTests/Phase32UiPolishTests.cs`:
+  - Validates all 3 theme color palettes and contrast invariants.
+  - Validates density setting persistence.
+  - Validates `VoucherEntryControl` initialization, double-entry mathematical balancing, and payload generation.
+  - 5 new UI tests added (**175/175 total tests passing**).
+
 ## [Phase 31: Performance Optimization & Index Tuning] - 2026-09-11
 ### Added
 - Comprehensive database indexing and query tuning in alignment with Master Prompt Section 50 ("PERFORMANCE"):

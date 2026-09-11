@@ -1,9 +1,11 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Services;
 
 namespace MoneyFlow.Desktop.Forms;
@@ -86,6 +88,7 @@ public class MainForm : Form
         _userContext.OnUserChanged += UpdateUserContextUI;
         UpdateCompanyContextUI();
         UpdateUserContextUI();
+        _ = ApplyCurrentSettingsThemeAsync();
     }
 
     private void InitializeComponent()
@@ -850,10 +853,27 @@ public class MainForm : Form
         form.ShowDialog(this);
     }
 
-    private void OpenSettings()
+    private async void OpenSettings()
     {
         using var form = new SettingsForm(_settingsService, _companyService, _auditService);
-        form.ShowDialog(this);
+        if (form.ShowDialog(this) == DialogResult.OK)
+        {
+            await ApplyCurrentSettingsThemeAsync();
+        }
+    }
+
+    private async Task ApplyCurrentSettingsThemeAsync()
+    {
+        try
+        {
+            var settings = await _settingsService.GetSettingsAsync();
+            ThemeManager.SetTheme(settings.Theme, settings.GridDensity);
+            ThemeManager.ApplyTheme(this);
+        }
+        catch
+        {
+            // Non-blocking graceful fallback
+        }
     }
 
     private void UpdateUserContextUI()
@@ -1014,7 +1034,7 @@ public class MainForm : Form
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
     {
-        if ((e.Alt && e.KeyCode == Keys.G) || (e.Control && e.KeyCode == Keys.K))
+        if ((e.Alt && e.KeyCode == Keys.G) || (e.Control && e.KeyCode == Keys.K) || (e.Control && e.KeyCode == Keys.F))
         {
             OpenGlobalSearch();
             e.Handled = true;
