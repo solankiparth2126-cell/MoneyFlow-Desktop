@@ -35,8 +35,6 @@ public class MainForm : Form
     // Gateway navigation panel
     private Panel gatewayPanel = null!;
     private ListBox lstGatewayMenu = null!;
-    private Label lblCurrentCompany = null!;
-    private Label lblCurrentFY = null!;
 
     public MainForm(
         ICompanyContext companyContext,
