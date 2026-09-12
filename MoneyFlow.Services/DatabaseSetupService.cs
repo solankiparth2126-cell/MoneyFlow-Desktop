@@ -23,7 +23,7 @@ public class DatabaseSetupService : IDatabaseSetupService
         _logger = logger;
         _activeConnectionString = _context.Database.IsRelational() 
             ? (_context.Database.GetConnectionString() ?? string.Empty) 
-            : "Server=.\\SQLEXPRESS02;Database=MoneyFlowDB;Trusted_Connection=True;TrustServerCertificate=True;";
+            : "Server=.\\SQLEXPRESS;Database=MoneyFlowDB;Trusted_Connection=True;TrustServerCertificate=True;";
     }
 
     public string GetActiveConnectionString() => _activeConnectionString;
@@ -31,13 +31,17 @@ public class DatabaseSetupService : IDatabaseSetupService
     public void SetActiveConnectionString(string connectionString)
     {
         _activeConnectionString = connectionString;
+        if (_context.Database.IsRelational())
+        {
+            _context.Database.SetConnectionString(connectionString);
+        }
     }
 
     public async Task<DatabaseConnectionResult> TestConnectionAsync(string connectionString)
     {
+        var builder = new SqlConnectionStringBuilder(connectionString);
         try
         {
-            var builder = new SqlConnectionStringBuilder(connectionString);
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
             
@@ -49,14 +53,46 @@ public class DatabaseSetupService : IDatabaseSetupService
                 DatabaseName = builder.InitialCatalog
             };
         }
+        catch (SqlException ex) when (ex.Number == 4060) // Database does not exist yet
+        {
+            // Verify if SQL Server instance is reachable via master database
+            try
+            {
+                var masterBuilder = new SqlConnectionStringBuilder(connectionString)
+                {
+                    InitialCatalog = "master"
+                };
+                using var masterConn = new SqlConnection(masterBuilder.ConnectionString);
+                await masterConn.OpenAsync();
+
+                return new DatabaseConnectionResult
+                {
+                    IsSuccess = true,
+                    Message = $"Successfully reached SQL Server '{builder.DataSource}'. Database '{builder.InitialCatalog}' will be created upon initialization.",
+                    ServerInstance = builder.DataSource,
+                    DatabaseName = builder.InitialCatalog
+                };
+            }
+            catch (Exception masterEx)
+            {
+                _logger.LogError(masterEx, "Failed to connect to master database on {DataSource}", builder.DataSource);
+                return new DatabaseConnectionResult
+                {
+                    IsSuccess = false,
+                    Message = $"Unable to connect to SQL Server at '{builder.DataSource}'. Please ensure the SQL Server instance is running and accessible.",
+                    ServerInstance = builder.DataSource,
+                    DatabaseName = builder.InitialCatalog,
+                    Exception = masterEx
+                };
+            }
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to connect to database using connection string.");
-            var builder = new SqlConnectionStringBuilder(connectionString);
             return new DatabaseConnectionResult
             {
                 IsSuccess = false,
-                Message = $"Unable to connect to SQL Server at '{builder.DataSource}'. Please ensure the SQL Server instance is running and accessible.",
+                Message = $"Unable to connect to SQL Server at '{builder.DataSource}'. {ex.Message}",
                 ServerInstance = builder.DataSource,
                 DatabaseName = builder.InitialCatalog,
                 Exception = ex
@@ -68,17 +104,12 @@ public class DatabaseSetupService : IDatabaseSetupService
     {
         try
         {
-            var canConnect = await _context.Database.CanConnectAsync();
-            if (!canConnect)
+            if (!string.IsNullOrWhiteSpace(_activeConnectionString) && _context.Database.IsRelational())
             {
-                return new DatabaseConnectionResult
-                {
-                    IsSuccess = false,
-                    Message = "Database connection failed. Please check that SQL Server is running."
-                };
+                _context.Database.SetConnectionString(_activeConnectionString);
             }
 
-            // Create database if not exists or apply migrations
+            // Create database and apply schema if not exists
             await _context.Database.EnsureCreatedAsync();
 
             // Seed System Data: Voucher Types

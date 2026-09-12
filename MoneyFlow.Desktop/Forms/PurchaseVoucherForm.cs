@@ -39,6 +39,7 @@ public class PurchaseVoucherForm : Form
     private Button _btnNew = null!;
     private Button _btnPrint = null!;
     private Button _btnCancel = null!;
+    private bool _isInitializing;
 
     public PurchaseVoucherForm(
         IAccountingService accountingService,
@@ -309,6 +310,7 @@ public class PurchaseVoucherForm : Form
 
     private async Task InitializeFormDataAsync()
     {
+        _isInitializing = true;
         try
         {
             UseWaitCursor = true;
@@ -355,8 +357,12 @@ public class PurchaseVoucherForm : Form
         }
         finally
         {
+            _isInitializing = false;
             UseWaitCursor = false;
         }
+
+        await OnPartySelectedAsync();
+        await OnPurchaseLedgerSelectedAsync();
     }
 
     private async Task RefreshVoucherNumberPreviewAsync()
@@ -374,6 +380,7 @@ public class PurchaseVoucherForm : Form
 
     private async Task OnPartySelectedAsync()
     {
+        if (_isInitializing) return;
         if (_cmbParty.SelectedItem is LedgerSummaryDto selected && _companyContext.CurrentCompany != null)
         {
             var balance = await _accountingService.GetLedgerBalanceAsync(_companyContext.CurrentCompany.CompanyId, selected.LedgerId);
@@ -388,6 +395,7 @@ public class PurchaseVoucherForm : Form
 
     private async Task OnPurchaseLedgerSelectedAsync()
     {
+        if (_isInitializing) return;
         if (_cmbPurchaseLedger.SelectedItem is LedgerSummaryDto selected && _companyContext.CurrentCompany != null)
         {
             var balance = await _accountingService.GetLedgerBalanceAsync(_companyContext.CurrentCompany.CompanyId, selected.LedgerId);

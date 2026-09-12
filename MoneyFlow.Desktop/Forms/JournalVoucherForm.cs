@@ -35,6 +35,7 @@ public class JournalVoucherForm : Form
     private Button _btnNew = null!;
     private Button _btnPrint = null!;
     private Button _btnCancel = null!;
+    private bool _isInitializing;
 
     public JournalVoucherForm(
         IAccountingService accountingService,
@@ -279,6 +280,7 @@ public class JournalVoucherForm : Form
 
     private async Task InitializeFormDataAsync()
     {
+        _isInitializing = true;
         try
         {
             UseWaitCursor = true;
@@ -329,6 +331,7 @@ public class JournalVoucherForm : Form
         }
         finally
         {
+            _isInitializing = false;
             UseWaitCursor = false;
         }
     }
@@ -348,6 +351,7 @@ public class JournalVoucherForm : Form
 
     private async Task OnGridCellValueChangedAsync(int rowIndex, int columnIndex)
     {
+        if (_isInitializing) return;
         if (rowIndex < 0 || rowIndex >= _dgvEntries.Rows.Count) return;
 
         var row = _dgvEntries.Rows[rowIndex];

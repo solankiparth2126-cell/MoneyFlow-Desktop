@@ -11,7 +11,7 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         
         // Default design-time connection string - supports local SQL Server Express instances
-        var connectionString = "Server=.\\SQLEXPRESS02;Database=MoneyFlowDB;Trusted_Connection=True;TrustServerCertificate=True;";
+        var connectionString = "Server=.\\SQLEXPRESS;Database=MoneyFlowDB;Trusted_Connection=True;TrustServerCertificate=True;";
         
         optionsBuilder.UseSqlServer(connectionString);
 

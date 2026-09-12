@@ -8,6 +8,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Controls;
+using MoneyFlow.Desktop.Navigation;
+using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
 
@@ -16,12 +19,18 @@ public class ReceiptVoucherForm : Form
     private readonly IAccountingService _accountingService;
     private readonly ILedgerService _ledgerService;
     private readonly ICompanyContext _companyContext;
+    private readonly INavigationService? _navigationService;
 
     private VoucherType? _receiptVoucherType;
     private IReadOnlyList<LedgerSummaryDto> _cashBankLedgers = new List<LedgerSummaryDto>();
     private IReadOnlyList<LedgerSummaryDto> _allLedgers = new List<LedgerSummaryDto>();
 
     // UI Controls
+    private TallyTopHeaderBar _topHeaderBar = null!;
+    private TallySideActionBar _sideActionBar = null!;
+    private TallyLedgerFlyoutPanel _flyoutPanel = null!;
+
+    private Label _lblVoucherTag = null!;
     private Label _lblVoucherNumber = null!;
     private DateTimePicker _dtpVoucherDate = null!;
     private ComboBox _cmbAccount = null!;
@@ -30,97 +39,276 @@ public class ReceiptVoucherForm : Form
     private TextBox _txtNarration = null!;
     private Label _lblTotalAmount = null!;
     private Label _lblBalanceStatus = null!;
-    private Button _btnSave = null!;
-    private Button _btnSaveAndNew = null!;
-    private Button _btnNew = null!;
+
+    private Button _btnAccept = null!;
+    private Button _btnClear = null!;
     private Button _btnPrint = null!;
-    private Button _btnCancel = null!;
+    private Button _btnQuit = null!;
+
+    private bool _isInitializing;
+    private bool _isAccountActive;
 
     public ReceiptVoucherForm(
         IAccountingService accountingService,
         ILedgerService ledgerService,
-        ICompanyContext companyContext)
+        ICompanyContext companyContext,
+        INavigationService? navigationService = null)
     {
         _accountingService = accountingService;
         _ledgerService = ledgerService;
         _companyContext = companyContext;
+        _navigationService = navigationService;
 
         InitializeComponent();
     }
 
     private void InitializeComponent()
     {
-        Text = "Receipt Voucher (F6)";
-        Size = new Size(880, 640);
+        Text = "Accounting Voucher Creation (Secondary) — Receipt";
+        Size = new Size(1100, 700);
+        MinimumSize = new Size(950, 600);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = new Font("Segoe UI", 9.25F);
+        BackColor = TallyPrimeTheme.WindowBg;
         KeyPreview = true;
 
-        var mainLayout = new TableLayoutPanel
+        // 1. Top Header Bar (Tally Prime Gold navy banner)
+        _topHeaderBar = new TallyTopHeaderBar();
+        _topHeaderBar.SetSubtitle("Accounting Voucher Creation (Secondary)");
+        _topHeaderBar.SetCompany(_companyContext.CurrentCompany?.CompanyName ?? "MoneyFlow");
+        _topHeaderBar.CloseRequested += () => Close();
+        _topHeaderBar.CompanyMenuRequested += () => _navigationService?.OpenCompanyList(this);
+
+        // 2. Right Side Action Bar (Vertical Function Keys)
+        _sideActionBar = new TallySideActionBar();
+        _sideActionBar.SetActiveVoucher("Receipt");
+        _sideActionBar.DateClicked += () => _dtpVoucherDate.Focus();
+        _sideActionBar.CompanyClicked += () => _navigationService?.OpenCompanyList(this);
+        _sideActionBar.ContraClicked += () => { Close(); _navigationService?.OpenContraVoucher(); };
+        _sideActionBar.PaymentClicked += () => { Close(); _navigationService?.OpenPaymentVoucher(); };
+        _sideActionBar.JournalClicked += () => { Close(); _navigationService?.OpenJournalVoucher(); };
+        _sideActionBar.SalesClicked += () => { Close(); _navigationService?.OpenSalesVoucher(); };
+        _sideActionBar.PurchaseClicked += () => { Close(); _navigationService?.OpenPurchaseVoucher(); };
+
+        // 3. Right Flyout "List of Ledger Accounts"
+        _flyoutPanel = new TallyLedgerFlyoutPanel
+        {
+            Dock = DockStyle.Right,
+            Visible = false
+        };
+        _flyoutPanel.LedgerSelected += OnFlyoutLedgerSelected;
+        _flyoutPanel.CreateRequested += () => _navigationService?.OpenLedgerList(this);
+
+        // 4. Center Work Area
+        var pnlCenterWork = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = new Padding(12, 10, 12, 6)
+        };
+
+        var workLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 4,
-            Padding = new Padding(15)
+            RowCount = 5,
+            BackColor = Color.White
         };
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 95));  // Header
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Grid
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));  // Narration & Summary
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));  // Buttons
+        workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36)); // Voucher badge & date
+        workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48)); // Account & Balance
+        workLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // Particulars Table
+        workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38)); // Narration & Total
+        workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34)); // Bottom Tally ribbon
 
-        // 1. Header Panel
-        var pnlHeader = new TableLayoutPanel
+        // --- Row 0: Voucher Type Tag & Voucher Number & Date ---
+        var pnlVoucherHeader = new Panel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 4,
-            RowCount = 2,
-            BackColor = Color.FromArgb(245, 248, 252),
-            Padding = new Padding(10)
+            Margin = new Padding(0)
         };
-        pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-        pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-        pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
 
-        // Row 0: Voucher No & Date
-        pnlHeader.Controls.Add(new Label { Text = "Voucher No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
-        _lblVoucherNumber = new Label { Text = "RCT-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
-        pnlHeader.Controls.Add(_lblVoucherNumber, 1, 0);
+        _lblVoucherTag = new Label
+        {
+            Text = "Receipt",
+            BackColor = TallyPrimeTheme.BlueVoucherTag,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            TextAlign = ContentAlignment.MiddleCenter,
+            Size = new Size(84, 25),
+            Location = new Point(0, 2)
+        };
 
-        pnlHeader.Controls.Add(new Label { Text = "Date:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
-        _dtpVoucherDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 140 };
-        pnlHeader.Controls.Add(_dtpVoucherDate, 3, 0);
+        var lblNoPrefix = new Label
+        {
+            Text = "No.",
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            ForeColor = TallyPrimeTheme.TextPrimary,
+            AutoSize = true,
+            Location = new Point(94, 6)
+        };
 
-        // Row 1: Receiving Account (Debit: Cash/Bank)
-        pnlHeader.Controls.Add(new Label { Text = "Account (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 1);
-        var pnlAccount = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _cmbAccount = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Font = new Font("Segoe UI", 9.5F) };
+        _lblVoucherNumber = new Label
+        {
+            Text = "289",
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 48, 86),
+            AutoSize = true,
+            Location = new Point(122, 6)
+        };
+
+        var pnlDate = new FlowLayoutPanel
+        {
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            Location = new Point(560, 2)
+        };
+
+        var lblDateTag = new Label
+        {
+            Text = "Date:",
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            ForeColor = TallyPrimeTheme.TextMuted,
+            AutoSize = true,
+            Margin = new Padding(0, 4, 4, 0)
+        };
+
+        _dtpVoucherDate = new DateTimePicker
+        {
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "dd-MMM-yyyy",
+            Width = 130,
+            Font = new Font("Segoe UI", 9F)
+        };
+
+        pnlDate.Controls.Add(lblDateTag);
+        pnlDate.Controls.Add(_dtpVoucherDate);
+
+        pnlVoucherHeader.Controls.Add(_lblVoucherTag);
+        pnlVoucherHeader.Controls.Add(lblNoPrefix);
+        pnlVoucherHeader.Controls.Add(_lblVoucherNumber);
+        pnlVoucherHeader.Controls.Add(pnlDate);
+
+        // --- Row 1: Account Header & Current Balance ---
+        var pnlAccountRow = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0)
+        };
+
+        var lblAccountPrompt = new Label
+        {
+            Text = "Account",
+            Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
+            ForeColor = TallyPrimeTheme.TextPrimary,
+            Location = new Point(0, 4),
+            AutoSize = true
+        };
+
+        var lblColon = new Label
+        {
+            Text = ":",
+            Font = new Font("Segoe UI", 9.25F, FontStyle.Bold),
+            Location = new Point(88, 4),
+            AutoSize = true
+        };
+
+        _cmbAccount = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 260,
+            Font = new Font("Segoe UI", 9.25F),
+            Location = new Point(100, 1),
+            FlatStyle = FlatStyle.Flat
+        };
         _cmbAccount.SelectedIndexChanged += async (s, e) => await OnAccountSelectedAsync();
-        _lblAccountBalance = new Label { Text = "Cur Bal: ₹0.00", AutoSize = true, ForeColor = Color.FromArgb(0, 100, 0), Margin = new Padding(10, 5, 0, 0) };
-        pnlAccount.Controls.Add(_cmbAccount);
-        pnlAccount.Controls.Add(_lblAccountBalance);
-        pnlHeader.Controls.Add(pnlAccount, 1, 1);
-        pnlHeader.SetColumnSpan(pnlAccount, 3);
+        _cmbAccount.Enter += (s, e) =>
+        {
+            _isAccountActive = true;
+            _cmbAccount.BackColor = TallyPrimeTheme.ActiveInputYellow;
+            _flyoutPanel.Visible = true;
+            _flyoutPanel.SetTitle("List of Ledger Accounts");
+            _flyoutPanel.LoadLedgers(_cashBankLedgers, includeEndOfList: false);
+        };
+        _cmbAccount.Leave += (s, e) =>
+        {
+            _cmbAccount.BackColor = Color.White;
+        };
 
-        // 2. DataGridView for Line Items (Credit entries)
+        var lblBalanceTitle = new Label
+        {
+            Text = "Current balance",
+            Font = TallyPrimeTheme.SmallItalicFont,
+            ForeColor = TallyPrimeTheme.TextMuted,
+            Location = new Point(0, 26),
+            AutoSize = true
+        };
+
+        var lblColon2 = new Label
+        {
+            Text = ":",
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            ForeColor = TallyPrimeTheme.TextMuted,
+            Location = new Point(88, 26),
+            AutoSize = true
+        };
+
+        _lblAccountBalance = new Label
+        {
+            Text = "0.00 Dr",
+            Font = TallyPrimeTheme.SmallItalicFont,
+            ForeColor = TallyPrimeTheme.BalanceGreen,
+            Location = new Point(100, 26),
+            AutoSize = true
+        };
+
+        pnlAccountRow.Controls.Add(lblAccountPrompt);
+        pnlAccountRow.Controls.Add(lblColon);
+        pnlAccountRow.Controls.Add(_cmbAccount);
+        pnlAccountRow.Controls.Add(lblBalanceTitle);
+        pnlAccountRow.Controls.Add(lblColon2);
+        pnlAccountRow.Controls.Add(_lblAccountBalance);
+
+        // --- Row 2: Particulars Grid ---
         _dgvEntries = new DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
             AllowUserToResizeRows = false,
             BackgroundColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
-            GridColor = Color.FromArgb(230, 230, 230),
-            RowHeadersWidth = 30,
-            RowTemplate = { Height = 28 }
+            BorderStyle = BorderStyle.None,
+            GridColor = TallyPrimeTheme.GridLineColor,
+            RowHeadersVisible = false,
+            EnableHeadersVisualStyles = false,
+            RowTemplate = { Height = 25 }
+        };
+
+        _dgvEntries.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+        {
+            BackColor = TallyPrimeTheme.GridHeaderBg,
+            ForeColor = TallyPrimeTheme.GridHeaderFg,
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            Padding = new Padding(6, 0, 0, 0)
+        };
+        _dgvEntries.ColumnHeadersHeight = 26;
+        _dgvEntries.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+
+        _dgvEntries.DefaultCellStyle = new DataGridViewCellStyle
+        {
+            Font = new Font("Segoe UI", 9F),
+            SelectionBackColor = TallyPrimeTheme.GridRowHighlight,
+            SelectionForeColor = Color.Black,
+            Padding = new Padding(4, 0, 4, 0)
         };
 
         var colLedger = new DataGridViewComboBoxColumn
         {
-            HeaderText = "Particulars (Credit A/c)",
+            HeaderText = "Particulars",
             Name = "ColLedger",
-            Width = 350,
-            FlatStyle = FlatStyle.Flat
+            Width = 360,
+            FlatStyle = FlatStyle.Flat,
+            DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing
         };
 
         var colBalance = new DataGridViewTextBoxColumn
@@ -129,12 +317,12 @@ public class ReceiptVoucherForm : Form
             Name = "ColBalance",
             Width = 140,
             ReadOnly = true,
-            DefaultCellStyle = { ForeColor = Color.DimGray }
+            DefaultCellStyle = { ForeColor = TallyPrimeTheme.TextMuted }
         };
 
         var colAmount = new DataGridViewTextBoxColumn
         {
-            HeaderText = "Amount (₹)",
+            HeaderText = "Amount",
             Name = "ColAmount",
             Width = 130,
             DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2" }
@@ -151,109 +339,118 @@ public class ReceiptVoucherForm : Form
         _dgvEntries.CellValueChanged += async (s, e) => await OnGridCellValueChangedAsync(e.RowIndex, e.ColumnIndex);
         _dgvEntries.RowsRemoved += (s, e) => RecalculateTotals();
 
-        // 3. Narration and Summary Panel
+        _dgvEntries.CellEnter += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex == _dgvEntries.Columns["ColLedger"].Index)
+            {
+                _isAccountActive = false;
+                _flyoutPanel.Visible = true;
+                _flyoutPanel.SetTitle("List of Ledger Accounts");
+                _flyoutPanel.LoadLedgers(_allLedgers, includeEndOfList: true);
+            }
+        };
+
+        // --- Row 3: Narration and Total Summary ---
         var pnlSummary = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
-            Padding = new Padding(5)
+            ColumnCount = 3,
+            RowCount = 1,
+            Margin = new Padding(0, 4, 0, 0)
         };
+        pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
         pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
         pnlSummary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
 
-        pnlSummary.Controls.Add(new Label { Text = "Narration:", AutoSize = true }, 0, 0);
-        _lblTotalAmount = new Label
+        var lblNarration = new Label
         {
-            Text = "Total Amount: ₹0.00",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
-            Anchor = AnchorStyles.Right,
+            Text = "Narration:",
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            Anchor = AnchorStyles.Left,
             AutoSize = true
         };
-        pnlSummary.Controls.Add(_lblTotalAmount, 1, 0);
 
-        _txtNarration = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F) };
-        pnlSummary.Controls.Add(_txtNarration, 0, 1);
+        _txtNarration = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Font = new Font("Segoe UI", 9F)
+        };
+
+        var pnlTotals = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.RightToLeft
+        };
+
+        _lblTotalAmount = new Label
+        {
+            Text = "₹0.00",
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(0, 48, 86),
+            AutoSize = true,
+            Margin = new Padding(0, 2, 0, 0)
+        };
 
         _lblBalanceStatus = new Label
         {
             Text = "Voucher Balanced",
-            ForeColor = Color.FromArgb(16, 185, 129),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            Anchor = AnchorStyles.Right,
-            AutoSize = true
+            ForeColor = TallyPrimeTheme.BalanceGreen,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            AutoSize = true,
+            Margin = new Padding(0, 4, 12, 0)
         };
-        pnlSummary.Controls.Add(_lblBalanceStatus, 1, 1);
 
-        // 4. Action Buttons Panel
-        var pnlButtons = new FlowLayoutPanel
+        pnlTotals.Controls.Add(_lblTotalAmount);
+        pnlTotals.Controls.Add(_lblBalanceStatus);
+
+        pnlSummary.Controls.Add(lblNarration, 0, 0);
+        pnlSummary.Controls.Add(_txtNarration, 1, 0);
+        pnlSummary.Controls.Add(pnlTotals, 2, 0);
+
+        // --- Row 4: Authentic Tally Bottom Status Ribbon ---
+        var pnlBottomRibbon = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = TallyPrimeTheme.BottomRibbonBg,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(0, 4, 0, 0)
+        };
+
+        var flowRibbon = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(0, 8, 0, 0)
+            Padding = new Padding(4, 2, 4, 2)
         };
 
-        _btnSave = new Button
-        {
-            Text = "Save (Ctrl+A)",
-            BackColor = Color.FromArgb(0, 51, 102),
-            ForeColor = Color.White,
-            FlatStyle = FlatStyle.Flat,
-            Size = new Size(130, 34),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
-        };
-        _btnSave.FlatAppearance.BorderSize = 0;
-        _btnSave.Click += async (s, e) => await OnSaveVoucherAsync(closeOnSuccess: true);
+        _btnQuit = CreateRibbonButton("Q: Quit", () => Close());
+        _btnAccept = CreateRibbonButton("A: Accept", async () => await OnSaveVoucherAsync(closeOnSuccess: true), isPrimary: true);
+        _btnClear = CreateRibbonButton("Clear", () => ResetForm());
+        _btnPrint = CreateRibbonButton("P: Print", () => MessageBox.Show("Voucher print preview ready.", "Tally Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
-        _btnSaveAndNew = new Button
-        {
-            Text = "Save & New (Alt+S)",
-            BackColor = Color.FromArgb(235, 243, 250),
-            FlatStyle = FlatStyle.Flat,
-            Size = new Size(150, 34),
-            Font = new Font("Segoe UI", 9.5F)
-        };
-        _btnSaveAndNew.FlatAppearance.BorderColor = Color.FromArgb(0, 51, 102);
-        _btnSaveAndNew.Click += async (s, e) => await OnSaveVoucherAsync(closeOnSuccess: false);
+        flowRibbon.Controls.Add(_btnQuit);
+        flowRibbon.Controls.Add(_btnAccept);
+        flowRibbon.Controls.Add(_btnClear);
+        flowRibbon.Controls.Add(_btnPrint);
 
-        _btnNew = new Button
-        {
-            Text = "Clear (Alt+N)",
-            Size = new Size(100, 34),
-            Font = new Font("Segoe UI", 9.5F)
-        };
-        _btnNew.Click += (s, e) => ResetForm();
+        pnlBottomRibbon.Controls.Add(flowRibbon);
 
-        _btnPrint = new Button
-        {
-            Text = "Print (Ctrl+P)",
-            Size = new Size(110, 34),
-            Font = new Font("Segoe UI", 9.5F)
-        };
-        _btnPrint.Click += (s, e) => MessageBox.Show("Voucher printing will be available in Phase 20 / Phase 33 reporting module.", "Print Voucher", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        // Assemble Work Area Layout
+        workLayout.Controls.Add(pnlVoucherHeader, 0, 0);
+        workLayout.Controls.Add(pnlAccountRow, 0, 1);
+        workLayout.Controls.Add(_dgvEntries, 0, 2);
+        workLayout.Controls.Add(pnlSummary, 0, 3);
+        workLayout.Controls.Add(pnlBottomRibbon, 0, 4);
 
-        _btnCancel = new Button
-        {
-            Text = "Cancel (Esc)",
-            Size = new Size(100, 34),
-            Font = new Font("Segoe UI", 9.5F)
-        };
-        _btnCancel.Click += (s, e) => Close();
+        pnlCenterWork.Controls.Add(workLayout);
 
-        pnlButtons.Controls.Add(_btnSave);
-        pnlButtons.Controls.Add(_btnSaveAndNew);
-        pnlButtons.Controls.Add(_btnNew);
-        pnlButtons.Controls.Add(_btnPrint);
-        pnlButtons.Controls.Add(_btnCancel);
+        // Assemble Form Controls (Left-to-right: Work Area, Flyout, Action Bar)
+        Controls.Add(pnlCenterWork);
+        Controls.Add(_flyoutPanel);
+        Controls.Add(_sideActionBar);
+        Controls.Add(_topHeaderBar);
 
-        mainLayout.Controls.Add(pnlHeader, 0, 0);
-        mainLayout.Controls.Add(_dgvEntries, 0, 1);
-        mainLayout.Controls.Add(pnlSummary, 0, 2);
-        mainLayout.Controls.Add(pnlButtons, 0, 3);
-
-        Controls.Add(mainLayout);
-
+        // Keyboard navigation shortcuts
         KeyDown += async (s, e) =>
         {
             if (e.Control && e.KeyCode == Keys.A)
@@ -279,11 +476,105 @@ public class ReceiptVoucherForm : Form
             else if (e.KeyCode == Keys.Escape)
             {
                 e.Handled = true;
+                if (_flyoutPanel.Visible)
+                {
+                    _flyoutPanel.Visible = false;
+                }
+                else
+                {
+                    Close();
+                }
+            }
+            else if (e.KeyCode == Keys.F2)
+            {
+                e.Handled = true;
+                _dtpVoucherDate.Focus();
+            }
+            else if (e.KeyCode == Keys.F4)
+            {
+                e.Handled = true;
                 Close();
+                _navigationService?.OpenContraVoucher();
+            }
+            else if (e.KeyCode == Keys.F5)
+            {
+                e.Handled = true;
+                Close();
+                _navigationService?.OpenPaymentVoucher();
+            }
+            else if (e.KeyCode == Keys.F7)
+            {
+                e.Handled = true;
+                Close();
+                _navigationService?.OpenJournalVoucher();
+            }
+            else if (e.KeyCode == Keys.F8)
+            {
+                e.Handled = true;
+                Close();
+                _navigationService?.OpenSalesVoucher();
+            }
+            else if (e.KeyCode == Keys.F9)
+            {
+                e.Handled = true;
+                Close();
+                _navigationService?.OpenPurchaseVoucher();
             }
         };
 
         Load += async (s, e) => await OnFormLoadAsync();
+    }
+
+    private Button CreateRibbonButton(string text, Action onClick, bool isPrimary = false)
+    {
+        var btn = new Button
+        {
+            Text = text,
+            Height = 24,
+            AutoSize = true,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.5F, isPrimary ? FontStyle.Bold : FontStyle.Regular),
+            BackColor = isPrimary ? Color.FromArgb(0, 56, 101) : Color.Transparent,
+            ForeColor = isPrimary ? Color.White : Color.FromArgb(0, 56, 101),
+            Margin = new Padding(3, 0, 8, 0),
+            Cursor = Cursors.Hand
+        };
+        btn.FlatAppearance.BorderSize = isPrimary ? 0 : 1;
+        btn.FlatAppearance.BorderColor = TallyPrimeTheme.BottomRibbonBorder;
+        btn.Click += (s, e) => onClick();
+        return btn;
+    }
+
+    private void OnFlyoutLedgerSelected(LedgerSummaryDto? ledger)
+    {
+        if (_isAccountActive)
+        {
+            if (ledger != null)
+            {
+                _cmbAccount.SelectedValue = ledger.LedgerId;
+            }
+            _dgvEntries.Focus();
+        }
+        else
+        {
+            if (_dgvEntries.CurrentCell != null)
+            {
+                int rowIdx = _dgvEntries.CurrentCell.RowIndex;
+                if (rowIdx >= 0 && rowIdx < _dgvEntries.Rows.Count)
+                {
+                    if (ledger == null)
+                    {
+                        // End of List chosen -> jump to narration
+                        _txtNarration.Focus();
+                    }
+                    else
+                    {
+                        _dgvEntries.Rows[rowIdx].Cells["ColLedger"].Value = ledger.LedgerId;
+                        _dgvEntries.CurrentCell = _dgvEntries.Rows[rowIdx].Cells["ColAmount"];
+                    }
+                }
+            }
+        }
     }
 
     private async Task OnFormLoadAsync()
@@ -295,10 +586,13 @@ public class ReceiptVoucherForm : Form
             return;
         }
 
+        _isInitializing = true;
         try
         {
             var companyId = _companyContext.CurrentCompany.CompanyId;
             var fy = _companyContext.CurrentFinancialYear;
+
+            _topHeaderBar.SetCompany(_companyContext.CurrentCompany.CompanyName);
 
             _dtpVoucherDate.Value = DateTime.Today >= fy.StartDate && DateTime.Today <= fy.EndDate
                 ? DateTime.Today
@@ -331,13 +625,24 @@ public class ReceiptVoucherForm : Form
 
             colLedger.DataSource = particularsItems;
 
+            // Pre-add empty row for quick data entry
+            if (_dgvEntries.Rows.Count == 0)
+            {
+                _dgvEntries.Rows.Add();
+            }
+
             await UpdateVoucherNumberPreviewAsync();
-            await OnAccountSelectedAsync();
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Failed to initialize receipt voucher: {ex.Message}", "Initialization Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+        finally
+        {
+            _isInitializing = false;
+        }
+
+        await OnAccountSelectedAsync();
     }
 
     private async Task UpdateVoucherNumberPreviewAsync()
@@ -355,12 +660,13 @@ public class ReceiptVoucherForm : Form
         }
         catch
         {
-            _lblVoucherNumber.Text = "RCT-00001";
+            _lblVoucherNumber.Text = "289";
         }
     }
 
     private async Task OnAccountSelectedAsync()
     {
+        if (_isInitializing) return;
         if (_companyContext.CurrentCompany == null || _cmbAccount.SelectedValue == null) return;
 
         if (_cmbAccount.SelectedValue is int ledgerId)
@@ -368,17 +674,18 @@ public class ReceiptVoucherForm : Form
             try
             {
                 var bal = await _accountingService.GetLedgerBalanceAsync(_companyContext.CurrentCompany.CompanyId, ledgerId);
-                _lblAccountBalance.Text = $"Cur Bal: {bal.FormattedClosingBalance}";
+                _lblAccountBalance.Text = $"{bal.FormattedClosingBalance}";
             }
             catch
             {
-                _lblAccountBalance.Text = "Cur Bal: ₹0.00";
+                _lblAccountBalance.Text = "₹0.00";
             }
         }
     }
 
     private async Task OnGridCellValueChangedAsync(int rowIndex, int columnIndex)
     {
+        if (_isInitializing) return;
         if (rowIndex < 0 || rowIndex >= _dgvEntries.Rows.Count) return;
 
         var row = _dgvEntries.Rows[rowIndex];
@@ -421,19 +728,18 @@ public class ReceiptVoucherForm : Form
             }
         }
 
-        _lblTotalAmount.Text = $"Total Amount: ₹{totalCredit:N2}";
+        _lblTotalAmount.Text = $"₹{totalCredit:N2}";
 
         if (totalCredit > 0)
         {
-            _lblBalanceStatus.Text = "Voucher Balanced (Dr = Cr)";
-            _lblBalanceStatus.ForeColor = Color.FromArgb(16, 185, 129);
-            _btnSave.Enabled = true;
-            _btnSaveAndNew.Enabled = true;
+            _lblBalanceStatus.Text = "Voucher Balanced";
+            _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceGreen;
+            _btnAccept.Enabled = true;
         }
         else
         {
-            _lblBalanceStatus.Text = "Enter amounts to balance voucher";
-            _lblBalanceStatus.ForeColor = Color.FromArgb(220, 38, 38);
+            _lblBalanceStatus.Text = "Enter amounts to balance";
+            _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceRed;
         }
     }
 
@@ -452,7 +758,6 @@ public class ReceiptVoucherForm : Form
             return;
         }
 
-        // Collect Credit line entries from DataGridView
         var entries = new List<VoucherEntryDto>();
         decimal totalCredit = 0m;
 
@@ -466,13 +771,24 @@ public class ReceiptVoucherForm : Form
 
             if (ledgerVal is int creditLedgerId && amountVal != null && decimal.TryParse(amountVal.ToString(), out var amount) && amount > 0)
             {
-                entries.Add(new VoucherEntryDto
+                var entry = new VoucherEntryDto
                 {
                     LedgerId = creditLedgerId,
                     Debit = 0m,
                     Credit = amount,
                     Narration = narrationVal
+                };
+
+                // Attach Bill-wise allocation (Agst Ref)
+                entry.BillAllocations.Add(new BillAllocationCreateDto
+                {
+                    LedgerId = creditLedgerId,
+                    BillType = BillType.AgstRef,
+                    BillName = $"RCP-{DateTime.Today:yyyyMMdd}",
+                    Amount = amount
                 });
+
+                entries.Add(entry);
                 totalCredit += amount;
             }
         }
@@ -503,8 +819,7 @@ public class ReceiptVoucherForm : Form
 
         try
         {
-            _btnSave.Enabled = false;
-            _btnSaveAndNew.Enabled = false;
+            _btnAccept.Enabled = false;
 
             var saved = await _accountingService.SaveVoucherAsync(_companyContext.CurrentCompany.CompanyId, createDto);
 
@@ -532,17 +847,17 @@ public class ReceiptVoucherForm : Form
         }
         finally
         {
-            _btnSave.Enabled = true;
-            _btnSaveAndNew.Enabled = true;
+            _btnAccept.Enabled = true;
         }
     }
 
     private void ResetForm()
     {
         _dgvEntries.Rows.Clear();
+        _dgvEntries.Rows.Add();
         _txtNarration.Clear();
-        _lblTotalAmount.Text = "Total Amount: ₹0.00";
-        _lblBalanceStatus.Text = "Enter amounts to balance voucher";
-        _lblBalanceStatus.ForeColor = Color.FromArgb(220, 38, 38);
+        _lblTotalAmount.Text = "₹0.00";
+        _lblBalanceStatus.Text = "Enter amounts to balance";
+        _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceRed;
     }
 }

@@ -22,8 +22,7 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasMaxLength(100);
 
         builder.Property(c => c.Country)
-            .HasMaxLength(100)
-            .HasDefaultValue("India");
+            .HasMaxLength(100);
 
         builder.Property(c => c.PAN)
             .HasMaxLength(20);
@@ -35,11 +34,9 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasMaxLength(50);
 
         builder.Property(c => c.Currency)
-            .HasMaxLength(10)
-            .HasDefaultValue("₹");
+            .HasMaxLength(10);
 
-        builder.Property(c => c.IsActive)
-            .HasDefaultValue(true);
+        builder.Property(c => c.IsActive);
 
         builder.HasIndex(c => c.CompanyName);
     }
@@ -107,12 +104,10 @@ public class LedgerConfiguration : IEntityTypeConfiguration<Ledger>
             .HasMaxLength(150);
 
         builder.Property(l => l.OpeningBalance)
-            .HasColumnType("decimal(18,2)")
-            .HasDefaultValue(0m);
+            .HasColumnType("decimal(18,2)");
 
         builder.Property(l => l.CreditLimit)
-            .HasColumnType("decimal(18,2)")
-            .HasDefaultValue(0m);
+            .HasColumnType("decimal(18,2)");
 
         builder.Property(l => l.Address).HasMaxLength(250);
         builder.Property(l => l.Phone).HasMaxLength(50);
@@ -166,7 +161,7 @@ public class VoucherConfiguration : IEntityTypeConfiguration<Voucher>
         builder.Property(v => v.Narration).HasMaxLength(1000);
         builder.Property(v => v.CreatedBy).HasMaxLength(50);
         builder.Property(v => v.ModifiedBy).HasMaxLength(50);
-        builder.Property(v => v.IsDeleted).HasDefaultValue(false);
+        builder.Property(v => v.IsDeleted);
 
         builder.HasOne(v => v.Company)
             .WithMany(c => c.Vouchers)
@@ -202,14 +197,13 @@ public class VoucherEntryConfiguration : IEntityTypeConfiguration<VoucherEntry>
         builder.HasKey(e => e.VoucherEntryId);
 
         builder.Property(e => e.Debit)
-            .HasColumnType("decimal(18,2)")
-            .HasDefaultValue(0m);
+            .HasColumnType("decimal(18,2)");
 
         builder.Property(e => e.Credit)
-            .HasColumnType("decimal(18,2)")
-            .HasDefaultValue(0m);
+            .HasColumnType("decimal(18,2)");
 
         builder.Property(e => e.Narration).HasMaxLength(500);
+        builder.Property(e => e.InstrumentNumber).HasMaxLength(50);
 
         builder.HasOne(e => e.Voucher)
             .WithMany(v => v.VoucherEntries)
@@ -224,5 +218,35 @@ public class VoucherEntryConfiguration : IEntityTypeConfiguration<VoucherEntry>
         builder.HasIndex(e => e.VoucherId);
         builder.HasIndex(e => e.LedgerId);
         builder.HasIndex(e => new { e.LedgerId, e.VoucherId });
+    }
+}
+
+public class BillAllocationConfiguration : IEntityTypeConfiguration<BillAllocation>
+{
+    public void Configure(EntityTypeBuilder<BillAllocation> builder)
+    {
+        builder.ToTable("BillAllocations");
+        builder.HasKey(b => b.BillAllocationId);
+
+        builder.Property(b => b.BillName).IsRequired().HasMaxLength(100);
+        builder.Property(b => b.Amount).HasColumnType("decimal(18,2)");
+
+        builder.HasOne(b => b.Company)
+            .WithMany()
+            .HasForeignKey(b => b.CompanyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(b => b.VoucherEntry)
+            .WithMany(ve => ve.BillAllocations)
+            .HasForeignKey(b => b.VoucherEntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(b => b.Ledger)
+            .WithMany()
+            .HasForeignKey(b => b.LedgerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(b => new { b.CompanyId, b.LedgerId, b.BillName });
+        builder.HasIndex(b => b.VoucherEntryId);
     }
 }

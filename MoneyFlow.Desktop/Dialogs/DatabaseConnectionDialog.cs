@@ -85,12 +85,12 @@ public class DatabaseConnectionDialog : Form
             DropDownStyle = ComboBoxStyle.DropDown
         };
         cmbServerInstance.Items.AddRange(new object[] {
+            @".\SQLEXPRESS",
+            @"localhost",
+            @"(localdb)\mssqllocaldb",
             @".\SQLEXPRESS02",
             @".\SQLEXPRESS03",
-            @".\SQLEXPRESS04",
-            @".\SQLEXPRESS",
-            @"(localdb)\mssqllocaldb",
-            @"localhost"
+            @".\SQLEXPRESS04"
         });
         cmbServerInstance.SelectedIndex = 0;
 
@@ -260,6 +260,7 @@ public class DatabaseConnectionDialog : Form
         {
             ConnectionEstablished = true;
             SelectedConnectionString = connStr;
+            PersistConnectionString(connStr);
             MessageBox.Show(
                 "MoneyFlowDB has been verified and system foundation initialized successfully.",
                 "Database Ready",
@@ -279,6 +280,29 @@ public class DatabaseConnectionDialog : Form
             lblStatus.ForeColor = Color.FromArgb(239, 68, 68);
             txtDiagnostics.AppendText($"FAIL: {result.Message}\r\n");
             btnConnect.Enabled = true;
+        }
+    }
+
+    private static void PersistConnectionString(string connStr)
+    {
+        try
+        {
+            var appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+            if (File.Exists(appSettingsPath))
+            {
+                var json = File.ReadAllText(appSettingsPath);
+                var jObj = System.Text.Json.Nodes.JsonNode.Parse(json);
+                if (jObj != null)
+                {
+                    jObj["ConnectionStrings"] ??= new System.Text.Json.Nodes.JsonObject();
+                    jObj["ConnectionStrings"]!["DefaultConnection"] = connStr;
+                    File.WriteAllText(appSettingsPath, jObj.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                }
+            }
+        }
+        catch
+        {
+            // Ignore persistence errors
         }
     }
 }

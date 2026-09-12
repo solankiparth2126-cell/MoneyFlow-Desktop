@@ -12,6 +12,9 @@ public class VoucherEntryDto
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }
     public string Narration { get; set; } = string.Empty;
+    public DateTime? BankDate { get; set; }
+    public string InstrumentNumber { get; set; } = string.Empty;
+    public List<BillAllocationCreateDto> BillAllocations { get; set; } = new();
 }
 
 public class VoucherCreateDto

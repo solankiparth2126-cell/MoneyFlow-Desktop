@@ -38,6 +38,7 @@ public class CreditNoteForm : Form
     private Button _btnNew = null!;
     private Button _btnPrint = null!;
     private Button _btnCancel = null!;
+    private bool _isInitializing;
 
     public CreditNoteForm(
         IAccountingService accountingService,
@@ -284,6 +285,7 @@ public class CreditNoteForm : Form
 
     private async Task OnFormLoadAsync()
     {
+        _isInitializing = true;
         try
         {
             var company = _companyContext.CurrentCompany;
@@ -314,6 +316,13 @@ public class CreditNoteForm : Form
         {
             MessageBox.Show(this, $"Error initializing Credit Note Form: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+        finally
+        {
+            _isInitializing = false;
+        }
+
+        await OnPartySelectedAsync();
+        await OnSalesLedgerSelectedAsync();
     }
 
     private async Task LoadLedgersAsync()
@@ -357,6 +366,7 @@ public class CreditNoteForm : Form
 
     private async Task OnPartySelectedAsync()
     {
+        if (_isInitializing) return;
         if (_cmbParty.SelectedItem is not LedgerSummaryDto selected) return;
         var company = _companyContext.CurrentCompany;
         if (company == null) return;
@@ -368,6 +378,7 @@ public class CreditNoteForm : Form
 
     private async Task OnSalesLedgerSelectedAsync()
     {
+        if (_isInitializing) return;
         if (_cmbSalesLedger.SelectedItem is not LedgerSummaryDto selected) return;
         var company = _companyContext.CurrentCompany;
         if (company == null) return;

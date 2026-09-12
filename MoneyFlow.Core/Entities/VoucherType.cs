@@ -10,6 +10,10 @@ public class VoucherType
     public string Code { get; set; } = string.Empty;
     public VoucherTypeEnum Type { get; set; }
     public string Prefix { get; set; } = string.Empty;
+    public string Suffix { get; set; } = string.Empty;
+    public int PaddingWidth { get; set; } = 4;
+    public int StartingNumber { get; set; } = 1;
+    public string RestartFrequency { get; set; } = "Yearly"; // Yearly, Monthly, Never
     public int NextNumber { get; set; } = 1;
     public bool IsActive { get; set; } = true;
 

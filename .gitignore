@@ -484,3 +484,13 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# User design photos and image assets
+desi/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.bmp
+publish/
+

@@ -1,29 +1,18 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.Interfaces;
-using MoneyFlow.Data;
-using MoneyFlow.Data.Repositories;
+using MoneyFlow.Desktop.Configuration;
+using MoneyFlow.Desktop.Diagnostics;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Services;
-using MoneyFlow.Services.Company;
-using MoneyFlow.Services.FinancialYear;
-using MoneyFlow.Services.Group;
-using MoneyFlow.Services.Ledger;
-using MoneyFlow.Services.Accounting;
-using MoneyFlow.Services.Inventory;
-using MoneyFlow.Services.Search;
-using MoneyFlow.Services.Dashboard;
-using MoneyFlow.Services.ImportExport;
-using MoneyFlow.Services.Backup;
-using MoneyFlow.Services.Security;
-using MoneyFlow.Services.Settings;
+using Serilog;
 
 namespace MoneyFlow.Desktop;
 
@@ -34,148 +23,143 @@ static class Program
     {
         ApplicationConfiguration.Initialize();
 
-        // 1. Build Configuration
-        var builder = new ConfigurationBuilder()
-            .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+        // 1. Initialize Logging & Diagnostics
+        var logger = LoggingConfiguration.ConfigureLogging();
+        Log.Information("=== MoneyFlow Desktop ERP Starting ===");
 
-        var configuration = builder.Build();
+        // 2. Global Unhandled Exception Hooks
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
-        // 2. Setup Dependency Injection
-        var host = Host.CreateDefaultBuilder()
-            .ConfigureServices((context, services) =>
+        Application.ThreadException += (s, e) =>
+        {
+            Log.Error(e.Exception, "Fatal unhandled WinForms thread exception caught.");
+            ShowCrashDialog(e.Exception);
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
             {
-                var connectionString = configuration.GetConnectionString("DefaultConnection")
-                    ?? @"Server=.\SQLEXPRESS02;Database=MoneyFlowDB;Trusted_Connection=True;TrustServerCertificate=True;";
+                Log.Fatal(ex, "Fatal unhandled AppDomain exception caught. IsTerminating={IsTerminating}", e.IsTerminating);
+                ShowCrashDialog(ex);
+            }
+            else
+            {
+                Log.Fatal("Non-exception fatal unhandled error in AppDomain: {Object}", e.ExceptionObject);
+            }
+        };
 
-                services.AddDbContext<AppDbContext>(options =>
-                    options.UseSqlServer(connectionString));
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            Log.Error(e.Exception, "Unobserved background task exception caught.");
+            e.SetObserved();
+            ShowCrashDialog(e.Exception);
+        };
 
-                services.AddLogging(configure => configure.AddConsole());
-                services.AddScoped<IDatabaseSetupService, DatabaseSetupService>();
-
-                // Repositories & Unit of Work (Phase 2 Foundation)
-                services.AddScoped<IUnitOfWork, UnitOfWork>();
-                services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-                services.AddScoped<ICompanyRepository, CompanyRepository>();
-                services.AddScoped<IFinancialYearRepository, FinancialYearRepository>();
-                services.AddScoped<IGroupRepository, GroupRepository>();
-                services.AddScoped<ILedgerRepository, LedgerRepository>();
-                services.AddScoped<IVoucherRepository, VoucherRepository>();
-
-                // Company Services (Phase 3)
-                services.AddSingleton<ICompanyContext, CompanyContext>();
-                services.AddScoped<ICompanyService, CompanyService>();
-
-                // Financial Year Services (Phase 4)
-                services.AddScoped<IFinancialYearService, FinancialYearService>();
-
-                // Group Master Services (Phase 5)
-                services.AddScoped<IGroupService, GroupService>();
-
-                // Ledger Master Services (Phase 6)
-                services.AddScoped<ILedgerService, LedgerService>();
-
-                // Accounting Engine (Phase 7 Milestone)
-                services.AddScoped<IAccountingService, AccountingService>();
-
-                // Inventory Service (Phase 23)
-                services.AddScoped<IInventoryService, InventoryService>();
-
-                // Global Search Service (Phase 24)
-                services.AddScoped<ISearchService, SearchService>();
-
-                // Executive Dashboard Service (Phase 25)
-                services.AddScoped<IDashboardService, DashboardService>();
-
-                // Data Import / Export Service (Phase 26)
-                services.AddScoped<IImportExportService, ImportExportService>();
-
-                // Local Backup & Restore Service (Phase 27)
-                services.AddScoped<IBackupRestoreService, BackupRestoreService>();
-
-                // Security & User System (Phase 28)
-                services.AddSingleton<IUserContext, UserContext>();
-                services.AddScoped<IAuditService, AuditService>();
-                services.AddScoped<ISecurityService, SecurityService>();
-
-                // Application & Company Settings (Phase 29)
-                services.AddScoped<ISettingsService, SettingsService>();
-
-                services.AddTransient<MainForm>();
-                services.AddTransient<DatabaseConnectionDialog>();
-                services.AddTransient<CompanyListForm>();
-                services.AddTransient<CompanyCreateEditForm>();
-                services.AddTransient<FinancialYearListForm>();
-                services.AddTransient<FinancialYearCreateForm>();
-                services.AddTransient<GroupListForm>();
-                services.AddTransient<GroupCreateEditForm>();
-                services.AddTransient<LedgerListForm>();
-                services.AddTransient<LedgerCreateEditForm>();
-                services.AddTransient<UnitListForm>();
-                services.AddTransient<UnitCreateEditForm>();
-                services.AddTransient<StockItemListForm>();
-                services.AddTransient<StockItemCreateEditForm>();
-                services.AddTransient<PaymentVoucherForm>();
-                services.AddTransient<ReceiptVoucherForm>();
-                services.AddTransient<ContraVoucherForm>();
-                services.AddTransient<JournalVoucherForm>();
-                services.AddTransient<SalesVoucherForm>();
-                services.AddTransient<PurchaseVoucherForm>();
-                services.AddTransient<DebitNoteForm>();
-                services.AddTransient<CreditNoteForm>();
-                services.AddTransient<DayBookForm>();
-                services.AddTransient<LedgerStatementForm>();
-                services.AddTransient<TrialBalanceForm>();
-                services.AddTransient<ProfitLossForm>();
-                services.AddTransient<BalanceSheetForm>();
-                services.AddTransient<OutstandingReportForm>();
-                services.AddTransient<CashBankBookForm>();
-                services.AddTransient<StockSummaryForm>();
-                services.AddTransient<GlobalSearchForm>();
-                services.AddTransient<DashboardForm>();
-                services.AddTransient<ImportExportForm>();
-                services.AddTransient<BackupRestoreForm>();
-                services.AddTransient<LoginForm>();
-                services.AddTransient<UserManagementForm>();
-                services.AddTransient<SettingsForm>();
-            })
-            .Build();
-
-        using var scope = host.Services.CreateScope();
-        var services = scope.ServiceProvider;
-        var dbSetup = services.GetRequiredService<IDatabaseSetupService>();
-
-        // 3. First-Run Database Check
-        bool isDbReady = false;
         try
         {
-            var initTask = dbSetup.InitializeDatabaseAsync();
-            initTask.Wait(3000); // 3-second quick probe
+            // 3. Build Configuration with Environment-Specific Fallbacks
+            var env = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .AddJsonFile($"appsettings.{env}.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables();
 
-            if (initTask.IsCompleted && initTask.Result.IsSuccess)
+            var configuration = builder.Build();
+
+            // 4. Setup Dependency Injection with Modular Extensions
+            var host = Host.CreateDefaultBuilder()
+                .UseDefaultServiceProvider((_, options) =>
+                {
+                    options.ValidateScopes = false;
+                    options.ValidateOnBuild = false;
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddLogging(loggingBuilder =>
+                    {
+                        loggingBuilder.ClearProviders();
+                        loggingBuilder.AddSerilog(Log.Logger, dispose: true);
+                    });
+
+                    services.AddDatabaseServices(configuration);
+                    services.AddDataRepositories();
+                    services.AddDomainServices();
+                    services.AddNavigationServices();
+                    services.AddDesktopForms();
+                })
+                .Build();
+
+            using var scope = host.Services.CreateScope();
+            var services = scope.ServiceProvider;
+            var dbSetup = services.GetRequiredService<IDatabaseSetupService>();
+
+            // 5. First-Run Database Probe
+            bool isDbReady = false;
+            try
             {
-                isDbReady = true;
+                var initTask = dbSetup.InitializeDatabaseAsync();
+                initTask.Wait(10000); // 10-second probe for first-run / cold-start
+
+                if (initTask.IsCompleted && initTask.Result.IsSuccess)
+                {
+                    isDbReady = true;
+                    Log.Information("Database initialization verified successfully.");
+                }
+                else
+                {
+                    Log.Warning("Database check timed out or reported failure. Prompting user configuration.");
+                }
             }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed initial database probe.");
+                isDbReady = false;
+            }
+
+            if (!isDbReady)
+            {
+                using var connDialog = new DatabaseConnectionDialog(dbSetup);
+                var dialogResult = connDialog.ShowDialog();
+                if (dialogResult != DialogResult.OK)
+                {
+                    Log.Information("User cancelled database connection dialog. Terminating application.");
+                    return;
+                }
+            }
+
+            // 6. Launch Gateway Form
+            Log.Information("Launching Main Gateway form.");
+            var mainForm = services.GetRequiredService<MainForm>();
+            Application.Run(mainForm);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Catastrophic error during application bootstrapping.");
+            ShowCrashDialog(ex);
+        }
+        finally
+        {
+            Log.Information("=== MoneyFlow Desktop ERP Terminated ===");
+            Log.CloseAndFlush();
+        }
+    }
+
+    private static void ShowCrashDialog(Exception ex)
+    {
+        try
+        {
+            using var crashDialog = new CrashReportDialog(ex, LoggingConfiguration.LogDirectory);
+            crashDialog.ShowDialog();
         }
         catch
         {
-            isDbReady = false;
+            MessageBox.Show(
+                $"A critical error occurred and crash dialog could not be displayed:\n\n{ex.Message}\n\n{ex.StackTrace}",
+                "Critical Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
-
-        if (!isDbReady)
-        {
-            // Prompt connection dialog with diagnostic button per Section 60
-            using var connDialog = new DatabaseConnectionDialog(dbSetup);
-            var dialogResult = connDialog.ShowDialog();
-            if (dialogResult != DialogResult.OK)
-            {
-                return; // User exited or cancelled
-            }
-        }
-
-        // 4. Launch Main Gateway
-        var mainForm = services.GetRequiredService<MainForm>();
-        Application.Run(mainForm);
     }
 }

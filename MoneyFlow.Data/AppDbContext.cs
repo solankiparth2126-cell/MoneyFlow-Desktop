@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<VoucherType> VoucherTypes => Set<VoucherType>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<VoucherEntry> VoucherEntries => Set<VoucherEntry>();
+    public DbSet<BillAllocation> BillAllocations => Set<BillAllocation>();
     public DbSet<StockItem> StockItems => Set<StockItem>();
     public DbSet<Unit> Units => Set<Unit>();
     public DbSet<User> Users => Set<User>();

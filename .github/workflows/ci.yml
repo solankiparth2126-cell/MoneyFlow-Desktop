@@ -1,0 +1,55 @@
+name: MoneyFlow CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Dependencies
+        run: dotnet restore MoneyFlow.sln
+
+      - name: Build Solution (Release)
+        run: dotnet build MoneyFlow.sln --configuration Release --no-restore
+
+      - name: Run Test Suites
+        run: dotnet test MoneyFlow.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx" --collect:"XPlat Code Coverage"
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+
+      - name: Publish Desktop Executable (win-x64)
+        run: dotnet publish MoneyFlow.Desktop/MoneyFlow.Desktop.csproj -c Release -r win-x64 --self-contained false -o ./publish/desktop
+
+      - name: Upload Desktop Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moneyflow-desktop-win-x64
+          path: ./publish/desktop

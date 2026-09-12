@@ -14,17 +14,79 @@ public class CompanyCreateEditForm : Form
     // UI Controls
     private TextBox txtCompanyName = null!;
     private TextBox txtAddress = null!;
-    private TextBox txtState = null!;
-    private TextBox txtCountry = null!;
+    private ComboBox cmbState = null!;
+    private ComboBox cmbCountry = null!;
     private TextBox txtPAN = null!;
     private TextBox txtEmail = null!;
     private TextBox txtPhone = null!;
     private DateTimePicker dtpFYFrom = null!;
     private DateTimePicker dtpBooksFrom = null!;
     private TextBox txtCurrency = null!;
+    private TextBox txtCompanyNumber = null!;
+    private TextBox txtDataPath = null!;
+    private Button btnBrowseDataPath = null!;
+    private TextBox txtVaultPassword = null!;
+    private TextBox txtConfirmPassword = null!;
+    private CheckBox chkAutoBackupOnExit = null!;
     private CheckBox chkDefaultLedgers = null!;
     private Button btnSave = null!;
     private Button btnCancel = null!;
+
+    private static readonly string[] Countries = new[]
+    {
+        "India",
+        "Australia",
+        "Canada",
+        "Germany",
+        "France",
+        "Japan",
+        "Nepal",
+        "Singapore",
+        "United Arab Emirates",
+        "United Kingdom",
+        "United States",
+        "Other"
+    };
+
+    private static readonly string[] IndianStates = new[]
+    {
+        "Andaman and Nicobar Islands",
+        "Andhra Pradesh",
+        "Arunachal Pradesh",
+        "Assam",
+        "Bihar",
+        "Chandigarh",
+        "Chhattisgarh",
+        "Dadra and Nagar Haveli and Daman and Diu",
+        "Delhi",
+        "Goa",
+        "Gujarat",
+        "Haryana",
+        "Himachal Pradesh",
+        "Jammu and Kashmir",
+        "Jharkhand",
+        "Karnataka",
+        "Kerala",
+        "Ladakh",
+        "Lakshadweep",
+        "Madhya Pradesh",
+        "Maharashtra",
+        "Manipur",
+        "Meghalaya",
+        "Mizoram",
+        "Nagaland",
+        "Odisha",
+        "Puducherry",
+        "Punjab",
+        "Rajasthan",
+        "Sikkim",
+        "Tamil Nadu",
+        "Telangana",
+        "Tripura",
+        "Uttar Pradesh",
+        "Uttarakhand",
+        "West Bengal"
+    };
 
     public bool IsSaved { get; private set; }
 
@@ -43,7 +105,7 @@ public class CompanyCreateEditForm : Form
     {
         bool isEdit = _companyIdToEdit.HasValue;
         this.Text = isEdit ? "MoneyFlow Desktop — Alter Company" : "MoneyFlow Desktop — Create Company";
-        this.Size = new Size(620, 600);
+        this.Size = new Size(640, 770);
         this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
@@ -72,49 +134,103 @@ public class CompanyCreateEditForm : Form
         // Form Fields Group
         var grp = new GroupBox
         {
-            Text = "Company Details",
+            Text = "Company Details, Security & Data Directory",
             Location = new Point(20, 75),
-            Size = new Size(560, 415),
+            Size = new Size(585, 600),
             ForeColor = Color.FromArgb(30, 41, 59)
         };
 
         int y = 28;
-        int spacing = 34;
+        int spacing = 32;
 
+        // Company Data Path (Tally Style)
+        AddLabel(grp, "Company Data Path *:", 20, y);
+        txtDataPath = new TextBox
+        {
+            Location = new Point(180, y - 3),
+            Width = 275,
+            Text = @"C:\MoneyFlow\Data"
+        };
+        grp.Controls.Add(txtDataPath);
+
+        btnBrowseDataPath = new Button
+        {
+            Text = "Browse...",
+            Location = new Point(460, y - 4),
+            Size = new Size(90, 27),
+            BackColor = Color.FromArgb(226, 232, 240)
+        };
+        btnBrowseDataPath.Click += (s, e) =>
+        {
+            using var fbd = new FolderBrowserDialog();
+            fbd.Description = "Select Company Data Directory";
+            fbd.UseDescriptionForTitle = true;
+            if (System.IO.Directory.Exists(txtDataPath.Text))
+            {
+                fbd.SelectedPath = txtDataPath.Text;
+            }
+            if (fbd.ShowDialog(this) == DialogResult.OK)
+            {
+                txtDataPath.Text = fbd.SelectedPath;
+            }
+        };
+        grp.Controls.Add(btnBrowseDataPath);
+
+        y += spacing;
         AddLabel(grp, "Company Name *:", 20, y);
-        txtCompanyName = AddTextBox(grp, 180, y, 350);
+        txtCompanyName = AddTextBox(grp, 180, y, 370);
+
+        y += spacing;
+        AddLabel(grp, "Company Number:", 20, y);
+        txtCompanyNumber = AddTextBox(grp, 180, y, 160);
+        var lblNumHint = new Label
+        {
+            Text = "(Leave blank to auto-generate e.g. 010002)",
+            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            ForeColor = Color.FromArgb(100, 116, 139),
+            Location = new Point(345, y),
+            AutoSize = true
+        };
+        grp.Controls.Add(lblNumHint);
 
         y += spacing;
         AddLabel(grp, "Address:", 20, y);
-        txtAddress = AddTextBox(grp, 180, y, 350);
+        txtAddress = AddTextBox(grp, 180, y, 370);
 
         y += spacing;
         AddLabel(grp, "State:", 20, y);
-        txtState = AddTextBox(grp, 180, y, 350);
+        cmbState = AddComboBox(grp, 180, y, 370, IndianStates, "Gujarat");
 
         y += spacing;
         AddLabel(grp, "Country:", 20, y);
-        txtCountry = AddTextBox(grp, 180, y, 350);
-        txtCountry.Text = "India";
+        cmbCountry = AddComboBox(grp, 180, y, 370, Countries, "India");
+        cmbCountry.SelectedIndexChanged += (s, e) =>
+        {
+            if (cmbCountry.Text.Trim().Equals("India", StringComparison.OrdinalIgnoreCase))
+            {
+                cmbState.Items.Clear();
+                cmbState.Items.AddRange(IndianStates);
+            }
+        };
 
         y += spacing;
         AddLabel(grp, "PAN:", 20, y);
-        txtPAN = AddTextBox(grp, 180, y, 350);
+        txtPAN = AddTextBox(grp, 180, y, 370);
 
         y += spacing;
         AddLabel(grp, "Email:", 20, y);
-        txtEmail = AddTextBox(grp, 180, y, 350);
+        txtEmail = AddTextBox(grp, 180, y, 370);
 
         y += spacing;
         AddLabel(grp, "Phone:", 20, y);
-        txtPhone = AddTextBox(grp, 180, y, 350);
+        txtPhone = AddTextBox(grp, 180, y, 370);
 
         y += spacing;
         AddLabel(grp, "Financial Year From:", 20, y);
         dtpFYFrom = new DateTimePicker
         {
             Location = new Point(180, y - 3),
-            Width = 350,
+            Width = 370,
             Format = DateTimePickerFormat.Custom,
             CustomFormat = "dd-MMM-yyyy",
             Value = new DateTime(2026, 4, 1),
@@ -127,7 +243,7 @@ public class CompanyCreateEditForm : Form
         dtpBooksFrom = new DateTimePicker
         {
             Location = new Point(180, y - 3),
-            Width = 350,
+            Width = 370,
             Format = DateTimePickerFormat.Custom,
             CustomFormat = "dd-MMM-yyyy",
             Value = new DateTime(2026, 4, 1),
@@ -140,6 +256,47 @@ public class CompanyCreateEditForm : Form
         txtCurrency = AddTextBox(grp, 180, y, 100);
         txtCurrency.Text = "₹";
 
+        // Tally Vault Password
+        y += spacing;
+        AddLabel(grp, "Vault Password:", 20, y);
+        txtVaultPassword = new TextBox
+        {
+            Location = new Point(180, y - 3),
+            Width = 160,
+            PasswordChar = '●',
+            UseSystemPasswordChar = true
+        };
+        grp.Controls.Add(txtVaultPassword);
+
+        var lblRepeat = new Label
+        {
+            Text = "Repeat:",
+            Location = new Point(350, y),
+            AutoSize = true
+        };
+        grp.Controls.Add(lblRepeat);
+
+        txtConfirmPassword = new TextBox
+        {
+            Location = new Point(400, y - 3),
+            Width = 150,
+            PasswordChar = '●',
+            UseSystemPasswordChar = true
+        };
+        grp.Controls.Add(txtConfirmPassword);
+
+        // Auto-backup on exit
+        y += spacing;
+        chkAutoBackupOnExit = new CheckBox
+        {
+            Text = "Auto-Backup company data to company folder upon application exit",
+            Location = new Point(180, y),
+            AutoSize = true,
+            Checked = true
+        };
+        grp.Controls.Add(chkAutoBackupOnExit);
+
+        // Default ledgers
         y += spacing;
         chkDefaultLedgers = new CheckBox
         {
@@ -157,8 +314,8 @@ public class CompanyCreateEditForm : Form
         btnSave = new Button
         {
             Text = isEdit ? "Save Changes (Enter)" : "Create Company (Enter)",
-            Location = new Point(270, 505),
-            Size = new Size(180, 35),
+            Location = new Point(290, 685),
+            Size = new Size(185, 35),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
@@ -168,7 +325,7 @@ public class CompanyCreateEditForm : Form
         btnCancel = new Button
         {
             Text = "Cancel (Esc)",
-            Location = new Point(460, 505),
+            Location = new Point(485, 685),
             Size = new Size(120, 35),
             BackColor = Color.FromArgb(226, 232, 240)
         };
@@ -193,21 +350,51 @@ public class CompanyCreateEditForm : Form
         return tb;
     }
 
+    private ComboBox AddComboBox(GroupBox grp, int x, int y, int width, string[] items, string defaultText = "")
+    {
+        var cb = new ComboBox
+        {
+            Location = new Point(x, y - 3),
+            Width = width,
+            DropDownStyle = ComboBoxStyle.DropDown,
+            AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+            AutoCompleteSource = AutoCompleteSource.ListItems
+        };
+        cb.Items.AddRange(items);
+        if (!string.IsNullOrEmpty(defaultText))
+        {
+            cb.Text = defaultText;
+        }
+        grp.Controls.Add(cb);
+        return cb;
+    }
+
     private async void LoadCompanyDataAsync(int companyId)
     {
         var company = await _companyService.GetCompanyByIdAsync(companyId);
         if (company != null)
         {
             txtCompanyName.Text = company.CompanyName;
+            txtCompanyNumber.Text = company.CompanyNumber;
+            if (!string.IsNullOrWhiteSpace(company.DataDirectory))
+            {
+                txtDataPath.Text = company.DataDirectory;
+            }
             txtAddress.Text = company.Address;
-            txtState.Text = company.State;
-            txtCountry.Text = company.Country;
+            cmbState.Text = company.State;
+            cmbCountry.Text = company.Country;
             txtPAN.Text = company.PAN;
             txtEmail.Text = company.Email;
             txtPhone.Text = company.Phone;
             dtpFYFrom.Value = company.FinancialYearFrom;
             dtpBooksFrom.Value = company.BooksBeginningFrom;
             txtCurrency.Text = company.Currency;
+            chkAutoBackupOnExit.Checked = company.AutoBackupOnExit;
+            if (company.IsPasswordProtected)
+            {
+                txtVaultPassword.PlaceholderText = "(Password set)";
+                txtConfirmPassword.PlaceholderText = "(Leave blank to keep)";
+            }
         }
     }
 
@@ -221,6 +408,25 @@ public class CompanyCreateEditForm : Form
             return;
         }
 
+        string dataDir = txtDataPath.Text.Trim();
+        if (string.IsNullOrWhiteSpace(dataDir))
+        {
+            MessageBox.Show("Please enter a valid Company Data Path.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            txtDataPath.Focus();
+            return;
+        }
+
+        // Validate password confirmation
+        if (!string.IsNullOrEmpty(txtVaultPassword.Text) || !string.IsNullOrEmpty(txtConfirmPassword.Text))
+        {
+            if (txtVaultPassword.Text != txtConfirmPassword.Text)
+            {
+                MessageBox.Show("Vault password and confirmation password do not match. Please re-enter.", "Password Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtConfirmPassword.Focus();
+                return;
+            }
+        }
+
         btnSave.Enabled = false;
 
         try
@@ -231,14 +437,18 @@ public class CompanyCreateEditForm : Form
                 {
                     CompanyId = _companyIdToEdit.Value,
                     CompanyName = name,
+                    CompanyNumber = txtCompanyNumber.Text.Trim(),
+                    DataDirectory = dataDir,
                     Address = txtAddress.Text,
-                    State = txtState.Text,
-                    Country = txtCountry.Text,
+                    State = cmbState.Text.Trim(),
+                    Country = cmbCountry.Text.Trim(),
                     PAN = txtPAN.Text,
                     Email = txtEmail.Text,
                     Phone = txtPhone.Text,
                     Currency = txtCurrency.Text,
-                    IsActive = true
+                    IsActive = true,
+                    NewVaultPassword = string.IsNullOrWhiteSpace(txtVaultPassword.Text) ? null : txtVaultPassword.Text,
+                    AutoBackupOnExit = chkAutoBackupOnExit.Checked
                 };
 
                 await _companyService.UpdateCompanyAsync(updateDto);
@@ -249,20 +459,24 @@ public class CompanyCreateEditForm : Form
                 var createDto = new CompanyCreateDto
                 {
                     CompanyName = name,
+                    CompanyNumber = txtCompanyNumber.Text.Trim(),
+                    DataDirectory = dataDir,
                     Address = txtAddress.Text,
-                    State = txtState.Text,
-                    Country = txtCountry.Text,
+                    State = cmbState.Text.Trim(),
+                    Country = cmbCountry.Text.Trim(),
                     PAN = txtPAN.Text,
                     Email = txtEmail.Text,
                     Phone = txtPhone.Text,
                     FinancialYearFrom = dtpFYFrom.Value,
                     BooksBeginningFrom = dtpBooksFrom.Value,
                     Currency = txtCurrency.Text,
-                    CreateDefaultLedgers = chkDefaultLedgers.Checked
+                    CreateDefaultLedgers = chkDefaultLedgers.Checked,
+                    VaultPassword = string.IsNullOrWhiteSpace(txtVaultPassword.Text) ? null : txtVaultPassword.Text,
+                    AutoBackupOnExit = chkAutoBackupOnExit.Checked
                 };
 
                 await _companyService.CreateCompanyAsync(createDto);
-                MessageBox.Show($"Company '{name}' created successfully with Chart of Accounts.", "Company Created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"Company '{name}' created successfully with Chart of Accounts at {dataDir}.", "Company Created", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
             IsSaved = true;
@@ -271,7 +485,8 @@ public class CompanyCreateEditForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save company:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            var msg = ex.InnerException != null ? $"{ex.Message}\n\nDetails: {ex.InnerException.Message}" : ex.Message;
+            MessageBox.Show($"Failed to save company:\n{msg}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             btnSave.Enabled = true;
         }
     }

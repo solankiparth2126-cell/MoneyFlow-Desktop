@@ -22,7 +22,7 @@ public class LedgerCreateEditForm : Form
     private NumericUpDown _numOpeningBalance = null!;
     private ComboBox _cmbBalanceType = null!;
     private TextBox _txtAddress = null!;
-    private TextBox _txtState = null!;
+    private ComboBox _txtState = null!;
     private TextBox _txtPhone = null!;
     private TextBox _txtEmail = null!;
     private TextBox _txtPAN = null!;
@@ -141,7 +141,23 @@ public class LedgerCreateEditForm : Form
 
         // 5. State
         mainPanel.Controls.Add(new Label { Text = "State:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 6);
-        _txtState = new TextBox { Width = 250, Font = new Font("Segoe UI", 9.5F) };
+        _txtState = new ComboBox
+        {
+            Width = 250,
+            Font = new Font("Segoe UI", 9.5F),
+            DropDownStyle = ComboBoxStyle.DropDown,
+            AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+            AutoCompleteSource = AutoCompleteSource.ListItems
+        };
+        _txtState.Items.AddRange(new object[] {
+            "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+            "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
+            "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand",
+            "Karnataka", "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh",
+            "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland",
+            "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim",
+            "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+        });
         mainPanel.Controls.Add(_txtState, 1, 6);
 
         // 6. Phone & Email

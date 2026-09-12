@@ -64,6 +64,7 @@ public class RestoreResultDto
 public class CompanyDto
 {
     public int CompanyId { get; set; }
+    public int Id => CompanyId;
     public string CompanyName { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
@@ -72,8 +73,13 @@ public class CompanyDto
     public string Email { get; set; } = string.Empty;
     public string PAN { get; set; } = string.Empty;
     public string Currency { get; set; } = "₹";
+    public string CompanyNumber { get; set; } = string.Empty;
+    public string DataDirectory { get; set; } = string.Empty;
     public DateTime FinancialYearFrom { get; set; }
+    public DateTime FinancialYearTo => FinancialYearFrom.AddYears(1).AddDays(-1);
     public DateTime BooksBeginningFrom { get; set; }
+    public bool IsPasswordProtected { get; set; }
+    public bool AutoBackupOnExit { get; set; } = true;
     public bool IsActive { get; set; } = true;
 }
 

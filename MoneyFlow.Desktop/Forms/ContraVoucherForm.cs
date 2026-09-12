@@ -34,6 +34,7 @@ public class ContraVoucherForm : Form
     private Button _btnNew = null!;
     private Button _btnPrint = null!;
     private Button _btnCancel = null!;
+    private bool _isInitializing;
 
     public ContraVoucherForm(
         IAccountingService accountingService,
@@ -94,7 +95,11 @@ public class ContraVoucherForm : Form
         pnlHeader.Controls.Add(new Label { Text = "Destination Account (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 1);
         var pnlAccount = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
         _cmbDestinationAccount = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = new Font("Segoe UI", 9.5F) };
-        _cmbDestinationAccount.SelectedIndexChanged += async (s, e) => await OnDestinationAccountSelectedAsync();
+        _cmbDestinationAccount.SelectedIndexChanged += async (s, e) =>
+        {
+            if (_isInitializing) return;
+            await OnDestinationAccountSelectedAsync();
+        };
         _lblDestinationBalance = new Label { Text = "Cur Bal: ₹0.00", AutoSize = true, ForeColor = Color.FromArgb(0, 100, 0), Margin = new Padding(10, 5, 0, 0) };
         pnlAccount.Controls.Add(_cmbDestinationAccount);
         pnlAccount.Controls.Add(_lblDestinationBalance);
@@ -107,11 +112,11 @@ public class ContraVoucherForm : Form
         pnlTemplates.Controls.Add(lblTemplate);
 
         var btnDeposit = new Button { Text = "Cash Deposit to Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = new Font("Segoe UI", 8.5F) };
-        btnDeposit.Click += (s, e) => ApplyTransferTemplate(isDeposit: true);
+        btnDeposit.Click += async (s, e) => await ApplyTransferTemplateAsync(isDeposit: true);
         pnlTemplates.Controls.Add(btnDeposit);
 
         var btnWithdraw = new Button { Text = "Cash Withdrawal from Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = new Font("Segoe UI", 8.5F), Margin = new Padding(8, 0, 0, 0) };
-        btnWithdraw.Click += (s, e) => ApplyTransferTemplate(isDeposit: false);
+        btnWithdraw.Click += async (s, e) => await ApplyTransferTemplateAsync(isDeposit: false);
         pnlTemplates.Controls.Add(btnWithdraw);
 
         pnlHeader.Controls.Add(pnlTemplates, 1, 2);
@@ -170,7 +175,11 @@ public class ContraVoucherForm : Form
         };
 
         _dgvEntries.Columns.AddRange(colLedger, colBalance, colAmount, colMode, colNarration);
-        _dgvEntries.CellValueChanged += async (s, e) => await OnGridCellValueChangedAsync(e.RowIndex, e.ColumnIndex);
+        _dgvEntries.CellValueChanged += async (s, e) =>
+        {
+            if (_isInitializing) return;
+            await OnGridCellValueChangedAsync(e.RowIndex, e.ColumnIndex);
+        };
         _dgvEntries.RowsRemoved += (s, e) => RecalculateTotals();
 
         // 3. Narration and Summary Panel
@@ -284,6 +293,7 @@ public class ContraVoucherForm : Form
 
     private async Task InitializeFormDataAsync()
     {
+        _isInitializing = true;
         try
         {
             UseWaitCursor = true;
@@ -337,8 +347,11 @@ public class ContraVoucherForm : Form
         }
         finally
         {
+            _isInitializing = false;
             UseWaitCursor = false;
         }
+
+        await OnDestinationAccountSelectedAsync();
     }
 
     private async Task RefreshVoucherNumberPreviewAsync()
@@ -356,6 +369,7 @@ public class ContraVoucherForm : Form
 
     private async Task OnDestinationAccountSelectedAsync()
     {
+        if (_isInitializing) return;
         if (_cmbDestinationAccount.SelectedItem is LedgerSummaryDto selected && _companyContext.CurrentCompany != null)
         {
             var balance = await _accountingService.GetLedgerBalanceAsync(_companyContext.CurrentCompany.CompanyId, selected.LedgerId);
@@ -368,45 +382,60 @@ public class ContraVoucherForm : Form
         }
     }
 
-    private void ApplyTransferTemplate(bool isDeposit)
+    private async Task ApplyTransferTemplateAsync(bool isDeposit)
     {
         if (_cashBankLedgers.Count == 0) return;
 
         var cashLedger = _cashBankLedgers.FirstOrDefault(l => l.GroupName.Contains("Cash", StringComparison.OrdinalIgnoreCase) || l.LedgerName.Contains("Cash", StringComparison.OrdinalIgnoreCase));
         var bankLedger = _cashBankLedgers.FirstOrDefault(l => l.GroupName.Contains("Bank", StringComparison.OrdinalIgnoreCase) || l.LedgerName.Contains("Bank", StringComparison.OrdinalIgnoreCase));
 
-        if (isDeposit)
+        _isInitializing = true;
+        try
         {
-            // Cash -> Bank: Bank is Destination (Dr), Cash is Source (Cr)
-            if (bankLedger != null)
+            if (isDeposit)
             {
-                _cmbDestinationAccount.SelectedValue = bankLedger.LedgerId;
+                // Cash -> Bank: Bank is Destination (Dr), Cash is Source (Cr)
+                if (bankLedger != null)
+                {
+                    _cmbDestinationAccount.SelectedValue = bankLedger.LedgerId;
+                }
+                if (cashLedger != null && _dgvEntries.Rows.Count > 0)
+                {
+                    _dgvEntries.Rows[0].Cells["ColLedger"].Value = cashLedger.LedgerId;
+                    _dgvEntries.Rows[0].Cells["ColMode"].Value = "Cash Deposit";
+                }
+                _txtNarration.Text = "Being cash deposited into bank.";
             }
-            if (cashLedger != null && _dgvEntries.Rows.Count > 0)
+            else
             {
-                _dgvEntries.Rows[0].Cells["ColLedger"].Value = cashLedger.LedgerId;
-                _dgvEntries.Rows[0].Cells["ColMode"].Value = "Cash Deposit";
+                // Bank -> Cash: Cash is Destination (Dr), Bank is Source (Cr)
+                if (cashLedger != null)
+                {
+                    _cmbDestinationAccount.SelectedValue = cashLedger.LedgerId;
+                }
+                if (bankLedger != null && _dgvEntries.Rows.Count > 0)
+                {
+                    _dgvEntries.Rows[0].Cells["ColLedger"].Value = bankLedger.LedgerId;
+                    _dgvEntries.Rows[0].Cells["ColMode"].Value = "Cash Withdrawal";
+                }
+                _txtNarration.Text = "Being cash withdrawn from bank for office use.";
             }
-            _txtNarration.Text = "Being cash deposited into bank.";
         }
-        else
+        finally
         {
-            // Bank -> Cash: Cash is Destination (Dr), Bank is Source (Cr)
-            if (cashLedger != null)
-            {
-                _cmbDestinationAccount.SelectedValue = cashLedger.LedgerId;
-            }
-            if (bankLedger != null && _dgvEntries.Rows.Count > 0)
-            {
-                _dgvEntries.Rows[0].Cells["ColLedger"].Value = bankLedger.LedgerId;
-                _dgvEntries.Rows[0].Cells["ColMode"].Value = "Cash Withdrawal";
-            }
-            _txtNarration.Text = "Being cash withdrawn from bank for office use.";
+            _isInitializing = false;
+        }
+
+        await OnDestinationAccountSelectedAsync();
+        if (_dgvEntries.Rows.Count > 0)
+        {
+            await OnGridCellValueChangedAsync(0, _dgvEntries.Columns["ColLedger"].Index);
         }
     }
 
     private async Task OnGridCellValueChangedAsync(int rowIndex, int columnIndex)
     {
+        if (_isInitializing) return;
         if (rowIndex < 0 || rowIndex >= _dgvEntries.Rows.Count) return;
 
         var row = _dgvEntries.Rows[rowIndex];

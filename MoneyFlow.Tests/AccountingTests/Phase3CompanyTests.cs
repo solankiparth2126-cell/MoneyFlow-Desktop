@@ -175,4 +175,69 @@ public class Phase3CompanyTests
         companyContext.IsCompanyOpen.Should().BeFalse();
         companyContext.CurrentCompany.Should().BeNull();
     }
+
+    [Fact]
+    public async Task CreateMultipleCompanies_Should_Create_Isolated_Directories_And_Not_Mix_Data()
+    {
+        var (_, service, companyContext) = CreateTestSetup();
+
+        string tempBase = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MoneyFlowTest_" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var comp1 = await service.CreateCompanyAsync(new CompanyCreateDto
+            {
+                CompanyName = "Alpha Steel Mills",
+                DataDirectory = tempBase,
+                CreateDefaultLedgers = true
+            });
+
+            var comp2 = await service.CreateCompanyAsync(new CompanyCreateDto
+            {
+                CompanyName = "Beta Textiles",
+                DataDirectory = tempBase,
+                CreateDefaultLedgers = true
+            });
+
+            // Verify company numbers are distinct
+            comp1.CompanyNumber.Should().NotBeNullOrWhiteSpace();
+            comp2.CompanyNumber.Should().NotBeNullOrWhiteSpace();
+            comp1.CompanyNumber.Should().NotBe(comp2.CompanyNumber);
+
+            // Verify directories are isolated
+            comp1.DataDirectory.Should().NotBe(comp2.DataDirectory);
+            System.IO.Directory.Exists(comp1.DataDirectory).Should().BeTrue();
+            System.IO.Directory.Exists(comp2.DataDirectory).Should().BeTrue();
+
+            // Verify isolated subfolders and metadata
+            System.IO.Directory.Exists(System.IO.Path.Combine(comp1.DataDirectory, "Backups")).Should().BeTrue();
+            System.IO.Directory.Exists(System.IO.Path.Combine(comp2.DataDirectory, "Backups")).Should().BeTrue();
+            System.IO.File.Exists(System.IO.Path.Combine(comp1.DataDirectory, "company.json")).Should().BeTrue();
+            System.IO.File.Exists(System.IO.Path.Combine(comp2.DataDirectory, "company.json")).Should().BeTrue();
+
+            // Verify metadata content does not mix
+            string meta1 = await System.IO.File.ReadAllTextAsync(System.IO.Path.Combine(comp1.DataDirectory, "company.json"));
+            string meta2 = await System.IO.File.ReadAllTextAsync(System.IO.Path.Combine(comp2.DataDirectory, "company.json"));
+            meta1.Should().Contain("Alpha Steel Mills");
+            meta1.Should().NotContain("Beta Textiles");
+            meta2.Should().Contain("Beta Textiles");
+            meta2.Should().NotContain("Alpha Steel Mills");
+
+            // Verify switching companies
+            await service.OpenCompanyAsync(comp1.CompanyId);
+            companyContext.CurrentCompany?.CompanyName.Should().Be("Alpha Steel Mills");
+            companyContext.CurrentCompany?.CompanyNumber.Should().Be(comp1.CompanyNumber);
+
+            await service.OpenCompanyAsync(comp2.CompanyId);
+            companyContext.CurrentCompany?.CompanyName.Should().Be("Beta Textiles");
+            companyContext.CurrentCompany?.CompanyNumber.Should().Be(comp2.CompanyNumber);
+        }
+        finally
+        {
+            if (System.IO.Directory.Exists(tempBase))
+            {
+                try { System.IO.Directory.Delete(tempBase, true); } catch { }
+            }
+        }
+    }
 }

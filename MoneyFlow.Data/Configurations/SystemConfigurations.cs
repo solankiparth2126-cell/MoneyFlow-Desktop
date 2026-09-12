@@ -24,9 +24,9 @@ public class StockItemConfiguration : IEntityTypeConfiguration<StockItem>
         builder.ToTable("StockItems");
         builder.HasKey(s => s.StockItemId);
         builder.Property(s => s.ItemName).IsRequired().HasMaxLength(150);
-        builder.Property(s => s.OpeningQuantity).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
-        builder.Property(s => s.OpeningRate).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
-        builder.Property(s => s.OpeningValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+        builder.Property(s => s.OpeningQuantity).HasColumnType("decimal(18,2)");
+        builder.Property(s => s.OpeningRate).HasColumnType("decimal(18,2)");
+        builder.Property(s => s.OpeningValue).HasColumnType("decimal(18,2)");
 
         builder.HasOne(s => s.Company).WithMany(c => c.StockItems).HasForeignKey(s => s.CompanyId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(s => s.Unit).WithMany().HasForeignKey(s => s.UnitId).OnDelete(DeleteBehavior.SetNull);

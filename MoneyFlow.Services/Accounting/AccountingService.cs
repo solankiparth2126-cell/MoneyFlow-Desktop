@@ -25,6 +25,7 @@ public class AccountingService : IAccountingService
     private readonly ICompanyRepository _companyRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AccountingService> _logger;
+    private static readonly SemaphoreSlim _asyncLock = new(1, 1);
 
     public AccountingService(
         AppDbContext context,
@@ -109,145 +110,192 @@ public class AccountingService : IAccountingService
 
     public async Task<Voucher> SaveVoucherAsync(int companyId, VoucherCreateDto dto, CancellationToken ct = default)
     {
-        await using var tx = await _unitOfWork.BeginTransactionAsync(ct);
+        await _asyncLock.WaitAsync(ct);
         try
         {
-            var company = await _companyRepo.GetByIdAsync(companyId, ct)
-                ?? throw new ArgumentException($"Company with ID {companyId} does not exist.", nameof(companyId));
-
-            var fy = await _fyRepo.GetByIdAsync(dto.FinancialYearId, ct)
-                ?? throw new ArgumentException($"Financial year with ID {dto.FinancialYearId} does not exist.", nameof(dto.FinancialYearId));
-
-            if (fy.CompanyId != companyId)
+            await using var tx = await _unitOfWork.BeginTransactionAsync(ct);
+            try
             {
-                throw new InvalidOperationException("The financial year does not belong to the active company.");
-            }
+                var company = await _companyRepo.GetByIdAsync(companyId, ct)
+                    ?? throw new ArgumentException($"Company with ID {companyId} does not exist.", nameof(companyId));
 
-            if (fy.IsClosed)
-            {
-                throw new InvalidOperationException($"Financial year '{fy.YearName}' is closed/locked for transactions.");
-            }
+                var fy = await _fyRepo.GetByIdAsync(dto.FinancialYearId, ct)
+                    ?? throw new ArgumentException($"Financial year with ID {dto.FinancialYearId} does not exist.", nameof(dto.FinancialYearId));
 
-            var validation = ValidateVoucher(dto, fy.StartDate, fy.EndDate);
-            if (!validation.IsValid)
-            {
-                throw new InvalidOperationException(string.Join(Environment.NewLine, validation.Errors));
-            }
-
-            // Validate all referenced ledgers belong to this company
-            var ledgerIds = dto.Entries.Select(e => e.LedgerId).Distinct().ToList();
-            var ledgers = await _context.Ledgers
-                .Where(l => ledgerIds.Contains(l.LedgerId) && l.CompanyId == companyId && l.IsActive)
-                .Select(l => l.LedgerId)
-                .ToListAsync(ct);
-
-            if (ledgers.Count != ledgerIds.Count)
-            {
-                throw new InvalidOperationException("One or more selected ledgers do not exist, are inactive, or do not belong to the active company.");
-            }
-
-            // Validate Contra vouchers are strictly between Cash and Bank accounts
-            var voucherType = await _context.VoucherTypes.FirstOrDefaultAsync(vt => vt.VoucherTypeId == dto.VoucherTypeId, ct);
-            if (voucherType?.Type == VoucherTypeEnum.Contra)
-            {
-                var cashBankLedgers = await GetCashAndBankLedgersAsync(companyId, ct);
-                var validCashBankIds = cashBankLedgers.Select(l => l.LedgerId).ToHashSet();
-                if (ledgerIds.Any(id => !validCashBankIds.Contains(id)))
+                if (fy.CompanyId != companyId)
                 {
-                    throw new InvalidOperationException("Contra vouchers can only be recorded between Cash and Bank accounts.");
+                    throw new InvalidOperationException("The financial year does not belong to the active company.");
                 }
-            }
 
-            var nextVoucherNumber = await _voucherRepo.GetNextVoucherNumberAsync(companyId, dto.VoucherTypeId, dto.FinancialYearId, ct);
-
-            var voucher = new Voucher
-            {
-                CompanyId = companyId,
-                FinancialYearId = dto.FinancialYearId,
-                VoucherTypeId = dto.VoucherTypeId,
-                VoucherNumber = nextVoucherNumber,
-                VoucherDate = dto.VoucherDate,
-                ReferenceNumber = dto.ReferenceNumber?.Trim() ?? string.Empty,
-                Narration = dto.Narration?.Trim() ?? string.Empty,
-                CreatedAt = DateTime.Now,
-                CreatedBy = "System",
-                IsDeleted = false
-            };
-
-            foreach (var entryDto in dto.Entries)
-            {
-                voucher.VoucherEntries.Add(new VoucherEntry
+                if (fy.IsClosed)
                 {
-                    LedgerId = entryDto.LedgerId,
-                    Debit = entryDto.Debit,
-                    Credit = entryDto.Credit,
-                    Narration = entryDto.Narration?.Trim() ?? string.Empty
-                });
+                    throw new InvalidOperationException($"Financial year '{fy.YearName}' is closed/locked for transactions.");
+                }
+
+                var validation = ValidateVoucher(dto, fy.StartDate, fy.EndDate);
+                if (!validation.IsValid)
+                {
+                    throw new InvalidOperationException(string.Join(Environment.NewLine, validation.Errors));
+                }
+
+                // Validate all referenced ledgers belong to this company
+                var ledgerIds = dto.Entries.Select(e => e.LedgerId).Distinct().ToList();
+                var ledgers = await _context.Ledgers
+                    .Where(l => ledgerIds.Contains(l.LedgerId) && l.CompanyId == companyId && l.IsActive)
+                    .Select(l => l.LedgerId)
+                    .ToListAsync(ct);
+
+                if (ledgers.Count != ledgerIds.Count)
+                {
+                    throw new InvalidOperationException("One or more selected ledgers do not exist, are inactive, or do not belong to the active company.");
+                }
+
+                // Validate Contra vouchers are strictly between Cash and Bank accounts
+                var voucherType = await _context.VoucherTypes.FirstOrDefaultAsync(vt => vt.VoucherTypeId == dto.VoucherTypeId, ct);
+                if (voucherType?.Type == VoucherTypeEnum.Contra)
+                {
+                    var cashBankLedgers = await GetCashAndBankLedgersAsync(companyId, ct);
+                    var validCashBankIds = cashBankLedgers.Select(l => l.LedgerId).ToHashSet();
+                    if (ledgerIds.Any(id => !validCashBankIds.Contains(id)))
+                    {
+                        throw new InvalidOperationException("Contra vouchers can only be recorded between Cash and Bank accounts.");
+                    }
+                }
+
+                var nextVoucherNumber = await _voucherRepo.GetNextVoucherNumberAsync(companyId, dto.VoucherTypeId, dto.FinancialYearId, ct);
+                if (voucherType != null && (!string.IsNullOrEmpty(voucherType.Prefix) || !string.IsNullOrEmpty(voucherType.Suffix) || voucherType.PaddingWidth > 0))
+                {
+                    int padWidth = voucherType.PaddingWidth > 0 ? voucherType.PaddingWidth : 4;
+                    if (int.TryParse(nextVoucherNumber, out int numVal))
+                    {
+                        nextVoucherNumber = $"{voucherType.Prefix}{numVal.ToString($"D{padWidth}")}{voucherType.Suffix}";
+                    }
+                }
+
+                var voucher = new Voucher
+                {
+                    CompanyId = companyId,
+                    FinancialYearId = dto.FinancialYearId,
+                    VoucherTypeId = dto.VoucherTypeId,
+                    VoucherNumber = nextVoucherNumber,
+                    VoucherDate = dto.VoucherDate,
+                    ReferenceNumber = dto.ReferenceNumber?.Trim() ?? string.Empty,
+                    Narration = dto.Narration?.Trim() ?? string.Empty,
+                    CreatedAt = DateTime.Now,
+                    CreatedBy = "System",
+                    IsDeleted = false
+                };
+
+                foreach (var entryDto in dto.Entries)
+                {
+                    var entry = new VoucherEntry
+                    {
+                        LedgerId = entryDto.LedgerId,
+                        Debit = entryDto.Debit,
+                        Credit = entryDto.Credit,
+                        Narration = entryDto.Narration?.Trim() ?? string.Empty,
+                        BankDate = entryDto.BankDate,
+                        InstrumentNumber = entryDto.InstrumentNumber?.Trim() ?? string.Empty
+                    };
+
+                    if (entryDto.BillAllocations != null && entryDto.BillAllocations.Count > 0)
+                    {
+                        foreach (var allocDto in entryDto.BillAllocations)
+                        {
+                            entry.BillAllocations.Add(new BillAllocation
+                            {
+                                CompanyId = companyId,
+                                LedgerId = entryDto.LedgerId,
+                                BillType = allocDto.BillType,
+                                BillName = string.IsNullOrWhiteSpace(allocDto.BillName)
+                                    ? (string.IsNullOrWhiteSpace(voucher.ReferenceNumber) ? nextVoucherNumber : voucher.ReferenceNumber)
+                                    : allocDto.BillName.Trim(),
+                                DueDate = allocDto.DueDate,
+                                CreditDays = allocDto.CreditDays,
+                                Amount = allocDto.Amount > 0 ? allocDto.Amount : Math.Max(entryDto.Debit, entryDto.Credit)
+                            });
+                        }
+                    }
+
+                    voucher.VoucherEntries.Add(entry);
+                }
+
+                await _voucherRepo.AddAsync(voucher, ct);
+                await _unitOfWork.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
+
+                _logger.LogInformation("Successfully saved voucher {VoucherNumber} (ID: {VoucherId}) for Company {CompanyId} with Total ₹{Amount:N2}",
+                    voucher.VoucherNumber, voucher.VoucherId, companyId, validation.TotalDebit);
+
+                return voucher;
             }
-
-            await _voucherRepo.AddAsync(voucher, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-
-            _logger.LogInformation("Successfully saved voucher {VoucherNumber} (ID: {VoucherId}) for Company {CompanyId} with Total ₹{Amount:N2}",
-                voucher.VoucherNumber, voucher.VoucherId, companyId, validation.TotalDebit);
-
-            return voucher;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save voucher for Company {CompanyId}. Transaction rolled back.", companyId);
+                await tx.RollbackAsync(ct);
+                throw;
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.LogError(ex, "Failed to save voucher for Company {CompanyId}. Transaction rolled back.", companyId);
-            await tx.RollbackAsync(ct);
-            throw;
+            _asyncLock.Release();
         }
     }
 
     public async Task<LedgerBalanceDto> GetLedgerBalanceAsync(int companyId, int ledgerId, DateTime? asOfDate = null, CancellationToken ct = default)
     {
-        var ledger = await _context.Ledgers
-            .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.LedgerId == ledgerId && l.CompanyId == companyId, ct)
-            ?? throw new ArgumentException($"Ledger with ID {ledgerId} does not exist in this company.", nameof(ledgerId));
-
-        decimal initialNet = ledger.OpeningBalanceType == BalanceType.Debit
-            ? ledger.OpeningBalance
-            : -ledger.OpeningBalance;
-
-        var entriesQuery = _context.VoucherEntries
-            .AsNoTracking()
-            .Where(ve => ve.LedgerId == ledgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId);
-
-        if (asOfDate.HasValue)
+        await _asyncLock.WaitAsync(ct);
+        try
         {
-            var endOfDay = asOfDate.Value.Date.AddDays(1).AddTicks(-1);
-            entriesQuery = entriesQuery.Where(ve => ve.Voucher!.VoucherDate <= endOfDay);
-        }
+            var ledger = await _context.Ledgers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(l => l.LedgerId == ledgerId && l.CompanyId == companyId, ct)
+                ?? throw new ArgumentException($"Ledger with ID {ledgerId} does not exist in this company.", nameof(ledgerId));
 
-        var totals = await entriesQuery
-            .GroupBy(_ => 1)
-            .Select(g => new
+            decimal initialNet = ledger.OpeningBalanceType == BalanceType.Debit
+                ? ledger.OpeningBalance
+                : -ledger.OpeningBalance;
+
+            var entriesQuery = _context.VoucherEntries
+                .AsNoTracking()
+                .Where(ve => ve.LedgerId == ledgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId);
+
+            if (asOfDate.HasValue)
             {
-                TotalDebit = g.Sum(x => x.Debit),
-                TotalCredit = g.Sum(x => x.Credit)
-            })
-            .FirstOrDefaultAsync(ct);
+                var endOfDay = asOfDate.Value.Date.AddDays(1).AddTicks(-1);
+                entriesQuery = entriesQuery.Where(ve => ve.Voucher!.VoucherDate <= endOfDay);
+            }
 
-        decimal totalDebit = totals?.TotalDebit ?? 0m;
-        decimal totalCredit = totals?.TotalCredit ?? 0m;
+            var totals = await entriesQuery
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    TotalDebit = g.Sum(x => x.Debit),
+                    TotalCredit = g.Sum(x => x.Credit)
+                })
+                .FirstOrDefaultAsync(ct);
 
-        decimal netClosing = initialNet + totalDebit - totalCredit;
+            decimal totalDebit = totals?.TotalDebit ?? 0m;
+            decimal totalCredit = totals?.TotalCredit ?? 0m;
 
-        return new LedgerBalanceDto
+            decimal netClosing = initialNet + totalDebit - totalCredit;
+
+            return new LedgerBalanceDto
+            {
+                LedgerId = ledgerId,
+                LedgerName = ledger.LedgerName,
+                OpeningBalance = ledger.OpeningBalance,
+                OpeningType = ledger.OpeningBalanceType,
+                TotalDebit = totalDebit,
+                TotalCredit = totalCredit,
+                ClosingBalance = Math.Abs(netClosing),
+                ClosingType = netClosing >= 0 ? BalanceType.Debit : BalanceType.Credit
+            };
+        }
+        finally
         {
-            LedgerId = ledgerId,
-            LedgerName = ledger.LedgerName,
-            OpeningBalance = ledger.OpeningBalance,
-            OpeningType = ledger.OpeningBalanceType,
-            TotalDebit = totalDebit,
-            TotalCredit = totalCredit,
-            ClosingBalance = Math.Abs(netClosing),
-            ClosingType = netClosing >= 0 ? BalanceType.Debit : BalanceType.Credit
-        };
+            _asyncLock.Release();
+        }
     }
 
     public async Task<LedgerStatementDto> GetLedgerStatementAsync(int companyId, int ledgerId, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
@@ -518,7 +566,15 @@ public class AccountingService : IAccountingService
 
     public async Task<string> GetNextVoucherNumberPreviewAsync(int companyId, int voucherTypeId, int financialYearId, CancellationToken ct = default)
     {
-        return await _voucherRepo.GetNextVoucherNumberAsync(companyId, voucherTypeId, financialYearId, ct);
+        await _asyncLock.WaitAsync(ct);
+        try
+        {
+            return await _voucherRepo.GetNextVoucherNumberAsync(companyId, voucherTypeId, financialYearId, ct);
+        }
+        finally
+        {
+            _asyncLock.Release();
+        }
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashAndBankLedgersAsync(int companyId, CancellationToken ct = default)

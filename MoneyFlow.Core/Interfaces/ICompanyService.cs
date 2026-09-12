@@ -14,5 +14,6 @@ public interface ICompanyService
     Task<IReadOnlyList<CompanySummaryDto>> GetAllCompaniesAsync(CancellationToken ct = default);
     Task<bool> DeleteCompanyAsync(int companyId, CancellationToken ct = default);
     Task<bool> OpenCompanyAsync(int companyId, CancellationToken ct = default);
+    Task<bool> VerifyCompanyPasswordAsync(int companyId, string password, CancellationToken ct = default);
     void CloseCompany();
 }

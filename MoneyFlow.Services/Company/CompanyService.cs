@@ -59,6 +59,60 @@ public class CompanyService : ICompanyService
         using var tx = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
+            // Determine company number & isolated data directory
+            var existing = await _companyRepo.GetAllAsync(ct);
+            int maxNum = 10000;
+            foreach (var c in existing)
+            {
+                if (int.TryParse(c.CompanyNumber, out int n) && n > maxNum)
+                {
+                    maxNum = n;
+                }
+            }
+            string assignedCompanyNumber = string.IsNullOrWhiteSpace(dto.CompanyNumber)
+                ? (maxNum + 1).ToString("D6")
+                : dto.CompanyNumber.Trim();
+
+            string baseDir = string.IsNullOrWhiteSpace(dto.DataDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MoneyFlow", "Data")
+                : dto.DataDirectory.Trim();
+
+            string targetCompanyDir = baseDir.EndsWith(assignedCompanyNumber, StringComparison.OrdinalIgnoreCase)
+                ? baseDir
+                : Path.Combine(baseDir, assignedCompanyNumber);
+
+            // Ensure isolated company folder on disk
+            try
+            {
+                Directory.CreateDirectory(targetCompanyDir);
+                Directory.CreateDirectory(Path.Combine(targetCompanyDir, "Backups"));
+                Directory.CreateDirectory(Path.Combine(targetCompanyDir, "Exports"));
+                Directory.CreateDirectory(Path.Combine(targetCompanyDir, "Reports"));
+
+                var meta = new
+                {
+                    CompanyNumber = assignedCompanyNumber,
+                    CompanyName = trimmedName,
+                    CreatedAt = DateTime.Now,
+                    FinancialYearFrom = dto.FinancialYearFrom,
+                    Currency = dto.Currency,
+                    DataDirectory = targetCompanyDir
+                };
+                string metaJson = System.Text.Json.JsonSerializer.Serialize(meta, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(Path.Combine(targetCompanyDir, "company.json"), metaJson);
+            }
+            catch (Exception exDir)
+            {
+                _logger.LogWarning(exDir, "Could not initialize directory {TargetDir}: {Message}", targetCompanyDir, exDir.Message);
+            }
+
+            string? pwdHash = null;
+            string? pwdSalt = null;
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                (pwdHash, pwdSalt) = HashPassword(dto.Password.Trim());
+            }
+
             // 1. Create Company Entity
             var company = new Core.Entities.Company
             {
@@ -72,6 +126,11 @@ public class CompanyService : ICompanyService
                 FinancialYearFrom = dto.FinancialYearFrom.Date,
                 BooksBeginningFrom = dto.BooksBeginningFrom.Date,
                 Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "₹" : dto.Currency.Trim(),
+                CompanyNumber = assignedCompanyNumber,
+                DataDirectory = targetCompanyDir,
+                PasswordHash = pwdHash,
+                PasswordSalt = pwdSalt,
+                AutoBackupOnExit = dto.AutoBackupOnExit,
                 CreatedAt = DateTime.Now,
                 IsActive = true
             };
@@ -108,7 +167,8 @@ public class CompanyService : ICompanyService
 
             await tx.CommitAsync(ct);
 
-            _logger.LogInformation("Company {CompanyName} (ID: {CompanyId}) created successfully.", company.CompanyName, company.CompanyId);
+            _logger.LogInformation("Company {CompanyName} (No: {CompanyNumber}, ID: {CompanyId}) created successfully at {DataDir}.",
+                company.CompanyName, company.CompanyNumber, company.CompanyId, company.DataDirectory);
 
             // Set as active company in context
             _companyContext.SetActiveCompany(company, financialYear);
@@ -144,6 +204,27 @@ public class CompanyService : ICompanyService
         company.Phone = dto.Phone?.Trim() ?? string.Empty;
         company.Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "₹" : dto.Currency.Trim();
         company.IsActive = dto.IsActive;
+        if (!string.IsNullOrWhiteSpace(dto.CompanyNumber))
+        {
+            company.CompanyNumber = dto.CompanyNumber.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(dto.DataDirectory))
+        {
+            company.DataDirectory = dto.DataDirectory.Trim();
+            try { Directory.CreateDirectory(company.DataDirectory); } catch { }
+        }
+        if (dto.RemovePassword)
+        {
+            company.PasswordHash = null;
+            company.PasswordSalt = null;
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.NewPassword))
+        {
+            var (h, s) = HashPassword(dto.NewPassword.Trim());
+            company.PasswordHash = h;
+            company.PasswordSalt = s;
+        }
+        company.AutoBackupOnExit = dto.AutoBackupOnExit;
         company.UpdatedAt = DateTime.Now;
 
         _companyRepo.Update(company);
@@ -175,9 +256,41 @@ public class CompanyService : ICompanyService
                 FinancialYearFrom = c.FinancialYearFrom,
                 BooksBeginningFrom = c.BooksBeginningFrom,
                 Currency = c.Currency,
+                CompanyNumber = string.IsNullOrWhiteSpace(c.CompanyNumber) ? $"01{c.CompanyId:D4}" : c.CompanyNumber,
+                DataDirectory = c.DataDirectory ?? string.Empty,
+                IsPasswordProtected = c.IsPasswordProtected,
+                AutoBackupOnExit = c.AutoBackupOnExit,
                 IsActive = c.IsActive
             })
             .ToList();
+    }
+
+    public async Task<bool> VerifyCompanyPasswordAsync(int companyId, string password, CancellationToken ct = default)
+    {
+        var company = await _companyRepo.GetByIdAsync(companyId, ct);
+        if (company == null) return false;
+        if (!company.IsPasswordProtected) return true;
+        if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(company.PasswordSalt) || string.IsNullOrEmpty(company.PasswordHash)) return false;
+        return VerifyHash(password, company.PasswordHash, company.PasswordSalt);
+    }
+
+    private static (string Hash, string Salt) HashPassword(string password)
+    {
+        byte[] saltBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        string salt = Convert.ToBase64String(saltBytes);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, saltBytes, 10000, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        byte[] hashBytes = pbkdf2.GetBytes(32);
+        string hash = Convert.ToBase64String(hashBytes);
+        return (hash, salt);
+    }
+
+    private static bool VerifyHash(string password, string storedHash, string storedSalt)
+    {
+        byte[] saltBytes = Convert.FromBase64String(storedSalt);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, saltBytes, 10000, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        byte[] hashBytes = pbkdf2.GetBytes(32);
+        string computedHash = Convert.ToBase64String(hashBytes);
+        return string.Equals(computedHash, storedHash, StringComparison.Ordinal);
     }
 
     public async Task<bool> DeleteCompanyAsync(int companyId, CancellationToken ct = default)

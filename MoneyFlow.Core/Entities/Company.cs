@@ -16,6 +16,12 @@ public class Company
     public DateTime FinancialYearFrom { get; set; }
     public DateTime BooksBeginningFrom { get; set; }
     public string Currency { get; set; } = "₹";
+    public string CompanyNumber { get; set; } = string.Empty;
+    public string DataDirectory { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
+    public string? PasswordSalt { get; set; }
+    public bool IsPasswordProtected => !string.IsNullOrEmpty(PasswordHash);
+    public bool AutoBackupOnExit { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }
     public bool IsActive { get; set; } = true;
