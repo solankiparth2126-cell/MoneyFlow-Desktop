@@ -111,33 +111,22 @@ public static class ServiceCollectionExtensions
         services.AddTransient<FinancialYearListForm>();
         services.AddTransient<GroupListForm>();
         services.AddTransient<LedgerListForm>();
-        services.AddTransient<UnitListForm>();
-        services.AddTransient<UnitCreateEditForm>();
-        services.AddTransient<StockItemListForm>();
-        services.AddTransient<StockItemCreateEditForm>();
         services.AddTransient<PaymentVoucherForm>();
         services.AddTransient<ReceiptVoucherForm>();
         services.AddTransient<ContraVoucherForm>();
         services.AddTransient<JournalVoucherForm>();
         services.AddTransient<SalesVoucherForm>();
         services.AddTransient<PurchaseVoucherForm>();
-        services.AddTransient<DebitNoteForm>();
-        services.AddTransient<CreditNoteForm>();
         services.AddTransient<DayBookForm>();
         services.AddTransient<LedgerStatementForm>();
-        services.AddTransient<TrialBalanceForm>();
         services.AddTransient<ProfitLossForm>();
         services.AddTransient<BalanceSheetForm>();
-        services.AddTransient<OutstandingReportForm>();
         services.AddTransient<CashBankBookForm>();
         services.AddTransient<BankReconciliationForm>();
-        services.AddTransient<StockSummaryForm>();
-        services.AddTransient<DashboardForm>();
         services.AddTransient<ImportExportForm>();
         services.AddTransient<BackupRestoreForm>();
         services.AddTransient<LoginForm>();
         services.AddTransient<UserManagementForm>();
-        services.AddTransient<SettingsForm>();
 
         return services;
     }

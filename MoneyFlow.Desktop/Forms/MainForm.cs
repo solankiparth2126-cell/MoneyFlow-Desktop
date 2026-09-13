@@ -16,7 +16,7 @@ namespace MoneyFlow.Desktop.Forms;
 
 /// <summary>
 /// Executive Ledger Desktop — Gateway of Accounting.
-/// Transformed to match MONEYFLOW DESKTOP ERP [WPF .NET 8 Edition] layout:
+/// Transformed to match MONEYFLOW DESKTOP ERP layout:
 /// Top 32px Title Bar, 26px Menu, 40px Action Toolbar, Full-Width Company Banner,
 /// 70/30 Split (6 Structured Gateway Cards + 3 Quick Widgets),
 /// Horizontal Colored Operations Rail, and Status Bar.
@@ -155,7 +155,7 @@ public class MainForm : Form
     private void InitializeComponent()
     {
         // Form base setup
-        Text = "MONEYFLOW DESKTOP ERP [WPF .NET 8 Edition]";
+        Text = "MONEYFLOW DESKTOP ERP";
         Size = new Size(1366, 820);
         MinimumSize = new Size(1100, 680);
         StartPosition = FormStartPosition.CenterScreen;
@@ -247,7 +247,7 @@ public class MainForm : Form
         // App Title
         lblTitleText = new Label
         {
-            Text = "MONEYFLOW DESKTOP ERP [WPF .NET 8 Edition]",
+            Text = "MONEYFLOW DESKTOP ERP",
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             AutoSize = true,
@@ -387,66 +387,80 @@ public class MainForm : Form
         ExecLedgerStyler.StyleMenuStrip(menuStrip);
 
         var menuFile = new ToolStripMenuItem("&File");
-        menuFile.DropDownItems.Add("Close Company", null, (s, e) => _navigationService.CloseActiveCompany(this));
+        AddMenuItem(menuFile, "Close Company", (s, e) => _navigationService.CloseActiveCompany(this));
         menuFile.DropDownItems.Add(new ToolStripSeparator());
-        menuFile.DropDownItems.Add("E&xit\tEsc", null, (s, e) => PromptExitApplication());
+        AddMenuItem(menuFile, "E&xit\tEsc", (s, e) => PromptExitApplication());
 
         var menuCompany = new ToolStripMenuItem("&Company");
-        menuCompany.DropDownItems.Add("Select Company\tF3", null, (s, e) => _navigationService.OpenCompanyList(this));
-        menuCompany.DropDownItems.Add("Create Company\tAlt+C", null, (s, e) => _navigationService.OpenCreateCompany(this));
-        menuCompany.DropDownItems.Add("Alter Company\tAlt+A", null, (s, e) => _navigationService.OpenAlterCompany(this));
-        menuCompany.DropDownItems.Add("Change Financial Year\tF2", null, (s, e) => _navigationService.OpenFinancialYearList(this));
-        menuCompany.DropDownItems.Add("Close Active Company", null, (s, e) => _navigationService.CloseActiveCompany(this));
+        AddMenuItem(menuCompany, "Select Company\tF3", (s, e) => _navigationService.OpenCompanyList(this));
+        AddMenuItem(menuCompany, "Create Company\tAlt+C", (s, e) => _navigationService.OpenCreateCompany(this));
+        AddMenuItem(menuCompany, "Alter Company\tAlt+A", (s, e) => _navigationService.OpenAlterCompany(this));
+        AddMenuItem(menuCompany, "Change Financial Year\tF2", (s, e) => _navigationService.OpenFinancialYearList(this));
+        AddMenuItem(menuCompany, "Close Active Company", (s, e) => _navigationService.CloseActiveCompany(this));
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
-        menuCompany.DropDownItems.Add("E&xit\tEsc", null, (s, e) => PromptExitApplication());
+        AddMenuItem(menuCompany, "E&xit\tEsc", (s, e) => PromptExitApplication());
 
         var menuMasters = new ToolStripMenuItem("&Masters");
-        menuMasters.DropDownItems.Add("&Groups (Chart of Accounts)", null, (s, e) => _navigationService.OpenGroupList(this));
-        menuMasters.DropDownItems.Add("&Ledgers", null, (s, e) => _navigationService.OpenLedgerList(this));
-        menuMasters.DropDownItems.Add("&Stock Items", null, (s, e) => _navigationService.OpenStockItemList(this));
-        menuMasters.DropDownItems.Add("&Units of Measure", null, (s, e) => _navigationService.OpenUnitList(this));
+        AddMenuItem(menuMasters, "&Groups (Chart of Accounts)", (s, e) => _navigationService.OpenGroupList(this));
+        AddMenuItem(menuMasters, "&Ledgers", (s, e) => _navigationService.OpenLedgerList(this));
 
         var menuTransactions = new ToolStripMenuItem("&Transactions");
-        menuTransactions.DropDownItems.Add("&Contra\tF4", null, (s, e) => _navigationService.OpenContraVoucher(this));
-        menuTransactions.DropDownItems.Add("&Payment\tF5", null, (s, e) => _navigationService.OpenPaymentVoucher(this));
-        menuTransactions.DropDownItems.Add("&Receipt\tF6", null, (s, e) => _navigationService.OpenReceiptVoucher(this));
-        menuTransactions.DropDownItems.Add("&Journal\tF7", null, (s, e) => _navigationService.OpenJournalVoucher(this));
-        menuTransactions.DropDownItems.Add("&Sales Voucher\tF8", null, (s, e) => _navigationService.OpenSalesVoucher(this));
-        menuTransactions.DropDownItems.Add("&Purchase Voucher\tF9", null, (s, e) => _navigationService.OpenPurchaseVoucher(this));
-        menuTransactions.DropDownItems.Add(new ToolStripSeparator());
-        menuTransactions.DropDownItems.Add("&Debit Note\tCtrl+F9", null, (s, e) => _navigationService.OpenDebitNote(this));
-        menuTransactions.DropDownItems.Add("&Credit Note\tCtrl+F8", null, (s, e) => _navigationService.OpenCreditNote(this));
+        AddMenuItem(menuTransactions, "&Contra\tF4", (s, e) => _navigationService.OpenContraVoucher(this));
+        AddMenuItem(menuTransactions, "&Payment\tF5", (s, e) => _navigationService.OpenPaymentVoucher(this));
+        AddMenuItem(menuTransactions, "&Receipt\tF6", (s, e) => _navigationService.OpenReceiptVoucher(this));
+        AddMenuItem(menuTransactions, "&Journal\tF7", (s, e) => _navigationService.OpenJournalVoucher(this));
+        AddMenuItem(menuTransactions, "&Sales Voucher\tF8", (s, e) => _navigationService.OpenSalesVoucher(this));
+        AddMenuItem(menuTransactions, "&Purchase Voucher\tF9", (s, e) => _navigationService.OpenPurchaseVoucher(this));
 
         var menuReports = new ToolStripMenuItem("&Reports");
-        menuReports.DropDownItems.Add("&Day Book", null, (s, e) => _navigationService.OpenDayBook(this));
-        menuReports.DropDownItems.Add("&Ledger Statement", null, (s, e) => _navigationService.OpenLedgerStatement(this));
-        menuReports.DropDownItems.Add("&Trial Balance", null, (s, e) => _navigationService.OpenTrialBalance(this));
+        AddMenuItem(menuReports, "&Day Book", (s, e) => _navigationService.OpenDayBook(this));
+        AddMenuItem(menuReports, "&Ledger Statement", (s, e) => _navigationService.OpenLedgerStatement(this));
         menuReports.DropDownItems.Add(new ToolStripSeparator());
-        menuReports.DropDownItems.Add("&Profit && Loss", null, (s, e) => _navigationService.OpenProfitLoss(this));
-        menuReports.DropDownItems.Add("&Balance Sheet", null, (s, e) => _navigationService.OpenBalanceSheet(this));
+        AddMenuItem(menuReports, "&Profit && Loss", (s, e) => _navigationService.OpenProfitLoss(this));
+        AddMenuItem(menuReports, "&Balance Sheet", (s, e) => _navigationService.OpenBalanceSheet(this));
         menuReports.DropDownItems.Add(new ToolStripSeparator());
-        menuReports.DropDownItems.Add("&Cash / Bank Book", null, (s, e) => _navigationService.OpenCashBankBook(this));
-        menuReports.DropDownItems.Add("&Outstanding Analysis", null, (s, e) => _navigationService.OpenOutstandingReport(this));
-        menuReports.DropDownItems.Add("&Stock Summary", null, (s, e) => _navigationService.OpenStockSummary(this));
-        menuReports.DropDownItems.Add(new ToolStripSeparator());
-        menuReports.DropDownItems.Add("&Dashboard", null, (s, e) => _navigationService.OpenDashboard(this));
+        AddMenuItem(menuReports, "&Cash / Bank Book", (s, e) => _navigationService.OpenCashBankBook(this));
 
         var menuUtilities = new ToolStripMenuItem("&Utilities");
-        menuUtilities.DropDownItems.Add("&Global Search\tCtrl+F", null, (s, e) => _navigationService.OpenGlobalSearch(this));
-        menuUtilities.DropDownItems.Add("&Import / Export Data...", null, (s, e) => _navigationService.OpenImportExport(this));
+        AddMenuItem(menuUtilities, "&Global Search\tCtrl+F", (s, e) => _navigationService.OpenGlobalSearch(this));
+        AddMenuItem(menuUtilities, "&Import / Export Data...", (s, e) => _navigationService.OpenImportExport(this));
         menuUtilities.DropDownItems.Add(new ToolStripSeparator());
-        menuUtilities.DropDownItems.Add("&Backup && Restore\tF10", null, (s, e) => _navigationService.OpenBackupRestore(this));
-        menuUtilities.DropDownItems.Add(new ToolStripSeparator());
-        menuUtilities.DropDownItems.Add("&Settings\tF11", null, (s, e) => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()));
-        menuUtilities.DropDownItems.Add(new ToolStripSeparator());
-        menuUtilities.DropDownItems.Add("Connection Diagnostics", null, (s, e) => _navigationService.OpenDatabaseDiagnostics(this));
+        AddMenuItem(menuUtilities, "&Backup && Restore\tF10", (s, e) => _navigationService.OpenBackupRestore(this));
 
         var menuHelp = new ToolStripMenuItem("&Help");
-        menuHelp.DropDownItems.Add("Keyboard Accelerators Reference\tF1", null, (s, e) => _navigationService.OpenGlobalSearch(this));
-        menuHelp.DropDownItems.Add("About MoneyFlow ERP", null, (s, e) => MessageBox.Show(this, "MoneyFlow Desktop ERP [WPF .NET 8 Edition]\nVersion 2.0.0", "About MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        AddMenuItem(menuHelp, "Keyboard Accelerators Reference\tF1", (s, e) => _navigationService.OpenGlobalSearch(this));
+        AddMenuItem(menuHelp, "About MoneyFlow ERP", (s, e) => MessageBox.Show(this, "MoneyFlow Desktop ERP\nVersion 2.0.0", "About MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuCompany, menuMasters, menuTransactions, menuReports, menuUtilities, menuHelp });
+        ExecLedgerStyler.StyleMenuStrip(menuStrip);
         MainMenuStrip = menuStrip;
+    }
+
+    private static ToolStripMenuItem AddMenuItem(ToolStripDropDownItem parent, string textWithShortcut, EventHandler onClick)
+    {
+        string text = textWithShortcut;
+        string? shortcut = null;
+
+        int tabIdx = textWithShortcut.IndexOf('\t');
+        if (tabIdx >= 0)
+        {
+            text = textWithShortcut.Substring(0, tabIdx);
+            shortcut = textWithShortcut.Substring(tabIdx + 1);
+        }
+
+        var item = new ToolStripMenuItem(text, null, onClick)
+        {
+            Padding = new Padding(14, 7, 22, 7),
+            Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular)
+        };
+        if (!string.IsNullOrEmpty(shortcut))
+        {
+            item.ShortcutKeyDisplayString = shortcut;
+            item.ShowShortcutKeys = true;
+        }
+
+        parent.DropDownItems.Add(item);
+        return item;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -498,11 +512,7 @@ public class MainForm : Form
             "Day Book", null,
             () => _navigationService.OpenDayBook(this)));
 
-        // 4. Trial Balance
-        flowLeft.Controls.Add(CreateToolbarActionItem(
-            ExecLedgerIcons.CreateTrialBalanceIcon(Color.FromArgb(217, 119, 6)),
-            "Trial Balance", null,
-            () => _navigationService.OpenTrialBalance(this)));
+
 
         // 5. P & L
         flowLeft.Controls.Add(CreateToolbarActionItem(
@@ -516,53 +526,7 @@ public class MainForm : Form
             "Balance Sheet", null,
             () => _navigationService.OpenBalanceSheet(this)));
 
-        // Separator
-        flowLeft.Controls.Add(CreateToolbarSeparator());
 
-        // 7. Jump to ledger / voucher Search Box (inline in flow)
-        var pnlSearch = new Guna2Panel
-        {
-            Size = new Size(220, 28),
-            FillColor = Color.White,
-            BorderColor = Color.FromArgb(203, 213, 225),
-            BorderThickness = 1,
-            BorderRadius = 14,
-            Cursor = Cursors.Hand,
-            Margin = new Padding(3, 1, 3, 1)
-        };
-        var picSearch = new PictureBox
-        {
-            Image = ExecLedgerIcons.CreateSearchIcon(Color.FromArgb(148, 163, 184)),
-            Size = new Size(16, 16),
-            Location = new Point(10, 6),
-            SizeMode = PictureBoxSizeMode.CenterImage,
-            BackColor = Color.Transparent,
-            Cursor = Cursors.Hand
-        };
-        var lblSearchPlaceholder = new Label
-        {
-            Text = "Jump to ledger / voucher (Ctrl+F)",
-            ForeColor = Color.FromArgb(148, 163, 184),
-            Font = new Font("Segoe UI", 8.25F),
-            Location = new Point(28, 6),
-            AutoSize = true,
-            BackColor = Color.Transparent,
-            Cursor = Cursors.Hand
-        };
-        pnlSearch.Controls.Add(picSearch);
-        pnlSearch.Controls.Add(lblSearchPlaceholder);
-
-        Action openSearch = () => _navigationService.OpenGlobalSearch(this);
-        pnlSearch.Click += (s, e) => openSearch();
-        picSearch.Click += (s, e) => openSearch();
-        lblSearchPlaceholder.Click += (s, e) => openSearch();
-
-        pnlSearch.MouseEnter += (s, e) => pnlSearch.BorderColor = Color.FromArgb(100, 116, 139);
-        pnlSearch.MouseLeave += (s, e) => pnlSearch.BorderColor = Color.FromArgb(203, 213, 225);
-        lblSearchPlaceholder.MouseEnter += (s, e) => pnlSearch.BorderColor = Color.FromArgb(100, 116, 139);
-        lblSearchPlaceholder.MouseLeave += (s, e) => pnlSearch.BorderColor = Color.FromArgb(203, 213, 225);
-
-        flowLeft.Controls.Add(pnlSearch);
 
         toolbarPanel.Controls.Add(flowLeft);
     }
@@ -790,9 +754,6 @@ public class MainForm : Form
             ("F7", "Journal", Color.FromArgb(13, 148, 136), () => _navigationService.OpenJournalVoucher(this)),
             ("F8", "Sales", Color.FromArgb(13, 148, 136), () => _navigationService.OpenSalesVoucher(this)),
             ("F9", "Purchase", Color.FromArgb(13, 148, 136), () => _navigationService.OpenPurchaseVoucher(this)),
-            ("F10", "Menu", Color.FromArgb(30, 58, 138), () => _navigationService.OpenBackupRestore(this)),
-            ("F11", "Features", Color.FromArgb(99, 102, 241), () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync())),
-            ("F12", "Reports", Color.FromArgb(217, 119, 6), () => _navigationService.OpenTrialBalance(this)),
         };
 
         foreach (var (key, actionText, badgeColor, action) in fnKeys)
@@ -802,19 +763,6 @@ public class MainForm : Form
             operationsRail.Controls.Add(btn);
             ox += btn.Width + 4;
         }
-
-        // Right quick button: Ctrl+F Search (Save and Exit removed as per user request)
-        var btnCtrlSearch = CreateRailCompoundKey("Ctrl+F", "Search", Color.FromArgb(8, 145, 178), () => _navigationService.OpenGlobalSearch(this));
-        btnCtrlSearch.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        operationsRail.Controls.Add(btnCtrlSearch);
-
-        void LayoutRightSearch()
-        {
-            btnCtrlSearch.Location = new Point(operationsRail.ClientSize.Width - btnCtrlSearch.Width - 14, 5);
-        }
-
-        operationsRail.Resize += (s, e) => LayoutRightSearch();
-        LayoutRightSearch();
     }
 
     private Control CreateRailCompoundKey(string keyText, string actionText, Color badgeColor, Action onClick)
@@ -1275,9 +1223,6 @@ public class MainForm : Form
         var cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
         AddCardActionRow(cardMasters, 0, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
         AddCardActionRow(cardMasters, 0, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
-        AddCardActionRow(cardMasters, 0, "Stock Items", "Inventory", () => _navigationService.OpenStockItemList(this), hotkeyChar: 'S');
-        AddCardActionRow(cardMasters, 0, "Units of Measure", "Qty", () => _navigationService.OpenUnitList(this), hotkeyChar: 'U');
-        AddCardActionRow(cardMasters, 0, "Voucher Types", "Config", () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()), hotkeyChar: 'V');
         cardsGrid.Controls.Add(cardMasters, 0, 0);
 
         // ── Card 2: TRANSACTIONS [T] ──
@@ -1288,18 +1233,15 @@ public class MainForm : Form
         AddCardActionRow(cardTrans, 1, "Journal", "F7", () => _navigationService.OpenJournalVoucher(this), hotkeyChar: 'J', isKeyBadge: true);
         AddCardActionRow(cardTrans, 1, "Sales Voucher", "F8", () => _navigationService.OpenSalesVoucher(this), hotkeyChar: 'S', isKeyBadge: true);
         AddCardActionRow(cardTrans, 1, "Purchase Voucher", "F9", () => _navigationService.OpenPurchaseVoucher(this), hotkeyChar: 'P', isKeyBadge: true);
-        AddCardActionRow(cardTrans, 1, "Debit / Credit Note", "Ctrl+F9", () => _navigationService.OpenDebitNote(this));
         cardsGrid.Controls.Add(cardTrans, 1, 0);
 
         // ── Card 3: REPORTS [R] ──
         var cardReports = CreateStructuredCard("REPORTS", "R", Color.FromArgb(245, 158, 11), 2);
         AddCardActionRow(cardReports, 2, "Day Book", "Daily Ledger", () => _navigationService.OpenDayBook(this), hotkeyChar: 'D');
         AddCardActionRow(cardReports, 2, "Ledger Accounts", "Statement", () => _navigationService.OpenLedgerStatement(this), hotkeyChar: 'L');
-        AddCardActionRow(cardReports, 2, "Trial Balance", "Auditing", () => _navigationService.OpenTrialBalance(this), hotkeyChar: 'T', isGoldBadge: true);
         AddCardActionRow(cardReports, 2, "Profit & Loss", "P&L Stmt", () => _navigationService.OpenProfitLoss(this), hotkeyChar: 'P');
         AddCardActionRow(cardReports, 2, "Balance Sheet", "Financials", () => _navigationService.OpenBalanceSheet(this), hotkeyChar: 'B');
         AddCardActionRow(cardReports, 2, "Cash & Bank Book", "Funds Flow", () => _navigationService.OpenCashBankBook(this), hotkeyChar: 'C');
-        AddCardActionRow(cardReports, 2, "Outstandings (AR/AP)", "Aging", () => _navigationService.OpenOutstandingReport(this), hotkeyChar: 'O');
         cardsGrid.Controls.Add(cardReports, 2, 0);
 
         UpdateGatewaySelectionUI();
@@ -1728,7 +1670,7 @@ public class MainForm : Form
             if (lblBannerBooksBeginning != null && fy != null)
                 lblBannerBooksBeginning.Text = $"|   Books Beginning: {fy.StartDate:dd-MMM-yyyy}";
             if (lblBannerCompSubtitle != null)
-                lblBannerCompSubtitle.Text = $"Commercial Accounts • Wholesale & Retail Trading • Base Currency: {(string.IsNullOrWhiteSpace(company.Currency) ? "INR (₹)" : company.Currency)}";
+                lblBannerCompSubtitle.Text = $"Accounts";
             if (lblBannerFY != null && fy != null)
             {
                 string yearStr = fy.YearName;
@@ -1802,19 +1744,6 @@ public class MainForm : Form
             return;
         }
 
-        if (e.Control && e.KeyCode == Keys.F9)
-        {
-            _navigationService.OpenDebitNote(this);
-            e.Handled = true;
-            return;
-        }
-        if (e.Control && e.KeyCode == Keys.F8)
-        {
-            _navigationService.OpenCreditNote(this);
-            e.Handled = true;
-            return;
-        }
-
         // Single hotkeys for dashboard navigation (Tally style)
         if (!e.Control && !e.Alt && ActiveControl is not TextBox and not Guna2TextBox)
         {
@@ -1822,13 +1751,8 @@ public class MainForm : Form
             {
                 case Keys.G: _navigationService.OpenGroupList(this); e.Handled = true; return;
                 case Keys.L: _navigationService.OpenLedgerList(this); e.Handled = true; return;
-                case Keys.S: _navigationService.OpenStockItemList(this); e.Handled = true; return;
-                case Keys.U: _navigationService.OpenUnitList(this); e.Handled = true; return;
-                case Keys.V: _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()); e.Handled = true; return;
                 case Keys.D: _navigationService.OpenDayBook(this); e.Handled = true; return;
-                case Keys.T: _navigationService.OpenTrialBalance(this); e.Handled = true; return;
                 case Keys.B: _navigationService.OpenBalanceSheet(this); e.Handled = true; return;
-                case Keys.O: _navigationService.OpenOutstandingReport(this); e.Handled = true; return;
             }
         }
 
@@ -1847,7 +1771,6 @@ public class MainForm : Form
             case Keys.F8: _navigationService.OpenSalesVoucher(this); break;
             case Keys.F9: _navigationService.OpenPurchaseVoucher(this); break;
             case Keys.F10: _navigationService.OpenBackupRestore(this); break;
-            case Keys.F11: _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()); break;
         }
     }
 

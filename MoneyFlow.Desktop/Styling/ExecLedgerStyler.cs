@@ -384,13 +384,72 @@ public static class ExecLedgerStyler
     /// <summary>Style a MenuStrip with Executive Ledger appearance.</summary>
     public static void StyleMenuStrip(MenuStrip menu)
     {
-        menu.BackColor = ExecLedgerTheme.ApplicationCanvas;
+        menu.BackColor = ExecLedgerTheme.WorkSurface;
         menu.ForeColor = ExecLedgerTheme.PrimaryText;
-        menu.Font = ExecLedgerTheme.MenuFont;
-        menu.Height = ExecLedgerTheme.MenuBarHeight;
-        menu.Padding = new Padding(4, 0, 0, 0);
+        menu.Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular);
+        menu.Height = 30;
+        menu.Padding = new Padding(8, 2, 8, 2);
         menu.RenderMode = ToolStripRenderMode.Professional;
         menu.Renderer = new ExecLedgerMenuRenderer();
+
+        void ConfigureDropDown(ToolStripDropDownItem dropDownItem)
+        {
+            dropDownItem.Padding = new Padding(10, 4, 10, 4);
+            dropDownItem.Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular);
+
+            if (dropDownItem.DropDown is ToolStripDropDownMenu drop)
+            {
+                drop.ShowImageMargin = false;
+                drop.ShowCheckMargin = false;
+                drop.DropShadowEnabled = true;
+                drop.BackColor = ExecLedgerTheme.WorkSurface;
+                drop.Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular);
+                drop.Padding = new Padding(4, 8, 4, 8);
+
+                foreach (ToolStripItem item in drop.Items)
+                {
+                    ApplyItemStyle(item);
+                }
+
+                drop.ItemAdded += (s, e) =>
+                {
+                    if (e.Item != null) ApplyItemStyle(e.Item);
+                };
+            }
+        }
+
+        void ApplyItemStyle(ToolStripItem item)
+        {
+            if (item is ToolStripMenuItem menuItem)
+            {
+                menuItem.Padding = new Padding(14, 7, 22, 7);
+                menuItem.Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular);
+                if (menuItem.HasDropDownItems)
+                {
+                    ConfigureDropDown(menuItem);
+                }
+            }
+            else if (item is ToolStripSeparator sep)
+            {
+                sep.Margin = new Padding(10, 5, 10, 5);
+            }
+        }
+
+        foreach (ToolStripItem item in menu.Items)
+        {
+            if (item is ToolStripDropDownItem dropDownItem)
+            {
+                ConfigureDropDown(dropDownItem);
+            }
+        }
+
+        menu.ItemAdded += (s, e) =>
+        {
+            if (e.Item is ToolStripDropDownItem dropDownItem)
+            {
+                ConfigureDropDown(dropDownItem);
+            }
+        };
     }
 
     /// <summary>Style a StatusStrip with Executive Ledger appearance.</summary>
@@ -560,7 +619,7 @@ public static class ExecLedgerStyler
 
 /// <summary>
 /// Custom menu renderer for Executive Ledger menu appearance.
-/// Provides flat, sharp menus with proper hover states.
+/// Provides modern rounded card menus, subtle borders, and executive hover effects.
 /// </summary>
 internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
 {
@@ -570,12 +629,24 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
     {
         if (e.ToolStrip is MenuStrip)
         {
-            if (e.Item.Selected || e.Item.Pressed)
+            if (e.Item.Pressed)
             {
+                // Active / Dropdown open state: Soft sky background with sky blue border
                 var rc = new Rectangle(2, 2, e.Item.Width - 4, e.Item.Height - 4);
-                using var brush = new SolidBrush(Color.FromArgb(224, 242, 254)); // #E0F2FE Light Sky
-                using var pen = new Pen(Color.FromArgb(186, 230, 253), 1);      // #BAE6FD
-                using var path = ExecLedgerIcons.CreateRoundedRectanglePath(rc, 4f);
+                using var brush = new SolidBrush(Color.FromArgb(224, 242, 254)); // #E0F2FE
+                using var pen = new Pen(Color.FromArgb(56, 189, 248), 1.2f);      // #38BDF8
+                using var path = ExecLedgerIcons.CreateRoundedRectanglePath(rc, 5f);
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+            else if (e.Item.Selected)
+            {
+                // Hover state: subtle light slate hover pill
+                var rc = new Rectangle(2, 2, e.Item.Width - 4, e.Item.Height - 4);
+                using var brush = new SolidBrush(Color.FromArgb(241, 245, 249)); // #F1F5F9
+                using var pen = new Pen(Color.FromArgb(203, 213, 225), 1f);      // #CBD5E1
+                using var path = ExecLedgerIcons.CreateRoundedRectanglePath(rc, 5f);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 e.Graphics.FillPath(brush, path);
                 e.Graphics.DrawPath(pen, path);
@@ -583,16 +654,23 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
             return;
         }
 
-        var dropRc = new Rectangle(Point.Empty, e.Item.Size);
+        // Dropdown menu items
+        var fullRc = new Rectangle(Point.Empty, e.Item.Size);
+        using (var bgBrush = new SolidBrush(Color.White))
+        {
+            e.Graphics.FillRectangle(bgBrush, fullRc);
+        }
+
         if (e.Item.Selected || e.Item.Pressed)
         {
-            using var brush = new SolidBrush(ExecLedgerTheme.MenuHover);
-            e.Graphics.FillRectangle(brush, dropRc);
-        }
-        else
-        {
-            using var brush = new SolidBrush(e.Item.Owner?.BackColor ?? ExecLedgerTheme.ApplicationCanvas);
-            e.Graphics.FillRectangle(brush, dropRc);
+            // Modern rounded pill hover inside dropdown matching theme
+            var rc = new Rectangle(4, 1, e.Item.Width - 8, e.Item.Height - 2);
+            using var brush = new SolidBrush(Color.FromArgb(240, 247, 255)); // #F0F7FF Soft sky tint
+            using var pen = new Pen(Color.FromArgb(186, 230, 253), 1f);      // #BAE6FD Soft blue border
+            using var path = ExecLedgerIcons.CreateRoundedRectanglePath(rc, 4f);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.FillPath(brush, path);
+            e.Graphics.DrawPath(pen, path);
         }
     }
 
@@ -606,12 +684,15 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
     {
         if (e.ToolStrip is MenuStrip)
         {
-            using var pen = new Pen(ExecLedgerTheme.GridBorder, 1);
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1); // Subtle divider below menu bar
             e.Graphics.DrawLine(pen, 0, e.AffectedBounds.Height - 1, e.AffectedBounds.Width, e.AffectedBounds.Height - 1);
         }
         else
         {
-            base.OnRenderToolStripBorder(e);
+            // Dropdown menu border: clean, sleek modern 1px border
+            var rc = new Rectangle(0, 0, e.AffectedBounds.Width - 1, e.AffectedBounds.Height - 1);
+            using var pen = new Pen(Color.FromArgb(203, 213, 225), 1); // #CBD5E1
+            e.Graphics.DrawRectangle(pen, rc);
         }
     }
 
@@ -619,19 +700,33 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
     {
         var bounds = new Rectangle(Point.Empty, e.Item.Size);
         int y = bounds.Height / 2;
-        using var pen = new Pen(ExecLedgerTheme.GridBorder, 1);
-        e.Graphics.DrawLine(pen, 4, y, bounds.Width - 4, y);
+        using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
+        e.Graphics.DrawLine(pen, 12, y, bounds.Width - 12, y);
     }
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        if (e.ToolStrip is MenuStrip && (e.Item.Selected || e.Item.Pressed))
+        if (e.ToolStrip is MenuStrip)
         {
-            e.TextColor = Color.FromArgb(2, 132, 199); // #0284C7 Sky Blue
+            if (e.Item.Pressed)
+                e.TextColor = Color.FromArgb(2, 132, 199); // #0284C7 Sky Blue
+            else if (e.Item.Selected)
+                e.TextColor = Color.FromArgb(15, 23, 42);  // #0F172A Primary Dark Slate
+            else
+                e.TextColor = Color.FromArgb(51, 65, 85);   // #334155 Slate-700
+        }
+        else if (e.Item is ToolStripMenuItem menuItem && !string.IsNullOrEmpty(menuItem.ShortcutKeyDisplayString) && e.Text == menuItem.ShortcutKeyDisplayString)
+        {
+            // Clean right-aligned shortcut key text (muted secondary color, brighter on hover)
+            e.TextColor = (e.Item.Selected || e.Item.Pressed)
+                ? Color.FromArgb(2, 132, 199)
+                : Color.FromArgb(100, 116, 139);
         }
         else
         {
-            e.TextColor = ExecLedgerTheme.PrimaryText;
+            e.TextColor = (e.Item.Selected || e.Item.Pressed)
+                ? Color.FromArgb(2, 132, 199)  // #0284C7 Sky Blue accent on hover
+                : Color.FromArgb(15, 23, 42);  // #0F172A Deep Slate Navy
         }
         e.TextFormat &= ~TextFormatFlags.HidePrefix;
         e.TextFormat &= ~TextFormatFlags.NoPrefix;
@@ -649,19 +744,19 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
 /// </summary>
 internal class ExecLedgerMenuColorTable : ProfessionalColorTable
 {
-    public override Color MenuBorder => ExecLedgerTheme.PrimaryBorder;
+    public override Color MenuBorder => Color.FromArgb(203, 213, 225);
     public override Color MenuItemBorder => Color.Transparent;
-    public override Color MenuItemSelected => ExecLedgerTheme.MenuHover;
-    public override Color MenuItemSelectedGradientBegin => ExecLedgerTheme.MenuHover;
-    public override Color MenuItemSelectedGradientEnd => ExecLedgerTheme.MenuHover;
-    public override Color MenuItemPressedGradientBegin => ExecLedgerTheme.PrimarySelection;
-    public override Color MenuItemPressedGradientEnd => ExecLedgerTheme.PrimarySelection;
-    public override Color MenuStripGradientBegin => ExecLedgerTheme.ApplicationCanvas;
-    public override Color MenuStripGradientEnd => ExecLedgerTheme.ApplicationCanvas;
-    public override Color ToolStripDropDownBackground => ExecLedgerTheme.WorkSurface;
-    public override Color ImageMarginGradientBegin => ExecLedgerTheme.WorkSurface;
-    public override Color ImageMarginGradientMiddle => ExecLedgerTheme.WorkSurface;
-    public override Color ImageMarginGradientEnd => ExecLedgerTheme.WorkSurface;
-    public override Color SeparatorDark => ExecLedgerTheme.GridBorder;
-    public override Color SeparatorLight => ExecLedgerTheme.WorkSurface;
+    public override Color MenuItemSelected => Color.FromArgb(240, 247, 255);
+    public override Color MenuItemSelectedGradientBegin => Color.FromArgb(240, 247, 255);
+    public override Color MenuItemSelectedGradientEnd => Color.FromArgb(240, 247, 255);
+    public override Color MenuItemPressedGradientBegin => Color.FromArgb(224, 242, 254);
+    public override Color MenuItemPressedGradientEnd => Color.FromArgb(224, 242, 254);
+    public override Color MenuStripGradientBegin => Color.White;
+    public override Color MenuStripGradientEnd => Color.White;
+    public override Color ToolStripDropDownBackground => Color.White;
+    public override Color ImageMarginGradientBegin => Color.White;
+    public override Color ImageMarginGradientMiddle => Color.White;
+    public override Color ImageMarginGradientEnd => Color.White;
+    public override Color SeparatorDark => Color.FromArgb(226, 232, 240);
+    public override Color SeparatorLight => Color.White;
 }

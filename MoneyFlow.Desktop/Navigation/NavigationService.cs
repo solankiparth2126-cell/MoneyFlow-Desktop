@@ -128,19 +128,7 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
-    public void OpenStockItemList(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<StockItemListForm>();
-        ShowModal(form, owner);
-    }
 
-    public void OpenUnitList(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<UnitListForm>();
-        ShowModal(form, owner);
-    }
 
     // --- Transactions / Vouchers ---
     public void OpenContraVoucher(IWin32Window? owner = null)
@@ -185,45 +173,9 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
-    public void OpenDebitNote(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<DebitNoteForm>();
-        ShowModal(form, owner);
-    }
 
-    public void OpenCreditNote(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<CreditNoteForm>();
-        ShowModal(form, owner);
-    }
 
-    // --- Reports ---
-    public void OpenDashboard(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<DashboardForm>();
-        form.OnNavigateRequested = (target) =>
-        {
-            switch (target)
-            {
-                case "Payment": OpenPaymentVoucher(owner); break;
-                case "Receipt": OpenReceiptVoucher(owner); break;
-                case "Sales": OpenSalesVoucher(owner); break;
-                case "Purchase": OpenPurchaseVoucher(owner); break;
-                case "DayBook": OpenDayBook(owner); break;
-                case "TrialBalance": OpenTrialBalance(owner); break;
-                case "ProfitLoss": OpenProfitLoss(owner); break;
-                case "BalanceSheet": OpenBalanceSheet(owner); break;
-                case "CashBankBook": OpenCashBankBook(owner); break;
-                case "Outstanding": OpenOutstandingReport(owner); break;
-                case "StockSummary": OpenStockSummary(owner); break;
-                case "GoTo": OpenGlobalSearch(owner); break;
-            }
-        };
-        ShowModal(form, owner);
-    }
+
 
     public void OpenDayBook(IWin32Window? owner = null)
     {
@@ -239,12 +191,7 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
-    public void OpenTrialBalance(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<TrialBalanceForm>();
-        ShowModal(form, owner);
-    }
+
 
     public void OpenProfitLoss(IWin32Window? owner = null)
     {
@@ -274,19 +221,9 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
-    public void OpenOutstandingReport(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<OutstandingReportForm>();
-        ShowModal(form, owner);
-    }
 
-    public void OpenStockSummary(IWin32Window? owner = null)
-    {
-        if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<StockSummaryForm>();
-        ShowModal(form, owner);
-    }
+
+
 
     // --- Utilities & System ---
     public void OpenGlobalSearch(IWin32Window? owner = null)
@@ -314,20 +251,7 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
-    public void OpenSettings(IWin32Window? owner = null, Action? onSettingsSaved = null)
-    {
-        using var form = _formFactory.Create<SettingsForm>();
-        if (form.ShowDialog(owner) == DialogResult.OK)
-        {
-            onSettingsSaved?.Invoke();
-        }
-    }
 
-    public void OpenDatabaseDiagnostics(IWin32Window? owner = null)
-    {
-        using var diag = _formFactory.Create<DatabaseConnectionDialog>();
-        ShowModal(diag, owner);
-    }
 
     // --- Dynamic Routing ---
     public void HandleGatewaySelection(string selectedItem, IWin32Window? owner = null)
@@ -372,14 +296,7 @@ public class NavigationService : INavigationService
         {
             OpenLedgerList(owner);
         }
-        else if (text.Contains("Stock Items"))
-        {
-            OpenStockItemList(owner);
-        }
-        else if (text.Contains("Units of Measure"))
-        {
-            OpenUnitList(owner);
-        }
+
         else if (text.Contains("Contra"))
         {
             OpenContraVoucher(owner);
@@ -404,18 +321,8 @@ public class NavigationService : INavigationService
         {
             OpenPurchaseVoucher(owner);
         }
-        else if (text.Contains("Debit Note"))
-        {
-            OpenDebitNote(owner);
-        }
-        else if (text.Contains("Credit Note"))
-        {
-            OpenCreditNote(owner);
-        }
-        else if (text.Contains("Dashboard"))
-        {
-            OpenDashboard(owner);
-        }
+
+
         else if (text.Contains("Day Book"))
         {
             OpenDayBook(owner);
@@ -424,10 +331,7 @@ public class NavigationService : INavigationService
         {
             OpenLedgerStatement(owner);
         }
-        else if (text.Contains("Trial Balance"))
-        {
-            OpenTrialBalance(owner);
-        }
+
         else if (text.Contains("Profit & Loss"))
         {
             OpenProfitLoss(owner);
@@ -444,14 +348,8 @@ public class NavigationService : INavigationService
         {
             OpenBankReconciliation(owner);
         }
-        else if (text.Contains("Outstanding"))
-        {
-            OpenOutstandingReport(owner);
-        }
-        else if (text.Contains("Stock Summary"))
-        {
-            OpenStockSummary(owner);
-        }
+
+
         else if (text.Contains("Import") || text.Contains("Export"))
         {
             OpenImportExport(owner);
@@ -464,14 +362,7 @@ public class NavigationService : INavigationService
         {
             OpenUserManagement(owner);
         }
-        else if (text.Contains("Settings") || text.Contains("Configuration"))
-        {
-            OpenSettings(owner);
-        }
-        else if (text.Contains("Database Diagnostics"))
-        {
-            OpenDatabaseDiagnostics(owner);
-        }
+
         else if (text.Contains("Quit"))
         {
             Application.Exit();
@@ -497,30 +388,21 @@ public class NavigationService : INavigationService
             case GlobalSearchCategory.Navigation:
                 switch (result.NavigationTarget)
                 {
-                    case "Dashboard": OpenDashboard(owner); break;
                     case "ImportExport": OpenImportExport(owner); break;
                     case "BackupRestore": OpenBackupRestore(owner); break;
                     case "UserManagement": OpenUserManagement(owner); break;
-                    case "Settings": OpenSettings(owner); break;
                     case "DayBook": OpenDayBook(owner); break;
-                    case "TrialBalance": OpenTrialBalance(owner); break;
                     case "ProfitLoss": OpenProfitLoss(owner); break;
                     case "BalanceSheet": OpenBalanceSheet(owner); break;
                     case "CashBankBook": OpenCashBankBook(owner); break;
-                    case "Outstanding": OpenOutstandingReport(owner); break;
-                    case "StockSummary": OpenStockSummary(owner); break;
                     case "Ledgers": OpenLedgerList(owner); break;
                     case "Groups": OpenGroupList(owner); break;
-                    case "StockItems": OpenStockItemList(owner); break;
-                    case "Units": OpenUnitList(owner); break;
                     case "Contra": OpenContraVoucher(owner); break;
                     case "Payment": OpenPaymentVoucher(owner); break;
                     case "Receipt": OpenReceiptVoucher(owner); break;
                     case "Journal": OpenJournalVoucher(owner); break;
                     case "Sales": OpenSalesVoucher(owner); break;
                     case "Purchase": OpenPurchaseVoucher(owner); break;
-                    case "DebitNote": OpenDebitNote(owner); break;
-                    case "CreditNote": OpenCreditNote(owner); break;
                 }
                 break;
 
@@ -532,11 +414,6 @@ public class NavigationService : INavigationService
                 break;
 
             case GlobalSearchCategory.StockItem:
-                if (result.EntityId.HasValue)
-                {
-                    using var editItem = _formFactory.Create<StockItemCreateEditForm>(result.EntityId.Value);
-                    ShowModal(editItem, owner);
-                }
                 break;
 
             case GlobalSearchCategory.Voucher:
