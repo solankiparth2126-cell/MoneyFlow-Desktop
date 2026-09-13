@@ -79,7 +79,7 @@ public class NavigationService : INavigationService
     {
         if (!_companyContext.IsCompanyOpen)
         {
-            MessageBox.Show(owner, "No company is currently open.", "MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(owner, "No company is currently open.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 

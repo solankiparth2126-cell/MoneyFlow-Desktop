@@ -9,6 +9,9 @@ using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class StockSummaryForm : Form
@@ -19,7 +22,7 @@ public class StockSummaryForm : Form
     private DateTimePicker _dtpAsOfDate = null!;
     private TextBox _txtSearch = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvSummary = null!;
+    private Guna2DataGridView _dgvSummary = null!;
     private Label _lblTotalItems = null!;
     private Label _lblTotalClosingValue = null!;
     private Button _btnExportCsv = null!;
@@ -43,7 +46,7 @@ public class StockSummaryForm : Form
         Text = "Stock Summary (Inventory Valuation)";
         Size = new Size(1100, 680);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -64,7 +67,7 @@ public class StockSummaryForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 5,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // "As of Date:"
@@ -72,7 +75,7 @@ public class StockSummaryForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));  // Search
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // Refresh
 
-        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
 
         _dtpAsOfDate = new DateTimePicker
         {
@@ -103,7 +106,7 @@ public class StockSummaryForm : Form
         mainLayout.Controls.Add(pnlFilters, 0, 0);
 
         // 2. DataGridView
-        _dgvSummary = new DataGridView
+        _dgvSummary = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
@@ -130,7 +133,7 @@ public class StockSummaryForm : Form
             DefaultCellStyle = {
                 Alignment = DataGridViewContentAlignment.MiddleRight,
                 Format = "N2",
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Font = ExecLedgerTheme.UIBold9,
                 ForeColor = Color.FromArgb(24, 43, 73)
             }
         });
@@ -143,7 +146,7 @@ public class StockSummaryForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(12, 10, 12, 10)
         };
         pnlFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -152,7 +155,7 @@ public class StockSummaryForm : Form
         _lblTotalItems = new Label
         {
             Text = "Total Stock Items: 0",
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             ForeColor = Color.FromArgb(70, 80, 95),
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -161,7 +164,7 @@ public class StockSummaryForm : Form
         _lblTotalClosingValue = new Label
         {
             Text = "Total Stock Value: ₹0.00",
-            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             ForeColor = Color.FromArgb(16, 125, 65),
             Anchor = AnchorStyles.Right,
             AutoSize = true
@@ -331,8 +334,8 @@ public class StockSummaryForm : Form
                 var g = e.Graphics!;
                 float y = 50;
                 var fontHeader = new Font("Segoe UI", 13F, FontStyle.Bold);
-                var fontSubHeader = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-                var fontBody = new Font("Segoe UI", 8.5F);
+                var fontSubHeader = ExecLedgerTheme.UIBold9;
+                var fontBody = ExecLedgerTheme.UIRegular8;
 
                 string companyName = _companyContext.CurrentCompany?.CompanyName ?? "MoneyFlow Desktop Accounting";
                 g.DrawString(companyName, fontHeader, Brushes.Black, 50, y);

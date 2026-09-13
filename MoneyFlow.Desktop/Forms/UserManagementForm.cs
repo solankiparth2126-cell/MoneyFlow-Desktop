@@ -6,6 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -22,7 +24,7 @@ public class UserManagementForm : Form
     private TabControl _tabMain = null!;
 
     // Tab 1: Users
-    private DataGridView _dgvUsers = null!;
+    private Guna2DataGridView _dgvUsers = null!;
     private Button _btnAddUser = null!;
     private Button _btnEditUser = null!;
     private Button _btnToggleActive = null!;
@@ -43,7 +45,7 @@ public class UserManagementForm : Form
     private ComboBox _cmbAuditModule = null!;
     private Button _btnFilterAudit = null!;
     private Button _btnExportAuditCsv = null!;
-    private DataGridView _dgvAudit = null!;
+    private Guna2DataGridView _dgvAudit = null!;
 
     private List<RoleDto> _cachedRoles = new();
 
@@ -87,7 +89,7 @@ public class UserManagementForm : Form
         {
             Text = "USER MANAGEMENT & SECURITY PERMISSIONS",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             AutoSize = true,
             Location = new Point(15, 14)
         };
@@ -113,7 +115,7 @@ public class UserManagementForm : Form
         _tabMain = new TabControl
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var tabUsers = new TabPage("  User Accounts  ") { BackColor = Color.FromArgb(248, 249, 251), Padding = new Padding(12) };
@@ -150,7 +152,7 @@ public class UserManagementForm : Form
         _btnAddUser = new Button
         {
             Text = "+ Add New User...",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             BackColor = Color.FromArgb(39, 174, 96),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -164,7 +166,7 @@ public class UserManagementForm : Form
         _btnEditUser = new Button
         {
             Text = "Edit User...",
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(160, 8),
             Width = 100,
             Height = 28
@@ -174,7 +176,7 @@ public class UserManagementForm : Form
         _btnToggleActive = new Button
         {
             Text = "Activate / Deactivate",
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(270, 8),
             Width = 150,
             Height = 28
@@ -184,7 +186,7 @@ public class UserManagementForm : Form
         _btnResetPassword = new Button
         {
             Text = "Reset Password...",
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(430, 8),
             Width = 130,
             Height = 28
@@ -194,7 +196,7 @@ public class UserManagementForm : Form
         _btnRefreshUsers = new Button
         {
             Text = "Refresh (F5)",
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(570, 8),
             Width = 95,
             Height = 28
@@ -208,7 +210,7 @@ public class UserManagementForm : Form
         pnlTop.Controls.Add(_btnRefreshUsers);
 
         // DataGridView
-        _dgvUsers = new DataGridView
+        _dgvUsers = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             ReadOnly = true,
@@ -258,13 +260,13 @@ public class UserManagementForm : Form
             Padding = new Padding(12, 10, 12, 10)
         };
 
-        var lblRole = new Label { Text = "Select Role to Configure:", Location = new Point(12, 15), AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        var lblRole = new Label { Text = "Select Role to Configure:", Location = new Point(12, 15), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _cmbRoles = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Location = new Point(190, 12),
             Width = 220,
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
         _cmbRoles.SelectedIndexChanged += async (s, e) => await DisplayRolePermissionsAsync();
 
@@ -274,7 +276,7 @@ public class UserManagementForm : Form
             Location = new Point(430, 15),
             AutoSize = true,
             ForeColor = Color.FromArgb(100, 110, 120),
-            Font = new Font("Segoe UI", 9F, FontStyle.Italic)
+            Font = ExecLedgerTheme.UIRegular8
         };
 
         pnlTop.Controls.Add(lblRole);
@@ -286,7 +288,7 @@ public class UserManagementForm : Form
         {
             Dock = DockStyle.Fill,
             CheckBoxes = true,
-            Font = new Font("Segoe UI", 9.5F),
+            Font = ExecLedgerTheme.UIRegular9,
             BorderStyle = BorderStyle.FixedSingle
         };
         _tvPermissions.AfterCheck += (s, e) =>
@@ -312,7 +314,7 @@ public class UserManagementForm : Form
         _btnSavePermissions = new Button
         {
             Text = "Save Role Permissions",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             BackColor = Color.FromArgb(41, 128, 185),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -384,7 +386,7 @@ public class UserManagementForm : Form
         _btnFilterAudit = new Button
         {
             Text = "Apply Filter",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Location = new Point(490, 8),
             Width = 95,
             Height = 27
@@ -410,7 +412,7 @@ public class UserManagementForm : Form
         pnlFilter.Controls.Add(_btnExportAuditCsv);
 
         // DataGridView
-        _dgvAudit = new DataGridView
+        _dgvAudit = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             ReadOnly = true,
@@ -619,7 +621,7 @@ public class UserManagementForm : Form
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
             MinimizeBox = false,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var lblU = new Label { Text = "Username:", Location = new Point(20, 25), AutoSize = true };
@@ -703,7 +705,7 @@ public class UserManagementForm : Form
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
             MinimizeBox = false,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var lblU = new Label { Text = "Username:", Location = new Point(20, 25), AutoSize = true };
@@ -801,7 +803,7 @@ public class UserManagementForm : Form
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
             MinimizeBox = false,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var lblP = new Label { Text = "New Password:", Location = new Point(20, 30), AutoSize = true };

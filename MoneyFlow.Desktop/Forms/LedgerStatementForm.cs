@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class LedgerStatementForm : Form
@@ -28,7 +31,7 @@ public class LedgerStatementForm : Form
     private Button _btnRefresh = null!;
     private Label _lblLedgerInfo = null!;
     private Label _lblOpeningBalance = null!;
-    private DataGridView _dgvStatement = null!;
+    private Guna2DataGridView _dgvStatement = null!;
     private Label _lblTotalDebit = null!;
     private Label _lblTotalCredit = null!;
     private Label _lblClosingBalance = null!;
@@ -53,7 +56,7 @@ public class LedgerStatementForm : Form
         Text = "Ledger Statement / Account Extract";
         Size = new Size(1180, 750);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -75,7 +78,7 @@ public class LedgerStatementForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 7,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105)); // "Select Ledger:"
@@ -86,16 +89,16 @@ public class LedgerStatementForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130)); // DTP To
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // Refresh Button
 
-        pnlFilters.Controls.Add(new Label { Text = "Ledger (F4):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "Ledger (F4):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _cmbLedger = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
         _cmbLedger.SelectedIndexChanged += async (s, e) => await LoadStatementDataAsync();
         pnlFilters.Controls.Add(_cmbLedger, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _dtpFromDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpFromDate, 3, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 4, 0);
+        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 4, 0);
         _dtpToDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpToDate, 5, 0);
 
@@ -117,15 +120,15 @@ public class LedgerStatementForm : Form
         pnlInfoCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
         pnlInfoCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
 
-        _lblLedgerInfo = new Label { Text = "Ledger: [Select a ledger] | Under Group: -", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
-        _lblOpeningBalance = new Label { Text = "Opening Balance: ₹0.00 Dr", AutoSize = true, Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.DarkSlateBlue };
+        _lblLedgerInfo = new Label { Text = "Ledger: [Select a ledger] | Under Group: -", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10, ForeColor = ExecLedgerTheme.PrimaryNavy };
+        _lblOpeningBalance = new Label { Text = "Opening Balance: ₹0.00 Dr", AutoSize = true, Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold10, ForeColor = Color.DarkSlateBlue };
 
         pnlInfoCard.Controls.Add(_lblLedgerInfo, 0, 0);
         pnlInfoCard.Controls.Add(_lblOpeningBalance, 1, 0);
         mainLayout.Controls.Add(pnlInfoCard, 0, 1);
 
         // 3. DataGridView
-        _dgvStatement = new DataGridView
+        _dgvStatement = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -138,8 +141,8 @@ public class LedgerStatementForm : Form
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             MultiSelect = false
         };
-        _dgvStatement.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 248);
-        _dgvStatement.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        _dgvStatement.ColumnHeadersDefaultCellStyle.BackColor = ExecLedgerTheme.ApplicationCanvas;
+        _dgvStatement.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         _dgvStatement.EnableHeadersVisualStyles = false;
         _dgvStatement.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 251, 255);
 
@@ -162,9 +165,9 @@ public class LedgerStatementForm : Form
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
 
-        _lblTotalDebit = new Label { Text = "Total Debit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
-        _lblTotalCredit = new Label { Text = "Total Credit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
-        _lblClosingBalance = new Label { Text = "Closing Balance: ₹0.00 Dr", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold) };
+        _lblTotalDebit = new Label { Text = "Total Debit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
+        _lblTotalCredit = new Label { Text = "Total Credit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
+        _lblClosingBalance = new Label { Text = "Closing Balance: ₹0.00 Dr", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = Color.DarkGreen, Font = ExecLedgerTheme.UIBold10 };
 
         pnlTotals.Controls.Add(_lblTotalDebit, 0, 0);
         pnlTotals.Controls.Add(_lblTotalCredit, 1, 0);
@@ -237,7 +240,7 @@ public class LedgerStatementForm : Form
             Name = "ColDebit",
             HeaderText = "Debit (₹)",
             Width = 130,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvStatement.Columns.Add(new DataGridViewTextBoxColumn
@@ -245,7 +248,7 @@ public class LedgerStatementForm : Form
             Name = "ColCredit",
             HeaderText = "Credit (₹)",
             Width = 130,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvStatement.Columns.Add(new DataGridViewTextBoxColumn
@@ -253,7 +256,7 @@ public class LedgerStatementForm : Form
             Name = "ColRunningBalance",
             HeaderText = "Balance (₹)",
             Width = 150,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Font = ExecLedgerTheme.UIBold9 }
         });
 
         _dgvStatement.Columns.Add(new DataGridViewTextBoxColumn
@@ -362,8 +365,8 @@ public class LedgerStatementForm : Form
         // Render Opening Balance as first row
         var opIdx = _dgvStatement.Rows.Add();
         var opRow = _dgvStatement.Rows[opIdx];
-        opRow.DefaultCellStyle.BackColor = Color.FromArgb(245, 248, 252);
-        opRow.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Italic);
+        opRow.DefaultCellStyle.BackColor = ExecLedgerTheme.SecondarySurface;
+        opRow.DefaultCellStyle.Font = ExecLedgerTheme.UIRegular8;
         opRow.Cells["ColDate"].Value = _currentStatement.FromDate.ToString("dd-MMM-yyyy");
         opRow.Cells["ColParticulars"].Value = "** Opening Balance **";
         opRow.Cells["ColRunningBalance"].Value = $"₹{_currentStatement.OpeningBalance:N2} {opTypeStr}";

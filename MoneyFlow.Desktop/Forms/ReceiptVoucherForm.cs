@@ -10,6 +10,7 @@ using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Desktop.Controls;
 using MoneyFlow.Desktop.Navigation;
+using Guna.UI2.WinForms;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
@@ -35,7 +36,7 @@ public class ReceiptVoucherForm : Form
     private DateTimePicker _dtpVoucherDate = null!;
     private ComboBox _cmbAccount = null!;
     private Label _lblAccountBalance = null!;
-    private DataGridView _dgvEntries = null!;
+    private Guna2DataGridView _dgvEntries = null!;
     private TextBox _txtNarration = null!;
     private Label _lblTotalAmount = null!;
     private Label _lblBalanceStatus = null!;
@@ -68,14 +69,14 @@ public class ReceiptVoucherForm : Form
         Size = new Size(1100, 700);
         MinimumSize = new Size(950, 600);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.25F);
-        BackColor = TallyPrimeTheme.WindowBg;
+        Font = ExecLedgerTheme.UIRegular9;
+        BackColor = ExecLedgerTheme.ApplicationCanvas;
         KeyPreview = true;
 
         // 1. Top Header Bar (Tally Prime Gold navy banner)
         _topHeaderBar = new TallyTopHeaderBar();
         _topHeaderBar.SetSubtitle("Accounting Voucher Creation (Secondary)");
-        _topHeaderBar.SetCompany(_companyContext.CurrentCompany?.CompanyName ?? "MoneyFlow");
+        _topHeaderBar.SetCompany(_companyContext.CurrentCompany?.CompanyName ?? "Executive Ledger");
         _topHeaderBar.CloseRequested += () => Close();
         _topHeaderBar.CompanyMenuRequested += () => _navigationService?.OpenCompanyList(this);
 
@@ -130,9 +131,9 @@ public class ReceiptVoucherForm : Form
         _lblVoucherTag = new Label
         {
             Text = "Receipt",
-            BackColor = TallyPrimeTheme.BlueVoucherTag,
+            BackColor = ExecLedgerTheme.PrimaryNavy,
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             TextAlign = ContentAlignment.MiddleCenter,
             Size = new Size(84, 25),
             Location = new Point(0, 2)
@@ -141,8 +142,8 @@ public class ReceiptVoucherForm : Form
         var lblNoPrefix = new Label
         {
             Text = "No.",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
-            ForeColor = TallyPrimeTheme.TextPrimary,
+            Font = ExecLedgerTheme.UIRegular9,
+            ForeColor = ExecLedgerTheme.PrimaryText,
             AutoSize = true,
             Location = new Point(94, 6)
         };
@@ -150,8 +151,8 @@ public class ReceiptVoucherForm : Form
         _lblVoucherNumber = new Label
         {
             Text = "289",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 48, 86),
+            Font = ExecLedgerTheme.UIBold10,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             AutoSize = true,
             Location = new Point(122, 6)
         };
@@ -167,8 +168,8 @@ public class ReceiptVoucherForm : Form
         var lblDateTag = new Label
         {
             Text = "Date:",
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            ForeColor = TallyPrimeTheme.TextMuted,
+            Font = ExecLedgerTheme.UIRegular9,
+            ForeColor = ExecLedgerTheme.SecondaryText,
             AutoSize = true,
             Margin = new Padding(0, 4, 4, 0)
         };
@@ -178,7 +179,7 @@ public class ReceiptVoucherForm : Form
             Format = DateTimePickerFormat.Custom,
             CustomFormat = "dd-MMM-yyyy",
             Width = 130,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         pnlDate.Controls.Add(lblDateTag);
@@ -199,8 +200,8 @@ public class ReceiptVoucherForm : Form
         var lblAccountPrompt = new Label
         {
             Text = "Account",
-            Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
-            ForeColor = TallyPrimeTheme.TextPrimary,
+            Font = ExecLedgerTheme.UIRegular9,
+            ForeColor = ExecLedgerTheme.PrimaryText,
             Location = new Point(0, 4),
             AutoSize = true
         };
@@ -208,7 +209,7 @@ public class ReceiptVoucherForm : Form
         var lblColon = new Label
         {
             Text = ":",
-            Font = new Font("Segoe UI", 9.25F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Location = new Point(88, 4),
             AutoSize = true
         };
@@ -217,7 +218,7 @@ public class ReceiptVoucherForm : Form
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Width = 260,
-            Font = new Font("Segoe UI", 9.25F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(100, 1),
             FlatStyle = FlatStyle.Flat
         };
@@ -225,7 +226,7 @@ public class ReceiptVoucherForm : Form
         _cmbAccount.Enter += (s, e) =>
         {
             _isAccountActive = true;
-            _cmbAccount.BackColor = TallyPrimeTheme.ActiveInputYellow;
+            _cmbAccount.BackColor = ExecLedgerTheme.PrimarySelection;
             _flyoutPanel.Visible = true;
             _flyoutPanel.SetTitle("List of Ledger Accounts");
             _flyoutPanel.LoadLedgers(_cashBankLedgers, includeEndOfList: false);
@@ -238,8 +239,8 @@ public class ReceiptVoucherForm : Form
         var lblBalanceTitle = new Label
         {
             Text = "Current balance",
-            Font = TallyPrimeTheme.SmallItalicFont,
-            ForeColor = TallyPrimeTheme.TextMuted,
+            Font = ExecLedgerTheme.UIRegular8,
+            ForeColor = ExecLedgerTheme.SecondaryText,
             Location = new Point(0, 26),
             AutoSize = true
         };
@@ -247,8 +248,8 @@ public class ReceiptVoucherForm : Form
         var lblColon2 = new Label
         {
             Text = ":",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = TallyPrimeTheme.TextMuted,
+            Font = ExecLedgerTheme.UIBold8,
+            ForeColor = ExecLedgerTheme.SecondaryText,
             Location = new Point(88, 26),
             AutoSize = true
         };
@@ -256,8 +257,8 @@ public class ReceiptVoucherForm : Form
         _lblAccountBalance = new Label
         {
             Text = "0.00 Dr",
-            Font = TallyPrimeTheme.SmallItalicFont,
-            ForeColor = TallyPrimeTheme.BalanceGreen,
+            Font = ExecLedgerTheme.UIRegular8,
+            ForeColor = ExecLedgerTheme.SuccessGreen,
             Location = new Point(100, 26),
             AutoSize = true
         };
@@ -270,14 +271,14 @@ public class ReceiptVoucherForm : Form
         pnlAccountRow.Controls.Add(_lblAccountBalance);
 
         // --- Row 2: Particulars Grid ---
-        _dgvEntries = new DataGridView
+        _dgvEntries = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
             AllowUserToResizeRows = false,
             BackgroundColor = Color.White,
             BorderStyle = BorderStyle.None,
-            GridColor = TallyPrimeTheme.GridLineColor,
+            GridColor = ExecLedgerTheme.GridBorder,
             RowHeadersVisible = false,
             EnableHeadersVisualStyles = false,
             RowTemplate = { Height = 25 }
@@ -285,9 +286,9 @@ public class ReceiptVoucherForm : Form
 
         _dgvEntries.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
         {
-            BackColor = TallyPrimeTheme.GridHeaderBg,
-            ForeColor = TallyPrimeTheme.GridHeaderFg,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
+            ForeColor = ExecLedgerTheme.PrimaryText,
+            Font = ExecLedgerTheme.UIBold9,
             Alignment = DataGridViewContentAlignment.MiddleLeft,
             Padding = new Padding(6, 0, 0, 0)
         };
@@ -296,8 +297,8 @@ public class ReceiptVoucherForm : Form
 
         _dgvEntries.DefaultCellStyle = new DataGridViewCellStyle
         {
-            Font = new Font("Segoe UI", 9F),
-            SelectionBackColor = TallyPrimeTheme.GridRowHighlight,
+            Font = ExecLedgerTheme.UIRegular9,
+            SelectionBackColor = ExecLedgerTheme.PrimarySelection,
             SelectionForeColor = Color.Black,
             Padding = new Padding(4, 0, 4, 0)
         };
@@ -317,7 +318,7 @@ public class ReceiptVoucherForm : Form
             Name = "ColBalance",
             Width = 140,
             ReadOnly = true,
-            DefaultCellStyle = { ForeColor = TallyPrimeTheme.TextMuted }
+            DefaultCellStyle = { ForeColor = ExecLedgerTheme.SecondaryText }
         };
 
         var colAmount = new DataGridViewTextBoxColumn
@@ -365,7 +366,7 @@ public class ReceiptVoucherForm : Form
         var lblNarration = new Label
         {
             Text = "Narration:",
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            Font = ExecLedgerTheme.UIRegular9,
             Anchor = AnchorStyles.Left,
             AutoSize = true
         };
@@ -373,7 +374,7 @@ public class ReceiptVoucherForm : Form
         _txtNarration = new TextBox
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var pnlTotals = new FlowLayoutPanel
@@ -385,8 +386,8 @@ public class ReceiptVoucherForm : Form
         _lblTotalAmount = new Label
         {
             Text = "₹0.00",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 48, 86),
+            Font = ExecLedgerTheme.UIBold11,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             AutoSize = true,
             Margin = new Padding(0, 2, 0, 0)
         };
@@ -394,8 +395,8 @@ public class ReceiptVoucherForm : Form
         _lblBalanceStatus = new Label
         {
             Text = "Voucher Balanced",
-            ForeColor = TallyPrimeTheme.BalanceGreen,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            ForeColor = ExecLedgerTheme.SuccessGreen,
+            Font = ExecLedgerTheme.UIBold8,
             AutoSize = true,
             Margin = new Padding(0, 4, 12, 0)
         };
@@ -411,7 +412,7 @@ public class ReceiptVoucherForm : Form
         var pnlBottomRibbon = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = TallyPrimeTheme.BottomRibbonBg,
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
             BorderStyle = BorderStyle.FixedSingle,
             Margin = new Padding(0, 4, 0, 0)
         };
@@ -426,7 +427,7 @@ public class ReceiptVoucherForm : Form
         _btnQuit = CreateRibbonButton("Q: Quit", () => Close());
         _btnAccept = CreateRibbonButton("A: Accept", async () => await OnSaveVoucherAsync(closeOnSuccess: true), isPrimary: true);
         _btnClear = CreateRibbonButton("Clear", () => ResetForm());
-        _btnPrint = CreateRibbonButton("P: Print", () => MessageBox.Show("Voucher print preview ready.", "Tally Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        _btnPrint = CreateRibbonButton("P: Print", () => MessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         flowRibbon.Controls.Add(_btnQuit);
         flowRibbon.Controls.Add(_btnAccept);
@@ -534,13 +535,13 @@ public class ReceiptVoucherForm : Form
             AutoSize = true,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 8.5F, isPrimary ? FontStyle.Bold : FontStyle.Regular),
-            BackColor = isPrimary ? Color.FromArgb(0, 56, 101) : Color.Transparent,
-            ForeColor = isPrimary ? Color.White : Color.FromArgb(0, 56, 101),
+            BackColor = isPrimary ? ExecLedgerTheme.PrimaryNavy : Color.Transparent,
+            ForeColor = isPrimary ? Color.White : ExecLedgerTheme.PrimaryNavy,
             Margin = new Padding(3, 0, 8, 0),
             Cursor = Cursors.Hand
         };
         btn.FlatAppearance.BorderSize = isPrimary ? 0 : 1;
-        btn.FlatAppearance.BorderColor = TallyPrimeTheme.BottomRibbonBorder;
+        btn.FlatAppearance.BorderColor = ExecLedgerTheme.PrimaryBorder;
         btn.Click += (s, e) => onClick();
         return btn;
     }
@@ -733,13 +734,13 @@ public class ReceiptVoucherForm : Form
         if (totalCredit > 0)
         {
             _lblBalanceStatus.Text = "Voucher Balanced";
-            _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceGreen;
+            _lblBalanceStatus.ForeColor = ExecLedgerTheme.SuccessGreen;
             _btnAccept.Enabled = true;
         }
         else
         {
             _lblBalanceStatus.Text = "Enter amounts to balance";
-            _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceRed;
+            _lblBalanceStatus.ForeColor = ExecLedgerTheme.ErrorRed;
         }
     }
 
@@ -858,6 +859,6 @@ public class ReceiptVoucherForm : Form
         _txtNarration.Clear();
         _lblTotalAmount.Text = "₹0.00";
         _lblBalanceStatus.Text = "Enter amounts to balance";
-        _lblBalanceStatus.ForeColor = TallyPrimeTheme.BalanceRed;
+        _lblBalanceStatus.ForeColor = ExecLedgerTheme.ErrorRed;
     }
 }

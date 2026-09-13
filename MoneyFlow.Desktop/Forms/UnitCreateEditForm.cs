@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -40,7 +41,7 @@ public class UnitCreateEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var panel = new TableLayoutPanel
@@ -60,7 +61,7 @@ public class UnitCreateEditForm : Form
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 55));
 
         // 1. Symbol
-        panel.Controls.Add(new Label { Text = "Symbol / Name:*", Anchor = AnchorStyles.Left, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        panel.Controls.Add(new Label { Text = "Symbol / Name:*", Anchor = AnchorStyles.Left, AutoSize = true, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _txtSymbol = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "e.g. Nos, Kg, Box, Mtr" };
         panel.Controls.Add(_txtSymbol, 1, 0);
 

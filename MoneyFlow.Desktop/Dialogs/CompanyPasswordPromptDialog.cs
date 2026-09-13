@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Dialogs;
 
@@ -35,7 +36,7 @@ public class CompanyPasswordPromptDialog : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         var headerPanel = new Panel
         {
@@ -56,7 +57,7 @@ public class CompanyPasswordPromptDialog : Form
         var lblSubHeader = new Label
         {
             Text = $"Company: {_companyName} ({_companyNumber})",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(200, 215, 235),
             Location = new Point(20, 36),
             AutoSize = true
@@ -69,7 +70,7 @@ public class CompanyPasswordPromptDialog : Form
             Text = "Enter Vault Password:",
             Location = new Point(30, 85),
             Size = new Size(160, 22),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(30, 41, 59)
         };
 
@@ -77,7 +78,7 @@ public class CompanyPasswordPromptDialog : Form
         {
             Location = new Point(30, 110),
             Size = new Size(385, 26),
-            Font = new Font("Segoe UI", 10.5F),
+            Font = ExecLedgerTheme.UIRegular10,
             PasswordChar = '●',
             UseSystemPasswordChar = true
         };
@@ -87,7 +88,7 @@ public class CompanyPasswordPromptDialog : Form
             Location = new Point(30, 142),
             Size = new Size(385, 22),
             ForeColor = Color.FromArgb(220, 38, 38),
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold8,
             Text = string.Empty
         };
 
@@ -107,7 +108,7 @@ public class CompanyPasswordPromptDialog : Form
             BackColor = Color.FromArgb(30, 64, 175),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Cursor = Cursors.Hand
         };
         btnOk.FlatAppearance.BorderSize = 0;
@@ -132,7 +133,7 @@ public class CompanyPasswordPromptDialog : Form
             BackColor = Color.FromArgb(226, 232, 240),
             ForeColor = Color.FromArgb(51, 65, 85),
             FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Cursor = Cursors.Hand
         };
         btnCancel.FlatAppearance.BorderSize = 0;

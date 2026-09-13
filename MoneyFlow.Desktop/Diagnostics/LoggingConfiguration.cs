@@ -20,7 +20,7 @@ public static class LoggingConfiguration
             {
                 _logDirectory = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "MoneyFlow",
+                    "Executive Ledger",
                     "logs");
             }
             return _logDirectory;

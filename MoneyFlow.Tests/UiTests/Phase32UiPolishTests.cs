@@ -15,27 +15,13 @@ public class Phase32UiPolishTests
     [Fact]
     public void ThemeManager_Themes_ConfigureValidDistinctPalettes()
     {
-        // 1. Classic Teal Theme
-        ThemeManager.SetTheme("ClassicTeal");
-        ThemeManager.CurrentTheme.Should().Be(AppTheme.ClassicTeal);
-        var tealColors = ThemeManager.Colors;
-        tealColors.HeaderBg.Should().NotBe(Color.Empty);
-        tealColors.HeaderFg.Should().Be(Color.White);
-        tealColors.SuccessFg.Should().NotBe(tealColors.DangerFg);
-
-        // 2. Dark Slate Theme
-        ThemeManager.SetTheme("DarkSlate");
-        ThemeManager.CurrentTheme.Should().Be(AppTheme.DarkSlate);
-        var darkColors = ThemeManager.Colors;
-        darkColors.HeaderBg.Should().NotBe(tealColors.HeaderBg);
-        darkColors.WindowBg.Should().Be(Color.FromArgb(30, 41, 59));
-
-        // 3. Light Neutral Theme
-        ThemeManager.SetTheme("LightNeutral");
-        ThemeManager.CurrentTheme.Should().Be(AppTheme.LightNeutral);
-        var lightColors = ThemeManager.Colors;
-        lightColors.HeaderBg.Should().NotBe(darkColors.HeaderBg);
-        lightColors.WindowBg.Should().Be(Color.FromArgb(248, 250, 252));
+        // Unified Executive Ledger Theme Palette
+        var colors = ThemeManager.Colors;
+        colors.HeaderBg.Should().Be(ExecLedgerTheme.PrimaryNavy);
+        colors.HeaderFg.Should().Be(ExecLedgerTheme.WhiteText);
+        colors.WindowBg.Should().Be(ExecLedgerTheme.ApplicationCanvas);
+        colors.SurfaceBg.Should().Be(ExecLedgerTheme.WorkSurface);
+        colors.SuccessFg.Should().NotBe(colors.DangerFg);
     }
 
     [Theory]

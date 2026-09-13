@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class DayBookForm : Form
@@ -26,7 +29,7 @@ public class DayBookForm : Form
     private ComboBox _cmbVoucherType = null!;
     private TextBox _txtSearch = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvDayBook = null!;
+    private Guna2DataGridView _dgvDayBook = null!;
     private Label _lblCount = null!;
     private Label _lblTotalDebit = null!;
     private Label _lblTotalCredit = null!;
@@ -50,7 +53,7 @@ public class DayBookForm : Form
         Text = "Day Book — Chronological Transaction Audit";
         Size = new Size(1180, 750);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -71,7 +74,7 @@ public class DayBookForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 9,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 85));  // "From Date:"
@@ -84,15 +87,15 @@ public class DayBookForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Search Box
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100)); // Refresh Button
 
-        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _dtpFromDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpFromDate, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _dtpToDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpToDate, 3, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "Type:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 4, 0);
+        pnlFilters.Controls.Add(new Label { Text = "Type:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 4, 0);
         _cmbVoucherType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
         PopulateVoucherTypeCombo();
         _cmbVoucherType.SelectedIndexChanged += async (s, e) => await LoadDayBookDataAsync();
@@ -110,7 +113,7 @@ public class DayBookForm : Form
         mainLayout.Controls.Add(pnlFilters, 0, 0);
 
         // 2. DataGridView
-        _dgvDayBook = new DataGridView
+        _dgvDayBook = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -123,8 +126,8 @@ public class DayBookForm : Form
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             MultiSelect = false
         };
-        _dgvDayBook.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 248);
-        _dgvDayBook.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        _dgvDayBook.ColumnHeadersDefaultCellStyle.BackColor = ExecLedgerTheme.ApplicationCanvas;
+        _dgvDayBook.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         _dgvDayBook.EnableHeadersVisualStyles = false;
         _dgvDayBook.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 251, 255);
 
@@ -148,10 +151,10 @@ public class DayBookForm : Form
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
 
-        _lblCount = new Label { Text = "Transactions: 0", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
-        _lblBalanceStatus = new Label { Text = "Balanced: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
-        _lblTotalDebit = new Label { Text = "Total Debit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
-        _lblTotalCredit = new Label { Text = "Total Credit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
+        _lblCount = new Label { Text = "Transactions: 0", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 };
+        _lblBalanceStatus = new Label { Text = "Balanced: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.DarkGreen, Font = ExecLedgerTheme.UIBold9 };
+        _lblTotalDebit = new Label { Text = "Total Debit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
+        _lblTotalCredit = new Label { Text = "Total Credit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
 
         pnlTotals.Controls.Add(_lblCount, 0, 0);
         pnlTotals.Controls.Add(_lblBalanceStatus, 1, 0);
@@ -247,7 +250,7 @@ public class DayBookForm : Form
             Name = "ColDebit",
             HeaderText = "Debit (₹)",
             Width = 135,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvDayBook.Columns.Add(new DataGridViewTextBoxColumn
@@ -255,7 +258,7 @@ public class DayBookForm : Form
             Name = "ColCredit",
             HeaderText = "Credit (₹)",
             Width = 135,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvDayBook.Columns.Add(new DataGridViewTextBoxColumn

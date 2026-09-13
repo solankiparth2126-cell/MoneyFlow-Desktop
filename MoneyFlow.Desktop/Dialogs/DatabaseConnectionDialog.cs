@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using Microsoft.Data.SqlClient;
 using MoneyFlow.Services;
 
@@ -38,7 +39,7 @@ public class DatabaseConnectionDialog : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         var headerPanel = new Panel
         {
@@ -50,7 +51,7 @@ public class DatabaseConnectionDialog : Form
         var lblHeader = new Label
         {
             Text = "Database Connection & Setup",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             ForeColor = Color.White,
             Location = new Point(20, 12),
             AutoSize = true
@@ -59,7 +60,7 @@ public class DatabaseConnectionDialog : Form
         var lblSubHeader = new Label
         {
             Text = "Configure SQL Server Express instance connection for MoneyFlowDB",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.LightGray,
             Location = new Point(20, 37),
             AutoSize = true
@@ -137,7 +138,7 @@ public class DatabaseConnectionDialog : Form
             Text = "Status: Ready to test connection",
             Location = new Point(20, 292),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(71, 85, 105)
         };
         this.Controls.Add(lblStatus);
@@ -170,7 +171,7 @@ public class DatabaseConnectionDialog : Form
             Size = new Size(160, 32),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         btnConnect.Click += async (s, e) => await ConnectAndInitializeAsync();
 

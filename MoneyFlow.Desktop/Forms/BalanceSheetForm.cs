@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class BalanceSheetForm : Form
@@ -24,8 +27,8 @@ public class BalanceSheetForm : Form
     private DateTimePicker _dtpAsOfDate = null!;
     private TextBox _txtSearch = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvLiabilities = null!;
-    private DataGridView _dgvAssets = null!;
+    private Guna2DataGridView _dgvLiabilities = null!;
+    private Guna2DataGridView _dgvAssets = null!;
     private Label _lblStatusBadge = null!;
     private Label _lblLiabilitiesTotal = null!;
     private Label _lblAssetsTotal = null!;
@@ -50,7 +53,7 @@ public class BalanceSheetForm : Form
         Text = "Balance Sheet Statement (Financial Position) — No GST";
         Size = new Size(1250, 780);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -71,7 +74,7 @@ public class BalanceSheetForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 6,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // "As of Date (F2):"
@@ -81,16 +84,16 @@ public class BalanceSheetForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Spacer
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // Refresh button
 
-        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _dtpAsOfDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 130 };
         pnlFilters.Controls.Add(_dtpAsOfDate, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "Search (F3):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "Search (F3):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _txtSearch = new TextBox { Width = 210, PlaceholderText = "Filter by Account or Group..." };
         _txtSearch.TextChanged += (s, e) => ApplySearchFilter();
         pnlFilters.Controls.Add(_txtSearch, 3, 0);
 
-        _btnRefresh = new Button { Text = "Refresh (F5)", Width = 100, Height = 30, BackColor = Color.FromArgb(0, 51, 102), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        _btnRefresh = new Button { Text = "Refresh (F5)", Width = 100, Height = 30, BackColor = ExecLedgerTheme.PrimaryNavy, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         _btnRefresh.Click += async (s, e) => await LoadBalanceSheetAsync();
         pnlFilters.Controls.Add(_btnRefresh, 5, 0);
 
@@ -113,9 +116,9 @@ public class BalanceSheetForm : Form
             Text = "CAPITAL & LIABILITIES (CREDIT)",
             Dock = DockStyle.Top,
             Height = 28,
-            BackColor = Color.FromArgb(235, 240, 248),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(5, 0, 0, 0)
         };
@@ -131,9 +134,9 @@ public class BalanceSheetForm : Form
             Text = "PROPERTY & ASSETS (DEBIT)",
             Dock = DockStyle.Top,
             Height = 28,
-            BackColor = Color.FromArgb(235, 240, 248),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(5, 0, 0, 0)
         };
@@ -158,9 +161,9 @@ public class BalanceSheetForm : Form
         pnlFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
         pnlFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
 
-        _lblLiabilitiesTotal = new Label { Text = "Total Liabilities: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
-        _lblStatusBadge = new Label { Text = "[ ✔ ] BALANCED (Diff: ₹0.00)", AutoSize = true, Anchor = AnchorStyles.None, Font = new Font("Segoe UI", 11F, FontStyle.Bold), ForeColor = Color.DarkGreen };
-        _lblAssetsTotal = new Label { Text = "Total Assets: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
+        _lblLiabilitiesTotal = new Label { Text = "Total Liabilities: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10, ForeColor = ExecLedgerTheme.PrimaryNavy };
+        _lblStatusBadge = new Label { Text = "[ ✔ ] BALANCED (Diff: ₹0.00)", AutoSize = true, Anchor = AnchorStyles.None, Font = ExecLedgerTheme.UIBold11, ForeColor = Color.DarkGreen };
+        _lblAssetsTotal = new Label { Text = "Total Assets: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold10, ForeColor = ExecLedgerTheme.PrimaryNavy };
 
         pnlFooter.Controls.Add(_lblLiabilitiesTotal, 0, 0);
         pnlFooter.Controls.Add(_lblStatusBadge, 1, 0);
@@ -196,9 +199,9 @@ public class BalanceSheetForm : Form
         Load += async (s, e) => await OnFormLoadAsync();
     }
 
-    private DataGridView CreateSideGrid()
+    private Guna2DataGridView CreateSideGrid()
     {
-        var dgv = new DataGridView
+        var dgv = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -215,8 +218,8 @@ public class BalanceSheetForm : Form
         };
 
         dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(240, 244, 250);
-        dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0, 51, 102);
-        dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        dgv.ColumnHeadersDefaultCellStyle.ForeColor = ExecLedgerTheme.PrimaryNavy;
+        dgv.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
 
         dgv.Columns.Add(new DataGridViewTextBoxColumn
         {
@@ -400,8 +403,8 @@ public class BalanceSheetForm : Form
     private void FormatHeaderRow(DataGridViewRow row)
     {
         row.DefaultCellStyle.BackColor = Color.FromArgb(246, 249, 252);
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        row.DefaultCellStyle.ForeColor = Color.FromArgb(0, 51, 102);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
+        row.DefaultCellStyle.ForeColor = ExecLedgerTheme.PrimaryNavy;
     }
 
     private void ApplySearchFilter()

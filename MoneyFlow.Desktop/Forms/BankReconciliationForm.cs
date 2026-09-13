@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using Guna.UI2.WinForms;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
@@ -27,7 +28,7 @@ public class BankReconciliationForm : Form
     private DateTimePicker dtpFromDate = null!;
     private DateTimePicker dtpToDate = null!;
     private Button btnRefresh = null!;
-    private DataGridView dgvTransactions = null!;
+    private Guna2DataGridView dgvTransactions = null!;
 
     // Summary labels
     private Label lblBookBalance = null!;
@@ -61,7 +62,7 @@ public class BankReconciliationForm : Form
         MinimumSize = new Size(980, 600);
         StartPosition = FormStartPosition.CenterParent;
         BackColor = Color.FromArgb(240, 246, 252);
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         // 1. Top Ribbon
@@ -69,12 +70,12 @@ public class BankReconciliationForm : Form
         {
             Dock = DockStyle.Top,
             Height = 36,
-            BackColor = Color.FromArgb(0, 56, 101)
+            BackColor = ExecLedgerTheme.PrimaryNavy
         };
         var lblTitle = new Label
         {
             Text = "Bank Reconciliation Statement (BRS)",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.White,
             Location = new Point(16, 6),
             AutoSize = true
@@ -94,8 +95,8 @@ public class BankReconciliationForm : Form
         var lblBank = new Label
         {
             Text = "Bank Account:",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Location = new Point(15, 14),
             AutoSize = true
         };
@@ -106,7 +107,7 @@ public class BankReconciliationForm : Form
             Location = new Point(110, 11),
             Width = 260,
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
         cmbBankLedgers.SelectedIndexChanged += async (s, e) => await LoadReconciliationAsync();
         pnlFilter.Controls.Add(cmbBankLedgers);
@@ -114,8 +115,8 @@ public class BankReconciliationForm : Form
         var lblFrom = new Label
         {
             Text = "From:",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Location = new Point(390, 14),
             AutoSize = true
         };
@@ -134,8 +135,8 @@ public class BankReconciliationForm : Form
         var lblTo = new Label
         {
             Text = "To:",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Location = new Point(575, 14),
             AutoSize = true
         };
@@ -156,7 +157,7 @@ public class BankReconciliationForm : Form
             Text = "Refresh (F5)",
             Location = new Point(745, 10),
             Size = new Size(110, 28),
-            BackColor = Color.FromArgb(0, 75, 135),
+            BackColor = ExecLedgerTheme.SteelBlue,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat
         };
@@ -178,7 +179,7 @@ public class BankReconciliationForm : Form
         Controls.Add(pnlBottom);
 
         // 4. Data Grid
-        dgvTransactions = new DataGridView
+        dgvTransactions = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
@@ -186,7 +187,7 @@ public class BankReconciliationForm : Form
             RowHeadersVisible = false,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
-            Font = new Font("Segoe UI", 9.25F),
+            Font = ExecLedgerTheme.UIRegular9,
             ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
             ColumnHeadersHeight = 28,
             EnableHeadersVisualStyles = false,
@@ -194,8 +195,8 @@ public class BankReconciliationForm : Form
         };
 
         dgvTransactions.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(216, 236, 248);
-        dgvTransactions.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0, 56, 101);
-        dgvTransactions.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        dgvTransactions.ColumnHeadersDefaultCellStyle.ForeColor = ExecLedgerTheme.PrimaryNavy;
+        dgvTransactions.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
 
         // Columns
         dgvTransactions.Columns.Add(new DataGridViewTextBoxColumn { Name = "EntryId", Visible = false });
@@ -245,8 +246,8 @@ public class BankReconciliationForm : Form
         lblBookBalance = new Label
         {
             Text = "Balance as per Company Books: ₹0.00",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Location = new Point(x, y),
             AutoSize = true
         };
@@ -256,7 +257,7 @@ public class BankReconciliationForm : Form
         lblIssuedNotPresented = new Label
         {
             Text = "Add: Cheques issued but not presented: ₹0.00",
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            Font = ExecLedgerTheme.UIRegular9,
             ForeColor = Color.FromArgb(0, 110, 60),
             Location = new Point(x, y),
             AutoSize = true
@@ -267,7 +268,7 @@ public class BankReconciliationForm : Form
         lblDepositedNotCleared = new Label
         {
             Text = "Less: Cheques deposited but not cleared: ₹0.00",
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            Font = ExecLedgerTheme.UIRegular9,
             ForeColor = Color.FromArgb(180, 20, 20),
             Location = new Point(x, y),
             AutoSize = true
@@ -278,8 +279,8 @@ public class BankReconciliationForm : Form
         lblBankBalance = new Label
         {
             Text = "Balance as per Bank: ₹0.00",
-            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 75, 135),
+            Font = ExecLedgerTheme.UIBold10,
+            ForeColor = ExecLedgerTheme.SteelBlue,
             Location = new Point(x, y),
             AutoSize = true
         };
@@ -293,7 +294,7 @@ public class BankReconciliationForm : Form
             Size = new Size(160, 34),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             FlatStyle = FlatStyle.Flat
         };
         btnSave.FlatAppearance.BorderSize = 0;
@@ -305,7 +306,7 @@ public class BankReconciliationForm : Form
             Text = "Clear with Today (Space)",
             Location = new Point(pnl.Width - 280, 45),
             Size = new Size(160, 34),
-            BackColor = Color.FromArgb(0, 75, 135),
+            BackColor = ExecLedgerTheme.SteelBlue,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat
         };

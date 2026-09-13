@@ -6,6 +6,9 @@ using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class StockItemCreateEditForm : Form
@@ -43,7 +46,7 @@ public class StockItemCreateEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var panel = new TableLayoutPanel
@@ -65,7 +68,7 @@ public class StockItemCreateEditForm : Form
         panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 55));
 
         // 1. Item Name
-        panel.Controls.Add(new Label { Text = "Item Name:*", Anchor = AnchorStyles.Left, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        panel.Controls.Add(new Label { Text = "Item Name:*", Anchor = AnchorStyles.Left, AutoSize = true, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _txtItemName = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "e.g. Premium Cotton Shirt" };
         panel.Controls.Add(_txtItemName, 1, 0);
 
@@ -107,8 +110,8 @@ public class StockItemCreateEditForm : Form
         _txtOpeningValue = new TextBox
         {
             ReadOnly = true,
-            BackColor = Color.FromArgb(245, 248, 252),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            BackColor = ExecLedgerTheme.SecondarySurface,
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Width = 160,
             Anchor = AnchorStyles.Left,

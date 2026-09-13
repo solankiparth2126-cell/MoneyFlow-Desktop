@@ -1,10 +1,15 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using Guna.UI2.WinForms;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Controls;
 
+/// <summary>
+/// Executive Ledger side action bar — right-docked panel with F-key shortcut buttons.
+/// Sharp rectangular buttons with keyboard hints, grouped by function.
+/// </summary>
 public class TallySideActionBar : UserControl
 {
     public event Action? DateClicked;
@@ -22,10 +27,17 @@ public class TallySideActionBar : UserControl
 
     public TallySideActionBar()
     {
-        Width = 110;
+        Width = 120;
         Dock = DockStyle.Right;
-        BackColor = TallyPrimeTheme.RightSidebarBg;
+        BackColor = ExecLedgerTheme.ApplicationCanvas;
         BorderStyle = BorderStyle.None;
+
+        // Left border
+        Paint += (s, e) =>
+        {
+            using var pen = new Pen(ExecLedgerTheme.PrimaryBorder, 1);
+            e.Graphics.DrawLine(pen, 0, 0, 0, Height);
+        };
 
         _pnlButtons = new FlowLayoutPanel
         {
@@ -33,7 +45,7 @@ public class TallySideActionBar : UserControl
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             AutoScroll = false,
-            Padding = new Padding(2, 2, 2, 2)
+            Padding = new Padding(6, 6, 4, 4)
         };
 
         Controls.Add(_pnlButtons);
@@ -50,8 +62,8 @@ public class TallySideActionBar : UserControl
     {
         _pnlButtons.Controls.Clear();
 
-        AddButton("F2: Date", () => DateClicked?.Invoke());
-        AddButton("F3: Company", () => CompanyClicked?.Invoke());
+        AddButton("F2: Date", () => DateClicked?.Invoke(), false);
+        AddButton("F3: Company", () => CompanyClicked?.Invoke(), false);
         AddSpacer();
 
         AddVoucherButton("F4: Contra", "Contra", () => ContraClicked?.Invoke());
@@ -60,67 +72,57 @@ public class TallySideActionBar : UserControl
         AddVoucherButton("F7: Journal", "Journal", () => JournalClicked?.Invoke());
         AddVoucherButton("F8: Sales", "Sales", () => SalesClicked?.Invoke());
         AddVoucherButton("F9: Purchase", "Purchase", () => PurchaseClicked?.Invoke());
-        AddButton("F10: Other", null);
+        AddButton("F10: Other", null, false);
 
         AddSpacer();
-        AddButton("H: Mode", null);
-        AddButton("!: Details", null);
-        AddButton("Q: Reports", null);
+        AddButton("I: Details", null, false);
+        AddButton("Q: Reports", null, false);
 
         AddSpacer();
-        AddButton("F12: Config", () => ConfigureClicked?.Invoke());
+        AddButton("F12: Config", () => ConfigureClicked?.Invoke(), false);
     }
 
     private void AddVoucherButton(string text, string voucherName, Action? onClick)
     {
         bool isActive = string.Equals(_activeVoucher, voucherName, StringComparison.OrdinalIgnoreCase);
-
-        var btn = new Button
-        {
-            Text = text,
-            Width = 104,
-            Height = 27,
-            Margin = new Padding(1, 1, 1, 1),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.5F, isActive ? FontStyle.Bold : FontStyle.Regular),
-            BackColor = isActive ? TallyPrimeTheme.RightButtonActive : TallyPrimeTheme.RightButtonBg,
-            ForeColor = isActive ? Color.FromArgb(0, 56, 101) : Color.FromArgb(40, 60, 80),
-            TextAlign = ContentAlignment.MiddleLeft,
-            Cursor = Cursors.Hand
-        };
-        btn.FlatAppearance.BorderColor = isActive ? Color.FromArgb(0, 90, 156) : TallyPrimeTheme.RightSidebarBorder;
-        btn.FlatAppearance.BorderSize = 1;
-
-        if (onClick != null)
-        {
-            btn.Click += (s, e) => onClick();
-        }
-
-        _pnlButtons.Controls.Add(btn);
+        AddButton(text, onClick, isActive);
     }
 
-    private void AddButton(string text, Action? onClick)
+    private void AddButton(string text, Action? onClick, bool isActive)
     {
-        var btn = new Button
+        var btn = new Guna2Button
         {
             Text = text,
-            Width = 104,
-            Height = 27,
-            Margin = new Padding(1, 1, 1, 1),
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 8.5F),
-            BackColor = TallyPrimeTheme.RightButtonBg,
-            ForeColor = Color.FromArgb(40, 60, 80),
-            TextAlign = ContentAlignment.MiddleLeft,
+            Size = new Size(108, ExecLedgerTheme.ToolbarButtonHeight),
+            Margin = new Padding(0, 1, 0, 1),
+            BorderRadius = ExecLedgerTheme.BorderRadius,
+            TextAlign = HorizontalAlignment.Left,
+            Font = isActive ? ExecLedgerTheme.UIBold8 : ExecLedgerTheme.UIRegular8,
             Cursor = Cursors.Hand
         };
-        btn.FlatAppearance.BorderColor = TallyPrimeTheme.RightSidebarBorder;
-        btn.FlatAppearance.BorderSize = 1;
+
+        if (isActive)
+        {
+            btn.FillColor = ExecLedgerTheme.PrimaryNavy;
+            btn.ForeColor = ExecLedgerTheme.WhiteText;
+            btn.BorderColor = ExecLedgerTheme.DeepNavy;
+            btn.BorderThickness = 1;
+            btn.HoverState.FillColor = ExecLedgerTheme.ButtonHover;
+            btn.HoverState.ForeColor = ExecLedgerTheme.WhiteText;
+        }
+        else
+        {
+            btn.FillColor = ExecLedgerTheme.WorkSurface;
+            btn.ForeColor = ExecLedgerTheme.PrimaryText;
+            btn.BorderColor = ExecLedgerTheme.PrimaryBorder;
+            btn.BorderThickness = 1;
+            btn.HoverState.FillColor = ExecLedgerTheme.MenuHover;
+            btn.HoverState.ForeColor = ExecLedgerTheme.PrimaryText;
+            btn.HoverState.BorderColor = ExecLedgerTheme.SteelBlue;
+        }
 
         if (onClick != null)
-        {
             btn.Click += (s, e) => onClick();
-        }
 
         _pnlButtons.Controls.Add(btn);
     }
@@ -129,7 +131,7 @@ public class TallySideActionBar : UserControl
     {
         var pnl = new Panel
         {
-            Width = 104,
+            Width = 108,
             Height = 4,
             BackColor = Color.Transparent,
             Margin = new Padding(0, 2, 0, 2)

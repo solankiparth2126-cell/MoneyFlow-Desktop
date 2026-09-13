@@ -5,12 +5,18 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Controls;
 
+/// <summary>
+/// Executive Ledger voucher entry control — reusable accounting grid with
+/// header fields, entry grid (Guna2DataGridView), totals footer, and balance state indicator.
+/// Used by all 8 voucher entry forms.
+/// </summary>
 public class VoucherEntryControl : UserControl
 {
     // Header controls
@@ -21,12 +27,13 @@ public class VoucherEntryControl : UserControl
     private TextBox txtNarration = null!;
 
     // Grid
-    private DataGridView dgvEntries = null!;
+    private Guna2DataGridView dgvEntries = null!;
 
     // Footer controls
     private Label lblTotalDebit = null!;
     private Label lblTotalCredit = null!;
     private Label lblDifference = null!;
+    private Panel pnlBalanceIndicator = null!;
     private Label lblBalanceBadge = null!;
 
     // Data source cache
@@ -49,53 +56,93 @@ public class VoucherEntryControl : UserControl
     private void InitializeComponent()
     {
         this.SuspendLayout();
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
         this.Dock = DockStyle.Fill;
-        this.BackColor = ThemeManager.Colors.WindowBg;
+        this.BackColor = ExecLedgerTheme.ApplicationCanvas;
 
         var mainLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 3,
-            Padding = new Padding(10)
+            RowCount = 4,
+            Padding = new Padding(8)
         };
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 115));  // Header
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // Grid
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 85));   // Footer
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));   // Header
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // Grid
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));   // Totals Footer
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));   // Balance Indicator
 
-        // 1. HEADER GROUPBOX
-        var grpHeader = new GroupBox
+        // ═══════════════════════════════════════════════════════
+        //  1. HEADER — Compact voucher info panel
+        // ═══════════════════════════════════════════════════════
+        var pnlHeader = new Guna2Panel
         {
-            Text = "Voucher Details (Header)",
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = ThemeManager.Colors.HeaderBg
+            FillColor = ExecLedgerTheme.WorkSurface,
+            BorderColor = ExecLedgerTheme.PrimaryBorder,
+            BorderThickness = 1,
+            BorderRadius = ExecLedgerTheme.BorderRadius,
+            Padding = new Padding(8, 6, 8, 6)
         };
 
         var headerLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 6,
+            ColumnCount = 8,
             RowCount = 2,
-            Padding = new Padding(8, 4, 8, 4)
+            Padding = new Padding(0),
+            Margin = new Padding(0)
         };
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100)); // Type Label
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));  // Type Combo
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));  // No Label
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));  // No Text
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));  // Date Label
-        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));  // Date Picker
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));  // Type label
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));   // Type combo
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 75));  // No label
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15));   // No text
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55));  // Date label
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));   // Date picker
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 55));  // Ref label
+        headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));   // Ref text
 
-        // Row 1
-        var lblType = new Label { Text = "Voucher Type:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F) };
-        cmbVoucherType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5F) };
-        
-        var lblNo = new Label { Text = "Voucher No:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F) };
-        txtVoucherNumber = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BackColor = Color.FromArgb(245, 245, 245), Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        // Row 0: Type, Number, Date, Reference
+        var lblType = CreateFieldLabel("Type:");
+        cmbVoucherType = new ComboBox
+        {
+            Dock = DockStyle.Fill,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Font = ExecLedgerTheme.UIRegular9,
+            FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(2)
+        };
 
-        var lblDate = new Label { Text = "Date (F2):", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F) };
-        dtpVoucherDate = new DateTimePicker { Dock = DockStyle.Fill, Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MM-yyyy", Font = new Font("Segoe UI", 9.5F) };
+        var lblNo = CreateFieldLabel("Voucher No:");
+        txtVoucherNumber = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            BackColor = ExecLedgerTheme.InputReadOnlyBg,
+            Font = ExecLedgerTheme.MonoRegular9,
+            ForeColor = ExecLedgerTheme.PrimaryText,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(2)
+        };
+
+        var lblDate = CreateFieldLabel("Date:");
+        dtpVoucherDate = new DateTimePicker
+        {
+            Dock = DockStyle.Fill,
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "dd-MMM-yyyy",
+            Font = ExecLedgerTheme.MonoRegular9,
+            Margin = new Padding(2)
+        };
+
+        var lblRef = CreateFieldLabel("Ref No:");
+        txtReferenceNumber = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Font = ExecLedgerTheme.UIRegular9,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(2)
+        };
 
         headerLayout.Controls.Add(lblType, 0, 0);
         headerLayout.Controls.Add(cmbVoucherType, 1, 0);
@@ -103,26 +150,31 @@ public class VoucherEntryControl : UserControl
         headerLayout.Controls.Add(txtVoucherNumber, 3, 0);
         headerLayout.Controls.Add(lblDate, 4, 0);
         headerLayout.Controls.Add(dtpVoucherDate, 5, 0);
+        headerLayout.Controls.Add(lblRef, 6, 0);
+        headerLayout.Controls.Add(txtReferenceNumber, 7, 0);
 
-        // Row 2: Ref No & Narration
-        var lblRef = new Label { Text = "Ref / Invoice:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F) };
-        txtReferenceNumber = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F) };
+        // Row 1: Narration (spans full width)
+        var lblNarr = CreateFieldLabel("Narration:");
+        txtNarration = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Font = ExecLedgerTheme.UIRegular9,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(2)
+        };
 
-        var lblNarr = new Label { Text = "Narration:", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F) };
-        txtNarration = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F) };
+        headerLayout.Controls.Add(lblNarr, 0, 1);
+        headerLayout.SetColumnSpan(txtNarration, 7);
+        headerLayout.Controls.Add(txtNarration, 1, 1);
 
-        headerLayout.Controls.Add(lblRef, 0, 1);
-        headerLayout.Controls.Add(txtReferenceNumber, 1, 1);
-        headerLayout.Controls.Add(lblNarr, 2, 1);
-        headerLayout.SetColumnSpan(txtNarration, 3);
-        headerLayout.Controls.Add(txtNarration, 3, 1);
+        pnlHeader.Controls.Add(headerLayout);
+        mainLayout.Controls.Add(pnlHeader, 0, 0);
 
-        grpHeader.Controls.Add(headerLayout);
-        mainLayout.Controls.Add(grpHeader, 0, 0);
-
-        // 2. GRID PANEL
-        var pnlGrid = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 5, 0, 5) };
-        dgvEntries = new DataGridView
+        // ═══════════════════════════════════════════════════════
+        //  2. GRID — Guna2DataGridView with accounting style
+        // ═══════════════════════════════════════════════════════
+        var pnlGrid = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 4, 0, 4) };
+        dgvEntries = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -130,7 +182,11 @@ public class VoucherEntryControl : UserControl
             AllowUserToDeleteRows = true,
             EditMode = DataGridViewEditMode.EditOnEnter
         };
-        ThemeManager.StyleGrid(dgvEntries);
+        ExecLedgerStyler.StyleGrid(dgvEntries, false);
+        dgvEntries.AllowUserToAddRows = true;
+        dgvEntries.AllowUserToDeleteRows = true;
+        dgvEntries.ReadOnly = false;
+        dgvEntries.SelectionMode = DataGridViewSelectionMode.CellSelect;
 
         SetupGridColumns();
 
@@ -138,44 +194,96 @@ public class VoucherEntryControl : UserControl
         dgvEntries.RowsRemoved += (s, e) => RecalculateTotals();
         dgvEntries.KeyDown += DgvEntries_KeyDown;
 
+        // Active cell focus border styling
+        dgvEntries.CellPainting += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
+            {
+                e.Paint(e.CellBounds, DataGridViewPaintParts.All);
+
+                if (dgvEntries.CurrentCell != null &&
+                    e.RowIndex == dgvEntries.CurrentCell.RowIndex &&
+                    e.ColumnIndex == dgvEntries.CurrentCell.ColumnIndex)
+                {
+                    using var pen = new Pen(ExecLedgerTheme.SystemFocusBlue, 2);
+                    var rect = e.CellBounds;
+                    rect.Inflate(-1, -1);
+                    e.Graphics.DrawRectangle(pen, rect);
+                }
+
+                e.Handled = true;
+            }
+        };
+
         pnlGrid.Controls.Add(dgvEntries);
         mainLayout.Controls.Add(pnlGrid, 0, 1);
 
-        // 3. FOOTER PANEL
-        var grpFooter = new GroupBox
+        // ═══════════════════════════════════════════════════════
+        //  3. TOTALS FOOTER — Double-rule accounting footer
+        // ═══════════════════════════════════════════════════════
+        var pnlFooter = new Guna2Panel
         {
-            Text = "Summary & Balance Status",
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = ThemeManager.Colors.HeaderBg
+            FillColor = ExecLedgerTheme.ApplicationCanvas,
+            BorderColor = ExecLedgerTheme.PrimaryBorder,
+            BorderThickness = 1,
+            BorderRadius = ExecLedgerTheme.BorderRadius,
+            Padding = new Padding(8, 0, 8, 0)
+        };
+
+        // Double-rule top border
+        pnlFooter.Paint += (s, e) =>
+        {
+            using var pen = new Pen(ExecLedgerTheme.PrimaryBorder, 1);
+            e.Graphics.DrawLine(pen, 4, 1, pnlFooter.Width - 4, 1);
+            e.Graphics.DrawLine(pen, 4, 4, pnlFooter.Width - 4, 4);
         };
 
         var footerLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 5,
-            RowCount = 1,
-            Padding = new Padding(10, 5, 10, 5)
+            ColumnCount = 4,
+            RowCount = 2,
+            Padding = new Padding(4, 8, 4, 4)
         };
-        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Debit
-        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Credit
-        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Diff
-        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Badge
-        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 10));
+        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+        footerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
 
-        lblTotalDebit = new Label { Text = "Total Debit: ₹ 0.00", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(13, 110, 253) };
-        lblTotalCredit = new Label { Text = "Total Credit: ₹ 0.00", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(102, 16, 242) };
-        lblDifference = new Label { Text = "Difference: ₹ 0.00", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(108, 117, 125) };
+        lblTotalDebit = new Label
+        {
+            Text = "TOTAL DEBIT    0.00",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = ExecLedgerTheme.MonoBold9,
+            ForeColor = ExecLedgerTheme.PrimaryText
+        };
+        lblTotalCredit = new Label
+        {
+            Text = "TOTAL CREDIT   0.00",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = ExecLedgerTheme.MonoBold9,
+            ForeColor = ExecLedgerTheme.PrimaryText
+        };
+        lblDifference = new Label
+        {
+            Text = "VARIANCE       0.00",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = ExecLedgerTheme.MonoBold9,
+            ForeColor = ExecLedgerTheme.SecondaryText
+        };
 
         lblBalanceBadge = new Label
         {
-            Text = "NOT BALANCED",
+            Text = "▲ NOT BALANCED",
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            BackColor = ThemeManager.Colors.DangerBg,
-            ForeColor = ThemeManager.Colors.DangerFg,
-            BorderStyle = BorderStyle.FixedSingle
+            Font = ExecLedgerTheme.UIBold9,
+            BackColor = ExecLedgerTheme.ErrorBg,
+            ForeColor = ExecLedgerTheme.ErrorRed
         };
 
         footerLayout.Controls.Add(lblTotalDebit, 0, 0);
@@ -183,11 +291,50 @@ public class VoucherEntryControl : UserControl
         footerLayout.Controls.Add(lblDifference, 2, 0);
         footerLayout.Controls.Add(lblBalanceBadge, 3, 0);
 
-        grpFooter.Controls.Add(footerLayout);
-        mainLayout.Controls.Add(grpFooter, 0, 2);
+        pnlFooter.Controls.Add(footerLayout);
+        mainLayout.Controls.Add(pnlFooter, 0, 2);
+
+        // ═══════════════════════════════════════════════════════
+        //  4. BALANCE INDICATOR — Full-width bar
+        // ═══════════════════════════════════════════════════════
+        pnlBalanceIndicator = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = ExecLedgerTheme.ErrorBg,
+            Padding = new Padding(8, 0, 8, 0)
+        };
+        pnlBalanceIndicator.Paint += (s, e) =>
+        {
+            using var pen = new Pen(IsBalanced ? ExecLedgerTheme.SuccessBorder : ExecLedgerTheme.ErrorBorder, 1);
+            e.Graphics.DrawLine(pen, 0, 0, pnlBalanceIndicator.Width, 0);
+        };
+
+        var lblIndicator = new Label
+        {
+            Text = "▲ OUT OF BALANCE — Debit and Credit totals must match before posting",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = ExecLedgerTheme.UIBold8,
+            ForeColor = ExecLedgerTheme.ErrorRed
+        };
+        pnlBalanceIndicator.Controls.Add(lblIndicator);
+        mainLayout.Controls.Add(pnlBalanceIndicator, 0, 3);
 
         this.Controls.Add(mainLayout);
         this.ResumeLayout(false);
+    }
+
+    private Label CreateFieldLabel(string text)
+    {
+        return new Label
+        {
+            Text = text,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleRight,
+            Font = ExecLedgerTheme.UIBold8,
+            ForeColor = ExecLedgerTheme.SecondaryText,
+            Margin = new Padding(2)
+        };
     }
 
     private void SetupGridColumns()
@@ -207,23 +354,36 @@ public class VoucherEntryControl : UserControl
         {
             Name = "colDebit",
             HeaderText = "Debit (Dr)",
-            Width = 140,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2" }
+            Width = 150,
+            DefaultCellStyle = new DataGridViewCellStyle
+            {
+                Alignment = DataGridViewContentAlignment.MiddleRight,
+                Format = "N2",
+                Font = ExecLedgerTheme.MonoRegular9,
+                Padding = new Padding(4, 0, 8, 0)
+            }
         };
 
         var colCredit = new DataGridViewTextBoxColumn
         {
             Name = "colCredit",
             HeaderText = "Credit (Cr)",
-            Width = 140,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2" }
+            Width = 150,
+            DefaultCellStyle = new DataGridViewCellStyle
+            {
+                Alignment = DataGridViewContentAlignment.MiddleRight,
+                Format = "N2",
+                Font = ExecLedgerTheme.MonoRegular9,
+                Padding = new Padding(4, 0, 8, 0)
+            }
         };
 
         var colNarration = new DataGridViewTextBoxColumn
         {
             Name = "colNarration",
-            HeaderText = "Item Narration",
-            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            HeaderText = "Line Narration",
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+            DefaultCellStyle = new DataGridViewCellStyle { Font = ExecLedgerTheme.UIRegular9 }
         };
 
         dgvEntries.Columns.AddRange(colLedger, colDebit, colCredit, colNarration);
@@ -286,23 +446,41 @@ public class VoucherEntryControl : UserControl
         TotalDebit = dr;
         TotalCredit = cr;
 
-        lblTotalDebit.Text = $"Total Debit: ₹ {TotalDebit:N2}";
-        lblTotalCredit.Text = $"Total Credit: ₹ {TotalCredit:N2}";
-        lblDifference.Text = $"Difference: ₹ {Difference:N2}";
+        lblTotalDebit.Text = $"TOTAL DEBIT    {ExecLedgerTheme.FormatCurrency(TotalDebit)}";
+        lblTotalCredit.Text = $"TOTAL CREDIT   {ExecLedgerTheme.FormatCurrency(TotalCredit)}";
+
+        var (varText, varColor) = ExecLedgerTheme.FormatBalance(TotalDebit - TotalCredit);
+        lblDifference.Text = $"VARIANCE       {varText}";
+        lblDifference.ForeColor = varColor;
 
         if (IsBalanced)
         {
-            lblBalanceBadge.Text = "BALANCED";
-            lblBalanceBadge.BackColor = ThemeManager.Colors.SuccessBg;
-            lblBalanceBadge.ForeColor = ThemeManager.Colors.SuccessFg;
+            lblBalanceBadge.Text = "● BALANCED";
+            lblBalanceBadge.BackColor = ExecLedgerTheme.SuccessBg;
+            lblBalanceBadge.ForeColor = ExecLedgerTheme.SuccessGreen;
+
+            pnlBalanceIndicator.BackColor = ExecLedgerTheme.SuccessBg;
+            if (pnlBalanceIndicator.Controls.Count > 0 && pnlBalanceIndicator.Controls[0] is Label lbl)
+            {
+                lbl.Text = "● BALANCED — Ready to post";
+                lbl.ForeColor = ExecLedgerTheme.SuccessGreen;
+            }
         }
         else
         {
-            lblBalanceBadge.Text = "NOT BALANCED";
-            lblBalanceBadge.BackColor = ThemeManager.Colors.DangerBg;
-            lblBalanceBadge.ForeColor = ThemeManager.Colors.DangerFg;
+            lblBalanceBadge.Text = "▲ NOT BALANCED";
+            lblBalanceBadge.BackColor = ExecLedgerTheme.ErrorBg;
+            lblBalanceBadge.ForeColor = ExecLedgerTheme.ErrorRed;
+
+            pnlBalanceIndicator.BackColor = ExecLedgerTheme.ErrorBg;
+            if (pnlBalanceIndicator.Controls.Count > 0 && pnlBalanceIndicator.Controls[0] is Label lbl)
+            {
+                lbl.Text = $"▲ OUT OF BALANCE — Variance: {ExecLedgerTheme.FormatCurrency(Difference)}";
+                lbl.ForeColor = ExecLedgerTheme.ErrorRed;
+            }
         }
 
+        pnlBalanceIndicator.Invalidate();
         BalanceStatusChanged?.Invoke(this, EventArgs.Empty);
     }
 

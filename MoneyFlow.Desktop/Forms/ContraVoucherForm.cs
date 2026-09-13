@@ -9,6 +9,9 @@ using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class ContraVoucherForm : Form
@@ -25,7 +28,7 @@ public class ContraVoucherForm : Form
     private DateTimePicker _dtpVoucherDate = null!;
     private ComboBox _cmbDestinationAccount = null!;
     private Label _lblDestinationBalance = null!;
-    private DataGridView _dgvEntries = null!;
+    private Guna2DataGridView _dgvEntries = null!;
     private TextBox _txtNarration = null!;
     private Label _lblTotalAmount = null!;
     private Label _lblBalanceStatus = null!;
@@ -53,7 +56,7 @@ public class ContraVoucherForm : Form
         Text = "Contra Voucher (F4) — Cash & Bank Transfer";
         Size = new Size(920, 650);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -74,7 +77,7 @@ public class ContraVoucherForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 4,
             RowCount = 3,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10)
         };
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
@@ -83,8 +86,8 @@ public class ContraVoucherForm : Form
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
 
         // Row 0: Voucher No & Date
-        pnlHeader.Controls.Add(new Label { Text = "Voucher No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
-        _lblVoucherNumber = new Label { Text = "CTR-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
+        pnlHeader.Controls.Add(new Label { Text = "Voucher No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 0, 0);
+        _lblVoucherNumber = new Label { Text = "CTR-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
         pnlHeader.Controls.Add(_lblVoucherNumber, 1, 0);
 
         pnlHeader.Controls.Add(new Label { Text = "Date:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
@@ -92,9 +95,9 @@ public class ContraVoucherForm : Form
         pnlHeader.Controls.Add(_dtpVoucherDate, 3, 0);
 
         // Row 1: Destination Account (Debit: Cash/Bank Receiving Funds)
-        pnlHeader.Controls.Add(new Label { Text = "Destination Account (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 1);
+        pnlHeader.Controls.Add(new Label { Text = "Destination Account (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 0, 1);
         var pnlAccount = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _cmbDestinationAccount = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = new Font("Segoe UI", 9.5F) };
+        _cmbDestinationAccount = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = ExecLedgerTheme.UIRegular9 };
         _cmbDestinationAccount.SelectedIndexChanged += async (s, e) =>
         {
             if (_isInitializing) return;
@@ -108,14 +111,14 @@ public class ContraVoucherForm : Form
 
         // Row 2: Quick Transfer Templates
         var pnlTemplates = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 4, 0, 0) };
-        var lblTemplate = new Label { Text = "Quick Mode:", AutoSize = true, ForeColor = Color.FromArgb(100, 110, 120), Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Margin = new Padding(0, 3, 8, 0) };
+        var lblTemplate = new Label { Text = "Quick Mode:", AutoSize = true, ForeColor = Color.FromArgb(100, 110, 120), Font = ExecLedgerTheme.UIBold8, Margin = new Padding(0, 3, 8, 0) };
         pnlTemplates.Controls.Add(lblTemplate);
 
-        var btnDeposit = new Button { Text = "Cash Deposit to Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = new Font("Segoe UI", 8.5F) };
+        var btnDeposit = new Button { Text = "Cash Deposit to Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = ExecLedgerTheme.UIRegular8 };
         btnDeposit.Click += async (s, e) => await ApplyTransferTemplateAsync(isDeposit: true);
         pnlTemplates.Controls.Add(btnDeposit);
 
-        var btnWithdraw = new Button { Text = "Cash Withdrawal from Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = new Font("Segoe UI", 8.5F), Margin = new Padding(8, 0, 0, 0) };
+        var btnWithdraw = new Button { Text = "Cash Withdrawal from Bank", AutoSize = true, Height = 25, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(230, 242, 255), Font = ExecLedgerTheme.UIRegular8, Margin = new Padding(8, 0, 0, 0) };
         btnWithdraw.Click += async (s, e) => await ApplyTransferTemplateAsync(isDeposit: false);
         pnlTemplates.Controls.Add(btnWithdraw);
 
@@ -123,7 +126,7 @@ public class ContraVoucherForm : Form
         pnlHeader.SetColumnSpan(pnlTemplates, 3);
 
         // 2. DataGridView for Line Items (Credit entries - Source of funds)
-        _dgvEntries = new DataGridView
+        _dgvEntries = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -197,21 +200,21 @@ public class ContraVoucherForm : Form
         _lblTotalAmount = new Label
         {
             Text = "Total Amount: ₹0.00",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
+            Font = ExecLedgerTheme.UIBold11,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Anchor = AnchorStyles.Right,
             AutoSize = true
         };
         pnlSummary.Controls.Add(_lblTotalAmount, 1, 0);
 
-        _txtNarration = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F) };
+        _txtNarration = new TextBox { Dock = DockStyle.Fill, Font = ExecLedgerTheme.UIRegular9 };
         pnlSummary.Controls.Add(_txtNarration, 0, 1);
 
         _lblBalanceStatus = new Label
         {
             Text = "Voucher Balanced",
             ForeColor = Color.FromArgb(16, 185, 129),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             Anchor = AnchorStyles.Right,
             AutoSize = true
         };
@@ -228,12 +231,12 @@ public class ContraVoucherForm : Form
         _btnSave = new Button
         {
             Text = "Save (Ctrl+A)",
-            BackColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.PrimaryNavy,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Height = 34,
             Width = 130,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Margin = new Padding(0, 0, 8, 0)
         };
         _btnSave.FlatAppearance.BorderSize = 0;
@@ -247,7 +250,7 @@ public class ContraVoucherForm : Form
             FlatStyle = FlatStyle.Flat,
             Height = 34,
             Width = 140,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Margin = new Padding(0, 0, 8, 0)
         };
         _btnSaveAndNew.FlatAppearance.BorderSize = 0;
@@ -303,7 +306,7 @@ public class ContraVoucherForm : Form
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("No active company or financial year selected.", "MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Close();
                 return;
             }

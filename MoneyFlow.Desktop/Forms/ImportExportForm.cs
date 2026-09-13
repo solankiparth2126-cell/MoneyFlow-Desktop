@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -26,7 +28,7 @@ public class ImportExportForm : Form
     private RadioButton _rbUpdateDuplicates = null!;
     private RadioButton _rbRejectDuplicates = null!;
     private Button _btnAnalyzePreview = null!;
-    private DataGridView _dgvImportPreview = null!;
+    private Guna2DataGridView _dgvImportPreview = null!;
     private Label _lblImportSummary = null!;
     private Button _btnExecuteImport = null!;
 
@@ -74,7 +76,7 @@ public class ImportExportForm : Form
         {
             Text = "DATA IMPORT & EXPORT WIZARD",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             AutoSize = true,
             Location = new Point(15, 14)
         };
@@ -100,7 +102,7 @@ public class ImportExportForm : Form
         _tabMain = new TabControl
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9.5F),
+            Font = ExecLedgerTheme.UIRegular9,
             Padding = new Point(14, 6)
         };
 
@@ -130,7 +132,7 @@ public class ImportExportForm : Form
         };
 
         // Entity Selection
-        var lblEntity = new Label { Text = "Target Entity:", Location = new Point(15, 15), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblEntity = new Label { Text = "Target Entity:", Location = new Point(15, 15), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _cmbImportEntity = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
@@ -158,7 +160,7 @@ public class ImportExportForm : Form
         _btnDownloadTemplate.Click += async (s, e) => await DownloadTemplateAsync();
 
         // File Picker
-        var lblFile = new Label { Text = "CSV File Path:", Location = new Point(15, 50), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblFile = new Label { Text = "CSV File Path:", Location = new Point(15, 50), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _txtImportFilePath = new TextBox { Location = new Point(115, 47), Width = 445, ReadOnly = true };
         _btnBrowseFile = new Button
         {
@@ -174,7 +176,7 @@ public class ImportExportForm : Form
         _btnBrowseFile.Click += (s, e) => BrowseCsvFile();
 
         // Duplicate Handling
-        var lblDup = new Label { Text = "Duplicates:", Location = new Point(15, 85), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblDup = new Label { Text = "Duplicates:", Location = new Point(15, 85), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _rbSkipDuplicates = new RadioButton { Text = "Skip Duplicates (Recommended)", Location = new Point(115, 83), AutoSize = true, Checked = true };
         _rbUpdateDuplicates = new RadioButton { Text = "Update Existing", Location = new Point(325, 83), AutoSize = true };
         _rbRejectDuplicates = new RadioButton { Text = "Reject Batch on Duplicate", Location = new Point(455, 83), AutoSize = true };
@@ -188,7 +190,7 @@ public class ImportExportForm : Form
             Height = 30,
             BackColor = Color.FromArgb(39, 174, 96),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             FlatStyle = FlatStyle.Flat
         };
         _btnAnalyzePreview.FlatAppearance.BorderSize = 0;
@@ -213,7 +215,7 @@ public class ImportExportForm : Form
         _lblImportSummary = new Label
         {
             Text = "Select a file and click 'Analyze & Preview' to inspect rows prior to import.",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(50, 60, 70),
             Dock = DockStyle.Left,
             AutoSize = true
@@ -226,7 +228,7 @@ public class ImportExportForm : Form
             Height = 30,
             BackColor = Color.FromArgb(18, 52, 86),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             FlatStyle = FlatStyle.Flat,
             Dock = DockStyle.Right,
             Enabled = false
@@ -238,7 +240,7 @@ public class ImportExportForm : Form
         pnlBottom.Controls.Add(_btnExecuteImport);
 
         // Central Grid for Staged Preview
-        _dgvImportPreview = new DataGridView
+        _dgvImportPreview = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
@@ -253,7 +255,7 @@ public class ImportExportForm : Form
         };
 
         _dgvImportPreview.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 245);
-        _dgvImportPreview.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        _dgvImportPreview.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         _dgvImportPreview.ColumnHeadersHeight = 28;
         _dgvImportPreview.RowTemplate.Height = 25;
 
@@ -286,13 +288,13 @@ public class ImportExportForm : Form
         var lblSection = new Label
         {
             Text = "SELECT DATA TO EXPORT",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.FromArgb(18, 52, 86),
             Location = new Point(30, 25),
             AutoSize = true
         };
 
-        var lblEntity = new Label { Text = "Entity Type:", Location = new Point(30, 65), AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        var lblEntity = new Label { Text = "Entity Type:", Location = new Point(30, 65), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _cmbExportEntity = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
@@ -311,7 +313,7 @@ public class ImportExportForm : Form
         };
 
         // Format Selection
-        var lblFormat = new Label { Text = "Export Format:", Location = new Point(30, 110), AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        var lblFormat = new Label { Text = "Export Format:", Location = new Point(30, 110), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _rbFormatCsv = new RadioButton { Text = "CSV (Excel Compatible RFC 4180)", Location = new Point(140, 108), AutoSize = true, Checked = true };
         _rbFormatJson = new RadioButton { Text = "JSON (Structured Interchange)", Location = new Point(380, 108), AutoSize = true };
 
@@ -322,7 +324,7 @@ public class ImportExportForm : Form
             Size = new Size(500, 45),
             Visible = false
         };
-        var lblDateRange = new Label { Text = "Date Range:", Location = new Point(0, 8), AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        var lblDateRange = new Label { Text = "Date Range:", Location = new Point(0, 8), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         _dtpExportFrom = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Location = new Point(110, 5), Width = 130 };
         _dtpExportTo = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Location = new Point(260, 5), Width = 130 };
         _dtpExportFrom.Value = DateTime.Today.AddMonths(-1);
@@ -339,7 +341,7 @@ public class ImportExportForm : Form
             Height = 36,
             BackColor = Color.FromArgb(39, 174, 96),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             FlatStyle = FlatStyle.Flat
         };
         _btnExecuteExport.FlatAppearance.BorderSize = 0;

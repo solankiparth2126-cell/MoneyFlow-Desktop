@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
@@ -52,10 +54,10 @@ public class DashboardForm : Form
 
     // Content Tabs & Grids
     private TabControl _tabDetails = null!;
-    private DataGridView _dgvTrends = null!;
-    private DataGridView _dgvDebtors = null!;
-    private DataGridView _dgvCreditors = null!;
-    private DataGridView _dgvRecentVouchers = null!;
+    private Guna2DataGridView _dgvTrends = null!;
+    private Guna2DataGridView _dgvDebtors = null!;
+    private Guna2DataGridView _dgvCreditors = null!;
+    private Guna2DataGridView _dgvRecentVouchers = null!;
 
     // Navigation Action Handler
     public Action<string>? OnNavigateRequested { get; set; }
@@ -104,7 +106,7 @@ public class DashboardForm : Form
         {
             Text = "Financial Year: 2026-27",
             ForeColor = Color.FromArgb(176, 206, 238),
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            Font = ExecLedgerTheme.UIRegular9,
             AutoSize = true,
             Location = new Point(16, 38)
         };
@@ -113,7 +115,7 @@ public class DashboardForm : Form
         {
             Text = "As of Date (F2):",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             AutoSize = true,
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
             Location = new Point(540, 24)
@@ -337,7 +339,7 @@ public class DashboardForm : Form
         var lblDebtorsHeader = new Label
         {
             Text = "TOP SUNDRY DEBTORS (RECEIVABLES)",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(41, 128, 185),
             Dock = DockStyle.Top,
             Height = 25
@@ -355,7 +357,7 @@ public class DashboardForm : Form
         var lblCreditorsHeader = new Label
         {
             Text = "TOP SUNDRY CREDITORS (PAYABLES)",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(142, 68, 173),
             Dock = DockStyle.Top,
             Height = 25
@@ -436,7 +438,7 @@ public class DashboardForm : Form
         var lblTitle = new Label
         {
             Text = title,
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold8,
             ForeColor = Color.FromArgb(120, 140, 160),
             Dock = DockStyle.Top,
             Height = 18
@@ -472,7 +474,7 @@ public class DashboardForm : Form
         var lblHint = new Label
         {
             Text = hint,
-            Font = new Font("Segoe UI", 7.5F, FontStyle.Italic),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = accentColor,
             Dock = DockStyle.Bottom,
             Height = 14,
@@ -496,9 +498,9 @@ public class DashboardForm : Form
         return card;
     }
 
-    private DataGridView CreateStandardGrid()
+    private Guna2DataGridView CreateStandardGrid()
     {
-        var dgv = new DataGridView
+        var dgv = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
@@ -516,10 +518,10 @@ public class DashboardForm : Form
 
         dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 245);
         dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(40, 40, 40);
-        dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        dgv.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         dgv.ColumnHeadersHeight = 30;
 
-        dgv.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
+        dgv.DefaultCellStyle.Font = ExecLedgerTheme.UIRegular9;
         dgv.DefaultCellStyle.SelectionBackColor = Color.FromArgb(209, 232, 255);
         dgv.DefaultCellStyle.SelectionForeColor = Color.Black;
         dgv.RowTemplate.Height = 26;
@@ -720,8 +722,8 @@ public class DashboardForm : Form
             var g = ev.Graphics!;
             float y = 50;
             var fontTitle = new Font("Segoe UI", 14F, FontStyle.Bold);
-            var fontHeader = new Font("Segoe UI", 10F, FontStyle.Bold);
-            var fontNormal = new Font("Segoe UI", 9F, FontStyle.Regular);
+            var fontHeader = ExecLedgerTheme.UIBold10;
+            var fontNormal = ExecLedgerTheme.UIRegular9;
             var brush = Brushes.Black;
 
             g.DrawString(_currentDashboard.CompanyName, fontTitle, brush, 50, y);

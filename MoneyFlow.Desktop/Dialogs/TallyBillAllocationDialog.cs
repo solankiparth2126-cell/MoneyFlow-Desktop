@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
+using Guna.UI2.WinForms;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Dialogs;
@@ -16,7 +17,7 @@ public class TallyBillAllocationDialog : Form
     private readonly IReadOnlyList<PendingBillDto> _pendingBills;
     private readonly List<BillAllocationCreateDto> _initialAllocations;
 
-    private DataGridView dgvAllocations = null!;
+    private Guna2DataGridView dgvAllocations = null!;
     private Label lblHeaderInfo = null!;
     private Label lblTargetAmount = null!;
     private Label lblAllocatedAmount = null!;
@@ -50,7 +51,7 @@ public class TallyBillAllocationDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         BackColor = Color.FromArgb(240, 246, 252);
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         // Header Panel (Tally Deep Blue)
@@ -58,12 +59,12 @@ public class TallyBillAllocationDialog : Form
         {
             Dock = DockStyle.Top,
             Height = 44,
-            BackColor = Color.FromArgb(0, 56, 101)
+            BackColor = ExecLedgerTheme.PrimaryNavy
         };
         lblHeaderInfo = new Label
         {
             Text = $"Bill-wise Details for: {_ledgerName}",
-            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             ForeColor = Color.White,
             Location = new Point(14, 11),
             AutoSize = true
@@ -83,8 +84,8 @@ public class TallyBillAllocationDialog : Form
         lblTargetAmount = new Label
         {
             Text = $"Target Amount: ₹{_targetAmount:N2}",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             Location = new Point(16, 10),
             AutoSize = true
         };
@@ -93,7 +94,7 @@ public class TallyBillAllocationDialog : Form
         lblAllocatedAmount = new Label
         {
             Text = "Allocated: ₹0.00",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(0, 120, 60),
             Location = new Point(230, 10),
             AutoSize = true
@@ -103,7 +104,7 @@ public class TallyBillAllocationDialog : Form
         lblRemainingAmount = new Label
         {
             Text = $"Remaining: ₹{_targetAmount:N2}",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(180, 20, 20),
             Location = new Point(440, 10),
             AutoSize = true
@@ -117,7 +118,7 @@ public class TallyBillAllocationDialog : Form
             Size = new Size(130, 32),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             FlatStyle = FlatStyle.Flat
         };
         btnAccept.FlatAppearance.BorderSize = 0;
@@ -139,7 +140,7 @@ public class TallyBillAllocationDialog : Form
         Controls.Add(pnlFooter);
 
         // Grid (Tally Style)
-        dgvAllocations = new DataGridView
+        dgvAllocations = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
@@ -147,15 +148,15 @@ public class TallyBillAllocationDialog : Form
             RowHeadersVisible = false,
             AllowUserToResizeRows = false,
             MultiSelect = false,
-            Font = new Font("Segoe UI", 9.5F),
+            Font = ExecLedgerTheme.UIRegular9,
             ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
             ColumnHeadersHeight = 30,
             EnableHeadersVisualStyles = false
         };
 
         dgvAllocations.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(216, 236, 248);
-        dgvAllocations.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0, 56, 101);
-        dgvAllocations.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        dgvAllocations.ColumnHeadersDefaultCellStyle.ForeColor = ExecLedgerTheme.PrimaryNavy;
+        dgvAllocations.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
 
         // Columns
         var colType = new DataGridViewComboBoxColumn

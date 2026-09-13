@@ -3,6 +3,8 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.Interfaces;
 
 namespace MoneyFlow.Desktop.Forms;
@@ -12,7 +14,7 @@ public class FinancialYearListForm : Form
     private readonly IFinancialYearService _fyService;
     private readonly ICompanyContext _companyContext;
 
-    private DataGridView dgvYears = null!;
+    private Guna2DataGridView dgvYears = null!;
     private Button btnSelect = null!;
     private Button btnCreate = null!;
     private Button btnCloseFY = null!;
@@ -37,7 +39,7 @@ public class FinancialYearListForm : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         var headerPanel = new Panel
         {
@@ -48,7 +50,7 @@ public class FinancialYearListForm : Form
         var lblTitle = new Label
         {
             Text = $"Financial Years — {_companyContext.CurrentCompany?.CompanyName}",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.White,
             Location = new Point(18, 15),
             AutoSize = true
@@ -56,7 +58,7 @@ public class FinancialYearListForm : Form
         headerPanel.Controls.Add(lblTitle);
         this.Controls.Add(headerPanel);
 
-        dgvYears = new DataGridView
+        dgvYears = new Guna2DataGridView
         {
             Location = new Point(20, 70),
             Size = new Size(625, 240),
@@ -109,7 +111,7 @@ public class FinancialYearListForm : Form
             Size = new Size(150, 32),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         btnSelect.Click += async (s, e) => await SelectYearAsync();
 
@@ -171,7 +173,7 @@ public class FinancialYearListForm : Form
             if (y.IsActive)
             {
                 dgvYears.Rows[rowIndex].DefaultCellStyle.BackColor = Color.FromArgb(240, 253, 244);
-                dgvYears.Rows[rowIndex].DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+                dgvYears.Rows[rowIndex].DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
             }
         }
     }

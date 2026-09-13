@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -35,7 +36,7 @@ public class FinancialYearCreateForm : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         var headerPanel = new Panel
         {
@@ -46,7 +47,7 @@ public class FinancialYearCreateForm : Form
         var lblTitle = new Label
         {
             Text = "Create Financial Year",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.White,
             Location = new Point(18, 15),
             AutoSize = true
@@ -106,7 +107,7 @@ public class FinancialYearCreateForm : Form
             Size = new Size(140, 34),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         btnSave.Click += async (s, e) => await SaveAsync();
 

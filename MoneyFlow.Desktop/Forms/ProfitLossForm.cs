@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class ProfitLossForm : Form
@@ -24,8 +27,8 @@ public class ProfitLossForm : Form
     private DateTimePicker _dtpFromDate = null!;
     private DateTimePicker _dtpToDate = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvExpenses = null!;
-    private DataGridView _dgvIncomes = null!;
+    private Guna2DataGridView _dgvExpenses = null!;
+    private Guna2DataGridView _dgvIncomes = null!;
     private Label _lblGrossResult = null!;
     private Label _lblNetResult = null!;
     private Button _btnPrint = null!;
@@ -49,7 +52,7 @@ public class ProfitLossForm : Form
         Text = "Profit & Loss Statement (Trading & Income Account) — No GST";
         Size = new Size(1250, 780);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -70,7 +73,7 @@ public class ProfitLossForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 6,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 85));  // "From (F2):"
@@ -80,11 +83,11 @@ public class ProfitLossForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Space
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100)); // Refresh Button
 
-        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _dtpFromDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpFromDate, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _dtpToDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpToDate, 3, 0);
 
@@ -111,9 +114,9 @@ public class ProfitLossForm : Form
             Text = "EXPENSES & LOSSES (DEBIT)",
             Dock = DockStyle.Top,
             Height = 28,
-            BackColor = Color.FromArgb(235, 240, 248),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(5, 0, 0, 0)
         };
@@ -129,9 +132,9 @@ public class ProfitLossForm : Form
             Text = "INCOMES & GAINS (CREDIT)",
             Dock = DockStyle.Top,
             Height = 28,
-            BackColor = Color.FromArgb(235, 240, 248),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.ApplicationCanvas,
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(5, 0, 0, 0)
         };
@@ -155,8 +158,8 @@ public class ProfitLossForm : Form
         pnlResults.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         pnlResults.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-        _lblGrossResult = new Label { Text = "Gross Profit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
-        _lblNetResult = new Label { Text = "Net Profit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 11F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
+        _lblGrossResult = new Label { Text = "Gross Profit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10, ForeColor = Color.DarkGreen };
+        _lblNetResult = new Label { Text = "Net Profit: ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold11, ForeColor = ExecLedgerTheme.PrimaryNavy };
 
         pnlResults.Controls.Add(_lblGrossResult, 0, 0);
         pnlResults.Controls.Add(_lblNetResult, 1, 0);
@@ -191,9 +194,9 @@ public class ProfitLossForm : Form
         Load += async (s, e) => await OnFormLoadAsync();
     }
 
-    private DataGridView CreateSideGrid()
+    private Guna2DataGridView CreateSideGrid()
     {
-        var dgv = new DataGridView
+        var dgv = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -207,7 +210,7 @@ public class ProfitLossForm : Form
             MultiSelect = false
         };
         dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(240, 244, 250);
-        dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        dgv.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         dgv.EnableHeadersVisualStyles = false;
 
         dgv.Columns.Add(new DataGridViewTextBoxColumn
@@ -416,7 +419,7 @@ public class ProfitLossForm : Form
         var idx = dgv.Rows.Add();
         var row = dgv.Rows[idx];
         row.DefaultCellStyle.BackColor = Color.FromArgb(242, 246, 252);
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         row.Cells["ColParticulars"].Value = title;
     }
 
@@ -424,7 +427,7 @@ public class ProfitLossForm : Form
     {
         var idx = dgv.Rows.Add();
         var row = dgv.Rows[idx];
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         row.Cells["ColParticulars"].Value = $"  • {categoryName}";
         row.Cells["ColAmount"].Value = amount;
     }
@@ -442,7 +445,7 @@ public class ProfitLossForm : Form
     {
         var idx = dgv.Rows.Add();
         var row = dgv.Rows[idx];
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         row.DefaultCellStyle.ForeColor = isProfit ? Color.DarkGreen : Color.DarkRed;
         row.Cells["ColParticulars"].Value = $"  ★ {title}";
         row.Cells["ColAmount"].Value = amount;
@@ -453,7 +456,7 @@ public class ProfitLossForm : Form
         var idx = dgv.Rows.Add();
         var row = dgv.Rows[idx];
         row.DefaultCellStyle.BackColor = Color.FromArgb(235, 242, 250);
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         row.Cells["ColParticulars"].Value = $"--- {title} ---";
         row.Cells["ColAmount"].Value = amount;
     }
@@ -463,7 +466,7 @@ public class ProfitLossForm : Form
         var idx = dgv.Rows.Add();
         var row = dgv.Rows[idx];
         row.DefaultCellStyle.BackColor = Color.FromArgb(220, 235, 252);
-        row.DefaultCellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold10;
         row.Cells["ColParticulars"].Value = $"TOTAL: {title}";
         row.Cells["ColAmount"].Value = amount;
     }

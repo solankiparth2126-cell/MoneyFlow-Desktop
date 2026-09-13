@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class OutstandingReportForm : Form
@@ -27,7 +30,7 @@ public class OutstandingReportForm : Form
     private DateTimePicker _dtpAsOfDate = null!;
     private TextBox _txtSearch = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvOutstanding = null!;
+    private Guna2DataGridView _dgvOutstanding = null!;
     private Label _lblSummaryLeft = null!;
     private Label _lblSummaryRight = null!;
     private Button _btnPrint = null!;
@@ -51,7 +54,7 @@ public class OutstandingReportForm : Form
         Text = "Outstanding Analysis & Aging Register (Receivables / Payables) — No GST";
         Size = new Size(1250, 780);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -72,7 +75,7 @@ public class OutstandingReportForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 8,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160)); // Radio Receivables
@@ -90,8 +93,8 @@ public class OutstandingReportForm : Form
             Checked = true,
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102)
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy
         };
         _rbReceivables.CheckedChanged += async (s, e) =>
         {
@@ -108,8 +111,8 @@ public class OutstandingReportForm : Form
             Checked = false,
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102)
+            Font = ExecLedgerTheme.UIBold9,
+            ForeColor = ExecLedgerTheme.PrimaryNavy
         };
         _rbPayables.CheckedChanged += async (s, e) =>
         {
@@ -123,23 +126,23 @@ public class OutstandingReportForm : Form
         pnlFilters.Controls.Add(_rbReceivables, 0, 0);
         pnlFilters.Controls.Add(_rbPayables, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "As of Date (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _dtpAsOfDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpAsOfDate, 3, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "Search (F3):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 4, 0);
+        pnlFilters.Controls.Add(new Label { Text = "Search (F3):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 4, 0);
         _txtSearch = new TextBox { Width = 190, PlaceholderText = "Filter by party name..." };
         _txtSearch.TextChanged += (s, e) => ApplySearchFilter();
         pnlFilters.Controls.Add(_txtSearch, 5, 0);
 
-        _btnRefresh = new Button { Text = "Refresh (F5)", Width = 100, Height = 30, BackColor = Color.FromArgb(0, 51, 102), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        _btnRefresh = new Button { Text = "Refresh (F5)", Width = 100, Height = 30, BackColor = ExecLedgerTheme.PrimaryNavy, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         _btnRefresh.Click += async (s, e) => await LoadReportAsync();
         pnlFilters.Controls.Add(_btnRefresh, 7, 0);
 
         mainLayout.Controls.Add(pnlFilters, 0, 0);
 
         // 2. DataGridView
-        _dgvOutstanding = new DataGridView
+        _dgvOutstanding = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -156,8 +159,8 @@ public class OutstandingReportForm : Form
         };
 
         _dgvOutstanding.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(240, 244, 250);
-        _dgvOutstanding.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(0, 51, 102);
-        _dgvOutstanding.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        _dgvOutstanding.ColumnHeadersDefaultCellStyle.ForeColor = ExecLedgerTheme.PrimaryNavy;
+        _dgvOutstanding.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
 
         _dgvOutstanding.Columns.Add(new DataGridViewTextBoxColumn
         {
@@ -181,7 +184,7 @@ public class OutstandingReportForm : Form
             Name = "ColTotal",
             HeaderText = "Total Outstanding (₹)",
             Width = 170,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) },
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = ExecLedgerTheme.UIBold9 },
             SortMode = DataGridViewColumnSortMode.NotSortable
         });
 
@@ -217,7 +220,7 @@ public class OutstandingReportForm : Form
             Name = "ColOver90",
             HeaderText = ">90 Days (₹)",
             Width = 140,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.Crimson, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) },
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.Crimson, Font = ExecLedgerTheme.UIBold9 },
             SortMode = DataGridViewColumnSortMode.NotSortable
         });
 
@@ -258,8 +261,8 @@ public class OutstandingReportForm : Form
             Text = "Total Parties: 0 | Total Outstanding: ₹0.00",
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 51, 102)
+            Font = ExecLedgerTheme.UIBold10,
+            ForeColor = ExecLedgerTheme.PrimaryNavy
         };
 
         _lblSummaryRight = new Label
@@ -267,7 +270,7 @@ public class OutstandingReportForm : Form
             Text = "0-30: ₹0.00 | 31-60: ₹0.00 | 61-90: ₹0.00 | >90: ₹0.00",
             AutoSize = true,
             Anchor = AnchorStyles.Right,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(50, 50, 50)
         };
 

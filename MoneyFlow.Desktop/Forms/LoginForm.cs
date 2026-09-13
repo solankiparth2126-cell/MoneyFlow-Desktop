@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -36,7 +37,7 @@ public class LoginForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         BackColor = Color.FromArgb(244, 246, 249);
         KeyPreview = true;
 
@@ -52,7 +53,7 @@ public class LoginForm : Form
         {
             Text = "MONEYFLOW USER LOGIN",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             AutoSize = true,
             Location = new Point(15, 14)
         };
@@ -61,7 +62,7 @@ public class LoginForm : Form
         var lblPrompt = new Label
         {
             Text = "Enter your credentials to access company records and vouchers:",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 110, 120),
             Location = new Point(25, 65),
             Size = new Size(400, 20)
@@ -86,7 +87,7 @@ public class LoginForm : Form
         _lblError = new Label
         {
             ForeColor = Color.FromArgb(192, 57, 43),
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold8,
             Location = new Point(125, 170),
             Size = new Size(280, 30),
             Visible = false
@@ -95,7 +96,7 @@ public class LoginForm : Form
         _btnLogin = new Button
         {
             Text = "Login",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             BackColor = Color.FromArgb(41, 128, 185),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -109,7 +110,7 @@ public class LoginForm : Form
         _btnCancel = new Button
         {
             Text = "Cancel",
-            Font = new Font("Segoe UI", 9.5F),
+            Font = ExecLedgerTheme.UIRegular9,
             BackColor = Color.FromArgb(189, 195, 199),
             ForeColor = Color.FromArgb(44, 62, 80),
             FlatStyle = FlatStyle.Flat,

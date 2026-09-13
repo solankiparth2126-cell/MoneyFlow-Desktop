@@ -1,6 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <Reference Include="Guna.UI2">
+      <HintPath>lib\Guna.UI2.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MoneyFlow.Core\MoneyFlow.Core.csproj" />
     <ProjectReference Include="..\MoneyFlow.Data\MoneyFlow.Data.csproj" />
     <ProjectReference Include="..\MoneyFlow.Services\MoneyFlow.Services.csproj" />

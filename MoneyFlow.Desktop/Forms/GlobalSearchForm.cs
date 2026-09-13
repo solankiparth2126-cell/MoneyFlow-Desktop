@@ -7,6 +7,9 @@ using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class GlobalSearchForm : Form
@@ -21,7 +24,7 @@ public class GlobalSearchForm : Form
     private RadioButton _rbLedgers = null!;
     private RadioButton _rbStockItems = null!;
     private RadioButton _rbScreens = null!;
-    private DataGridView _dgvResults = null!;
+    private Guna2DataGridView _dgvResults = null!;
     private Label _lblResultCount = null!;
     private System.Windows.Forms.Timer _debounceTimer = null!;
 
@@ -45,7 +48,7 @@ public class GlobalSearchForm : Form
         Text = "Go To — Global Accounting & Inventory Search (Alt+G)";
         Size = new Size(1000, 620);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -71,7 +74,7 @@ public class GlobalSearchForm : Form
         _txtSearch = new TextBox
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 12F),
+            Font = ExecLedgerTheme.UIRegular12,
             PlaceholderText = "Search ledgers, vouchers, amounts, items, or screens (e.g. Rent, 5000, SLS-001, Balance Sheet)..."
         };
         _txtSearch.TextChanged += (s, e) => RestartDebounce();
@@ -84,7 +87,7 @@ public class GlobalSearchForm : Form
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(8, 6, 8, 4)
         };
 
@@ -98,7 +101,7 @@ public class GlobalSearchForm : Form
         mainLayout.Controls.Add(pnlTabs, 0, 1);
 
         // 3. Results Grid
-        _dgvResults = new DataGridView
+        _dgvResults = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
@@ -124,7 +127,7 @@ public class GlobalSearchForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -133,7 +136,7 @@ public class GlobalSearchForm : Form
         _lblResultCount = new Label
         {
             Text = "Results: 0",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(70, 80, 95),
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -142,7 +145,7 @@ public class GlobalSearchForm : Form
         var lblHelp = new Label
         {
             Text = "Press [Enter] to Open Record | [Esc] to Close | [↑/↓] to Browse",
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             ForeColor = Color.FromArgb(100, 110, 125),
             Anchor = AnchorStyles.Right,
             AutoSize = true
@@ -176,7 +179,7 @@ public class GlobalSearchForm : Form
         {
             Text = label,
             Checked = isChecked,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             AutoSize = true,
             Margin = new Padding(0, 0, 15, 0)
@@ -201,7 +204,7 @@ public class GlobalSearchForm : Form
             Name = "ColCategory",
             HeaderText = "Category",
             Width = 120,
-            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }
+            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter, Font = ExecLedgerTheme.UIBold9 }
         });
 
         _dgvResults.Columns.Add(new DataGridViewTextBoxColumn
@@ -209,7 +212,7 @@ public class GlobalSearchForm : Form
             Name = "ColTitle",
             HeaderText = "Title / Particulars",
             Width = 260,
-            DefaultCellStyle = { Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }
+            DefaultCellStyle = { Font = ExecLedgerTheme.UIBold9 }
         });
 
         _dgvResults.Columns.Add(new DataGridViewTextBoxColumn
@@ -232,7 +235,7 @@ public class GlobalSearchForm : Form
             Name = "ColAmount",
             HeaderText = "Amount (₹)",
             Width = 125,
-            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.FromArgb(24, 43, 73) }
+            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Font = ExecLedgerTheme.UIBold9, ForeColor = Color.FromArgb(24, 43, 73) }
         });
     }
 

@@ -10,6 +10,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class TrialBalanceForm : Form
@@ -27,7 +30,7 @@ public class TrialBalanceForm : Form
     private TextBox _txtSearch = null!;
     private Button _btnToggleView = null!;
     private Button _btnRefresh = null!;
-    private DataGridView _dgvTrialBalance = null!;
+    private Guna2DataGridView _dgvTrialBalance = null!;
     private Label _lblOpeningTotals = null!;
     private Label _lblPeriodTotals = null!;
     private Label _lblClosingTotals = null!;
@@ -53,7 +56,7 @@ public class TrialBalanceForm : Form
         Text = "Trial Balance — Double-Entry Verification Statement";
         Size = new Size(1250, 780);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -74,7 +77,7 @@ public class TrialBalanceForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 9,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 85));  // "From (F2):"
@@ -86,15 +89,15 @@ public class TrialBalanceForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Search Box
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100)); // Refresh Button
 
-        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
+        pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
         _dtpFromDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpFromDate, 1, 0);
 
-        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 0);
+        pnlFilters.Controls.Add(new Label { Text = "To:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
         _dtpToDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd-MMM-yyyy", Width = 120 };
         pnlFilters.Controls.Add(_dtpToDate, 3, 0);
 
-        _btnToggleView = new Button { Text = "View: Detailed (F1)", Width = 155, Height = 32, BackColor = Color.FromArgb(235, 243, 255), Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        _btnToggleView = new Button { Text = "View: Detailed (F1)", Width = 155, Height = 32, BackColor = Color.FromArgb(235, 243, 255), Font = ExecLedgerTheme.UIBold9 };
         _btnToggleView.Click += (s, e) => ToggleViewMode();
         pnlFilters.Controls.Add(_btnToggleView, 4, 0);
 
@@ -110,7 +113,7 @@ public class TrialBalanceForm : Form
         mainLayout.Controls.Add(pnlFilters, 0, 0);
 
         // 2. DataGridView
-        _dgvTrialBalance = new DataGridView
+        _dgvTrialBalance = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -123,8 +126,8 @@ public class TrialBalanceForm : Form
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             MultiSelect = false
         };
-        _dgvTrialBalance.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 248);
-        _dgvTrialBalance.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        _dgvTrialBalance.ColumnHeadersDefaultCellStyle.BackColor = ExecLedgerTheme.ApplicationCanvas;
+        _dgvTrialBalance.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
         _dgvTrialBalance.EnableHeadersVisualStyles = false;
         _dgvTrialBalance.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 252, 255);
 
@@ -148,10 +151,10 @@ public class TrialBalanceForm : Form
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Period Totals
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25)); // Closing Totals
 
-        _lblBalanceStatus = new Label { Text = "[ ✔ ] BALANCED (Diff: ₹0.00)", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
-        _lblOpeningTotals = new Label { Text = "Opening: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-        _lblPeriodTotals = new Label { Text = "Period: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-        _lblClosingTotals = new Label { Text = "Closing: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+        _lblBalanceStatus = new Label { Text = "[ ✔ ] BALANCED (Diff: ₹0.00)", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.DarkGreen, Font = ExecLedgerTheme.UIBold10 };
+        _lblOpeningTotals = new Label { Text = "Opening: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold9 };
+        _lblPeriodTotals = new Label { Text = "Period: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold9 };
+        _lblClosingTotals = new Label { Text = "Closing: Dr ₹0.00 | Cr ₹0.00", AutoSize = true, Anchor = AnchorStyles.Right, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold9 };
 
         pnlTotals.Controls.Add(_lblBalanceStatus, 0, 0);
         pnlTotals.Controls.Add(_lblOpeningTotals, 1, 0);
@@ -242,7 +245,7 @@ public class TrialBalanceForm : Form
             Name = "ColClDr",
             HeaderText = "Closing Debit (₹)",
             Width = 130,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = ExecLedgerTheme.UIBold9, ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvTrialBalance.Columns.Add(new DataGridViewTextBoxColumn
@@ -250,7 +253,7 @@ public class TrialBalanceForm : Form
             Name = "ColClCr",
             HeaderText = "Closing Credit (₹)",
             Width = 130,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", Font = ExecLedgerTheme.UIBold9, ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
     }
 
@@ -396,8 +399,8 @@ public class TrialBalanceForm : Form
 
                 var idx = _dgvTrialBalance.Rows.Add();
                 var row = _dgvTrialBalance.Rows[idx];
-                row.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-                row.DefaultCellStyle.BackColor = Color.FromArgb(245, 248, 252);
+                row.DefaultCellStyle.Font = ExecLedgerTheme.UIBold9;
+                row.DefaultCellStyle.BackColor = ExecLedgerTheme.SecondarySurface;
 
                 row.Cells["ColParticulars"].Value = $"[Group] {g.GroupName}";
                 row.Cells["ColGroup"].Value = g.GroupNature.ToString();

@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -15,7 +17,7 @@ public class LedgerListForm : Form
     private readonly IGroupService _groupService;
     private readonly ICompanyContext _companyContext;
 
-    private DataGridView _dgvLedgers = null!;
+    private Guna2DataGridView _dgvLedgers = null!;
     private TextBox _txtSearch = null!;
     private ComboBox _cmbGroupFilter = null!;
     private Button _btnCreate = null!;
@@ -41,7 +43,7 @@ public class LedgerListForm : Form
         Text = "Ledgers (Chart of Accounts)";
         Size = new Size(950, 600);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -74,7 +76,7 @@ public class LedgerListForm : Form
         _txtSearch = new TextBox
         {
             Width = 220,
-            Font = new Font("Segoe UI", 10F)
+            Font = ExecLedgerTheme.UIRegular10
         };
         _txtSearch.TextChanged += async (s, e) => await LoadLedgersAsync();
 
@@ -89,7 +91,7 @@ public class LedgerListForm : Form
         {
             Width = 220,
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = new Font("Segoe UI", 10F)
+            Font = ExecLedgerTheme.UIRegular10
         };
         _cmbGroupFilter.SelectedIndexChanged += async (s, e) => await LoadLedgersAsync();
 
@@ -99,7 +101,7 @@ public class LedgerListForm : Form
         topPanel.Controls.Add(_cmbGroupFilter);
 
         // 2. DataGridView
-        _dgvLedgers = new DataGridView
+        _dgvLedgers = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -167,7 +169,7 @@ public class LedgerListForm : Form
             Text = "Ready",
             Dock = DockStyle.Fill,
             ForeColor = Color.DimGray,
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         // 4. Action Buttons
@@ -181,11 +183,11 @@ public class LedgerListForm : Form
         _btnCreate = new Button
         {
             Text = "Create (Alt+C)",
-            BackColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.PrimaryNavy,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Size = new Size(130, 34),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         _btnCreate.FlatAppearance.BorderSize = 0;
         _btnCreate.Click += async (s, e) => await OnCreateAsync();
@@ -196,9 +198,9 @@ public class LedgerListForm : Form
             BackColor = Color.FromArgb(235, 243, 250),
             FlatStyle = FlatStyle.Flat,
             Size = new Size(120, 34),
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
-        _btnAlter.FlatAppearance.BorderColor = Color.FromArgb(0, 51, 102);
+        _btnAlter.FlatAppearance.BorderColor = ExecLedgerTheme.PrimaryNavy;
         _btnAlter.Click += async (s, e) => await OnAlterAsync();
 
         _btnDelete = new Button
@@ -208,7 +210,7 @@ public class LedgerListForm : Form
             ForeColor = Color.FromArgb(192, 0, 0),
             FlatStyle = FlatStyle.Flat,
             Size = new Size(120, 34),
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
         _btnDelete.FlatAppearance.BorderColor = Color.FromArgb(192, 0, 0);
         _btnDelete.Click += async (s, e) => await OnDeleteAsync();
@@ -217,7 +219,7 @@ public class LedgerListForm : Form
         {
             Text = "Close (Esc)",
             Size = new Size(100, 34),
-            Font = new Font("Segoe UI", 9.5F)
+            Font = ExecLedgerTheme.UIRegular9
         };
         _btnClose.Click += (s, e) => Close();
 

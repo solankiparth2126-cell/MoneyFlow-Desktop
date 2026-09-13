@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -52,7 +54,7 @@ public class BackupRestoreForm : Form
     private TextBox _txtHistoryDir = null!;
     private Button _btnRefreshHistory = null!;
     private Button _btnOpenInExplorer = null!;
-    private DataGridView _dgvHistory = null!;
+    private Guna2DataGridView _dgvHistory = null!;
     private Button _btnHistoryVerify = null!;
     private Button _btnHistoryRestore = null!;
 
@@ -95,7 +97,7 @@ public class BackupRestoreForm : Form
         {
             Text = "LOCAL BACKUP & RESTORE SYSTEM",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             AutoSize = true,
             Location = new Point(15, 14)
         };
@@ -121,7 +123,7 @@ public class BackupRestoreForm : Form
         _tabMain = new TabControl
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var tabCreate = new TabPage("  Create Backup (F10)  ") { BackColor = Color.FromArgb(248, 249, 251), Padding = new Padding(15) };
@@ -149,35 +151,35 @@ public class BackupRestoreForm : Form
         var grpConfig = new GroupBox
         {
             Text = "Backup Parameters & Target",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 10),
             Size = new Size(930, 290)
         };
 
         // Company
-        var lblComp = new Label { Text = "Source Company:", Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(20, 30), AutoSize = true };
+        var lblComp = new Label { Text = "Source Company:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 30), AutoSize = true };
         _cmbBackupCompany = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(160, 27),
             Width = 400
         };
 
         // Target Folder
-        var lblDir = new Label { Text = "Target Directory:", Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(20, 68), AutoSize = true };
+        var lblDir = new Label { Text = "Target Directory:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 68), AutoSize = true };
         _txtBackupDirectory = new TextBox
         {
             Text = _backupRestoreService.GetDefaultBackupDirectory(),
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(160, 65),
             Width = 620
         };
         _btnBrowseBackupDir = new Button
         {
             Text = "Browse...",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             Location = new Point(790, 64),
             Width = 85,
             Height = 25
@@ -193,19 +195,19 @@ public class BackupRestoreForm : Form
         };
 
         // Backup Format
-        var lblFormat = new Label { Text = "Backup Format:", Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(20, 110), AutoSize = true };
+        var lblFormat = new Label { Text = "Backup Format:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 110), AutoSize = true };
         _rbFormatMfb = new RadioButton
         {
             Text = "Portable Company Archive (.mfb) — Recommended",
             Checked = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Location = new Point(160, 108),
             AutoSize = true
         };
         var lblMfbHelp = new Label
         {
             Text = "Packages company masters, accounts, vouchers, items, and SHA-256 checksum into a portable ZIP archive. Restorable on any PC.",
-            Font = new Font("Segoe UI", 8F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 110, 120),
             Location = new Point(180, 132),
             Size = new Size(720, 20)
@@ -214,24 +216,24 @@ public class BackupRestoreForm : Form
         _rbFormatBak = new RadioButton
         {
             Text = "Full Database Backup (.bak) — SQL Server Native",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Location = new Point(160, 158),
             AutoSize = true
         };
         var lblBakHelp = new Label
         {
             Text = "Native SQL Server engine backup containing the entire database instance with all companies. Requires SQL Server relational engine.",
-            Font = new Font("Segoe UI", 8F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 110, 120),
             Location = new Point(180, 182),
             Size = new Size(720, 20)
         };
 
         // Comment
-        var lblComment = new Label { Text = "Notes / Comment:", Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(20, 215), AutoSize = true };
+        var lblComment = new Label { Text = "Notes / Comment:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 215), AutoSize = true };
         _txtBackupComment = new TextBox
         {
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(160, 212),
             Width = 620
         };
@@ -240,7 +242,7 @@ public class BackupRestoreForm : Form
         _btnCreateBackup = new Button
         {
             Text = "Create Backup Now",
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             BackColor = Color.FromArgb(39, 174, 96),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -269,7 +271,7 @@ public class BackupRestoreForm : Form
         var grpLog = new GroupBox
         {
             Text = "Backup Execution Log & Checksum Verification",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 310),
             Size = new Size(930, 280)
@@ -301,16 +303,16 @@ public class BackupRestoreForm : Form
         var grpFile = new GroupBox
         {
             Text = "Select Backup Archive",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 10),
             Size = new Size(930, 85)
         };
 
-        var lblFile = new Label { Text = "Backup File Path:", Font = new Font("Segoe UI", 9F, FontStyle.Regular), Location = new Point(20, 32), AutoSize = true };
+        var lblFile = new Label { Text = "Backup File Path:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 32), AutoSize = true };
         _txtRestoreFilePath = new TextBox
         {
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(150, 30),
             Width = 580
         };
@@ -318,7 +320,7 @@ public class BackupRestoreForm : Form
         _btnBrowseRestoreFile = new Button
         {
             Text = "Browse...",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             Location = new Point(740, 29),
             Width = 80,
             Height = 25
@@ -338,7 +340,7 @@ public class BackupRestoreForm : Form
         _btnInspectFile = new Button
         {
             Text = "Inspect",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold8,
             BackColor = Color.FromArgb(41, 128, 185),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -358,19 +360,19 @@ public class BackupRestoreForm : Form
         _grpManifest = new GroupBox
         {
             Text = "Archive Manifest & Integrity Check",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 105),
             Size = new Size(930, 120),
             BackColor = Color.FromArgb(238, 242, 248)
         };
 
-        _lblManifestCompany = new Label { Text = "Company: [No archive inspected]", Font = new Font("Segoe UI", 9F, FontStyle.Bold), Location = new Point(20, 25), AutoSize = true };
-        _lblManifestFY = new Label { Text = "Financial Year: —", Font = new Font("Segoe UI", 9F), Location = new Point(20, 50), AutoSize = true };
-        _lblManifestDate = new Label { Text = "Backup Date: —", Font = new Font("Segoe UI", 9F), Location = new Point(20, 75), AutoSize = true };
+        _lblManifestCompany = new Label { Text = "Company: [No archive inspected]", Font = ExecLedgerTheme.UIBold9, Location = new Point(20, 25), AutoSize = true };
+        _lblManifestFY = new Label { Text = "Financial Year: —", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 50), AutoSize = true };
+        _lblManifestDate = new Label { Text = "Backup Date: —", Font = ExecLedgerTheme.UIRegular9, Location = new Point(20, 75), AutoSize = true };
 
-        _lblManifestCounts = new Label { Text = "Contents: Ledgers: 0 | Vouchers: 0 | Stock Items: 0", Font = new Font("Segoe UI", 9F), Location = new Point(360, 25), AutoSize = true };
-        _lblManifestChecksum = new Label { Text = "SHA-256 Checksum: [Pending Inspection]", Font = new Font("Segoe UI", 9F), ForeColor = Color.FromArgb(100, 110, 120), Location = new Point(360, 50), AutoSize = true };
+        _lblManifestCounts = new Label { Text = "Contents: Ledgers: 0 | Vouchers: 0 | Stock Items: 0", Font = ExecLedgerTheme.UIRegular9, Location = new Point(360, 25), AutoSize = true };
+        _lblManifestChecksum = new Label { Text = "SHA-256 Checksum: [Pending Inspection]", Font = ExecLedgerTheme.UIRegular9, ForeColor = Color.FromArgb(100, 110, 120), Location = new Point(360, 50), AutoSize = true };
 
         _grpManifest.Controls.Add(_lblManifestCompany);
         _grpManifest.Controls.Add(_lblManifestFY);
@@ -382,7 +384,7 @@ public class BackupRestoreForm : Form
         var grpDest = new GroupBox
         {
             Text = "Restore Destination Options",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 235),
             Size = new Size(930, 160)
@@ -392,16 +394,16 @@ public class BackupRestoreForm : Form
         {
             Text = "Restore as New Company (Copy - Recommended)",
             Checked = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Location = new Point(20, 25),
             AutoSize = true
         };
         _rbRestoreAsNew.CheckedChanged += (s, e) => ToggleRestoreMode();
 
-        var lblNewName = new Label { Text = "New Company Name:", Font = new Font("Segoe UI", 9F), Location = new Point(45, 53), AutoSize = true };
+        var lblNewName = new Label { Text = "New Company Name:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(45, 53), AutoSize = true };
         _txtNewCompanyName = new TextBox
         {
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(190, 50),
             Width = 400
         };
@@ -409,18 +411,18 @@ public class BackupRestoreForm : Form
         _rbRestoreOverwrite = new RadioButton
         {
             Text = "Overwrite Existing Company (CAUTION: Replaces all accounting data)",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(192, 57, 43),
             Location = new Point(20, 85),
             AutoSize = true
         };
         _rbRestoreOverwrite.CheckedChanged += (s, e) => ToggleRestoreMode();
 
-        var lblTargetComp = new Label { Text = "Target Company:", Font = new Font("Segoe UI", 9F), Location = new Point(45, 113), AutoSize = true };
+        var lblTargetComp = new Label { Text = "Target Company:", Font = ExecLedgerTheme.UIRegular9, Location = new Point(45, 113), AutoSize = true };
         _cmbTargetCompany = new ComboBox
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = new Font("Segoe UI", 9F),
+            Font = ExecLedgerTheme.UIRegular9,
             Location = new Point(190, 110),
             Width = 400,
             Enabled = false
@@ -429,7 +431,7 @@ public class BackupRestoreForm : Form
         _lblOverwriteWarning = new Label
         {
             Text = "WARNING: All existing vouchers, ledgers, and accounts in the chosen target company will be wiped and replaced!",
-            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(192, 57, 43),
             Location = new Point(600, 113),
             AutoSize = true,
@@ -448,7 +450,7 @@ public class BackupRestoreForm : Form
         _btnExecuteRestore = new Button
         {
             Text = "Restore Backup Now",
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             BackColor = Color.FromArgb(230, 126, 34),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -463,7 +465,7 @@ public class BackupRestoreForm : Form
         var grpLog = new GroupBox
         {
             Text = "Restore Operation Status & Log",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Location = new Point(10, 450),
             Size = new Size(930, 160)
@@ -543,7 +545,7 @@ public class BackupRestoreForm : Form
         pnlTop.Controls.Add(_btnOpenInExplorer);
 
         // DataGridView
-        _dgvHistory = new DataGridView
+        _dgvHistory = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             ReadOnly = true,
@@ -583,7 +585,7 @@ public class BackupRestoreForm : Form
         _btnHistoryVerify = new Button
         {
             Text = "Verify Selected Backup",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             BackColor = Color.FromArgb(41, 128, 185),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
@@ -597,7 +599,7 @@ public class BackupRestoreForm : Form
         _btnHistoryRestore = new Button
         {
             Text = "Restore Selected Backup...",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             BackColor = Color.FromArgb(230, 126, 34),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,

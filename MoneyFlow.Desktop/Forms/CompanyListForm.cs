@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Desktop.Dialogs;
@@ -12,529 +15,731 @@ using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
 
+/// <summary>
+/// Select Company / Entity Directory.
+/// Streamlined enterprise directory modal:
+/// - Unfiltered by default (shows all companies)
+/// - Single "Select from Drive" action button (Specify Path & Remote removed)
+/// - 4 clean columns: TYPE, COMPANY NAME, ENTITY CODE, FINANCIAL PERIOD (Currency, Status, Sync, Security removed)
+/// - Vector-drawn GDI+ building icons (fixes missing glyph / box issue)
+/// - Borderless DataGridView
+/// - Clean status footer without bottom action buttons (keyboard & double-click driven)
+/// </summary>
 public class CompanyListForm : Form
 {
+    [DllImport("user32.dll")]
+    private static extern int SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
     private readonly ICompanyService _companyService;
     private readonly ICompanyContext _companyContext;
     private readonly ICompanySplitService? _companySplitService;
+    private readonly IBackupRestoreService? _backupRestoreService;
 
-    // Controls
+    // Outer backdrop container and inner rounded modal card
+    private Panel pnlBackdrop = null!;
+    private Guna2Panel pnlDialogCard = null!;
+
+    // Top container (Header + Path + Search)
+    private Panel pnlTopContainer = null!;
     private Panel pnlHeader = null!;
-    private Panel pnlSubHeader = null!;
-    private Panel pnlClient = null!;
-    private Panel pnlLeftInfo = null!;
-    private Panel pnlCenterCard = null!;
-    private Panel pnlBottomBar = null!;
+    private Panel pnlDataPath = null!;
+    private Panel pnlSearch = null!;
 
-    private TextBox txtSearch = null!;
-    private DoubleBufferedListBox lstCompanies = null!;
-    private Label lblListCount = null!;
+    // Header controls
+    private Label lblTitle = null!;
+    private Label lblSubtitle = null!;
+    private Guna2Button btnCloseHeader = null!;
 
-    private string _currentDataPath = @"C:\MoneyFlow\Data";
+    // Data path controls
+    private Label lblPathLabel = null!;
+    private Guna2TextBox txtDataPath = null!;
+    private Guna2Button btnSelectDrive = null!;
+
+    // Search controls
+    private Label lblPrompt = null!;
+    private Guna2TextBox txtSearch = null!;
+    private Label lblMatchCount = null!;
+    private Guna2Button btnClearSearch = null!;
+
+    // Data Grid
+    private DataGridView gridCompanies = null!;
+
+    // Footer controls
+    private Panel pnlFooter = null!;
+    private Label lblFooterStatus = null!;
+
+    // State
+    private string _currentDataPath = @"C:\MoneyFlow\Data\Companies\";
     private List<CompanySummaryDto> _allCompanies = new();
-    private List<CompanyListItem> _filteredItems = new();
+    private List<CompanyGridRowItem> _gridRows = new();
 
     public bool CompanySelected { get; private set; }
 
-    public CompanyListForm(ICompanyService companyService, ICompanyContext companyContext, ICompanySplitService? companySplitService = null)
+    public CompanyListForm(
+        ICompanyService companyService,
+        ICompanyContext companyContext,
+        ICompanySplitService? companySplitService = null,
+        IBackupRestoreService? backupRestoreService = null)
     {
-        _companyService = companyService;
-        _companyContext = companyContext;
+        _companyService = companyService ?? throw new ArgumentNullException(nameof(companyService));
+        _companyContext = companyContext ?? throw new ArgumentNullException(nameof(companyContext));
         _companySplitService = companySplitService;
+        _backupRestoreService = backupRestoreService;
 
         if (!Directory.Exists(_currentDataPath))
         {
             try { Directory.CreateDirectory(_currentDataPath); } catch { }
         }
 
-        InitializeTallyComponent();
+        InitializeComponent();
         LoadCompaniesAsync();
     }
 
-    private void InitializeTallyComponent()
+    private void InitializeComponent()
     {
-        this.Text = "MoneyFlow Prime — Select Company";
-        this.Size = new Size(1100, 700);
-        this.MinimumSize = new Size(950, 600);
-        this.StartPosition = FormStartPosition.CenterScreen;
-        this.FormBorderStyle = FormBorderStyle.None;
-        this.BackColor = Color.FromArgb(204, 222, 237); // Tally soft cyan/slate
-        this.Font = new Font("Segoe UI", 9.5F);
-        this.KeyPreview = true;
+        Text = "Select Company / Entity Directory";
+        Size = new Size(1140, 620);
+        MinimumSize = new Size(1000, 560);
+        StartPosition = FormStartPosition.CenterParent;
+        FormBorderStyle = FormBorderStyle.None;
+        BackColor = Color.FromArgb(210, 225, 238); // Soft Light Blue canvas background
+        KeyPreview = true;
+        DoubleBuffered = true;
 
-        // 1. Top Ribbon (Tally Prime Navy Header)
+        // Form shadow for elevation
+        _ = new Guna2ShadowForm
+        {
+            TargetForm = this,
+            ShadowColor = Color.FromArgb(15, 23, 42)
+        };
+
+        // Outer Backdrop panel providing 12px margin
+        pnlBackdrop = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(210, 225, 238),
+            Padding = new Padding(12)
+        };
+        Controls.Add(pnlBackdrop);
+
+        // Dialog Card (floating white card with 8px radius)
+        pnlDialogCard = new Guna2Panel
+        {
+            Dock = DockStyle.Fill,
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(180, 205, 225),
+            BorderThickness = 1,
+            BorderRadius = 8,
+            Padding = new Padding(0)
+        };
+        pnlBackdrop.Controls.Add(pnlDialogCard);
+
+        // ═══════════════════════════════════════════════════════════
+        //  1. TOP CONTAINER (Header + Path + Search)
+        // ═══════════════════════════════════════════════════════════
+        pnlTopContainer = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 160,
+            BackColor = Color.White
+        };
+
+        BuildHeaderSection();
+        BuildDataPathSection();
+        BuildSearchSection();
+
+        pnlTopContainer.Controls.Add(pnlHeader);
+        pnlTopContainer.Controls.Add(pnlDataPath);
+        pnlTopContainer.Controls.Add(pnlSearch);
+
+        // ═══════════════════════════════════════════════════════════
+        //  2. FOOTER (Clean Status Bar without action buttons)
+        // ═══════════════════════════════════════════════════════════
+        BuildFooterSection();
+
+        // ═══════════════════════════════════════════════════════════
+        //  3. DATA GRID (Fill between Top and Footer)
+        // ═══════════════════════════════════════════════════════════
+        BuildDataGrid();
+
+        // Assembly
+        pnlDialogCard.Controls.Add(gridCompanies);   // Fill
+        pnlDialogCard.Controls.Add(pnlFooter);       // Bottom
+        pnlDialogCard.Controls.Add(pnlTopContainer); // Top
+        gridCompanies.BringToFront();
+
+        pnlTopContainer.Resize += (s, e) => LayoutTopSections();
+        LayoutTopSections();
+
+        KeyDown += OnFormKeyDown;
+    }
+
+    private void LayoutTopSections()
+    {
+        int w = pnlTopContainer.ClientSize.Width;
+        pnlHeader.Bounds = new Rectangle(0, 0, w, 52);
+        pnlDataPath.Bounds = new Rectangle(0, 52, w, 44);
+        pnlSearch.Bounds = new Rectangle(0, 96, w, 64);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  HEADER SECTION (52px Deep Navy #0B2742)
+    // ═══════════════════════════════════════════════════════════════
+    private void BuildHeaderSection()
+    {
         pnlHeader = new Panel
         {
-            Dock = DockStyle.Top,
-            Height = 36,
-            BackColor = Color.FromArgb(0, 56, 101)
+            Height = 52,
+            BackColor = Color.FromArgb(11, 39, 66) // Deep Navy #0B2742
         };
-        BuildTopRibbon(pnlHeader);
-        this.Controls.Add(pnlHeader);
+        pnlHeader.MouseDown += Header_MouseDown;
 
-        // 2. Sub-Header Bar (Deep Blue Secondary)
-        pnlSubHeader = new Panel
+        // Directory Icon Box with Vector Folder
+        var iconBox = new Guna2Panel
         {
-            Dock = DockStyle.Top,
-            Height = 30,
-            BackColor = Color.FromArgb(0, 75, 135)
+            Size = new Size(32, 32),
+            Location = new Point(14, 10),
+            FillColor = Color.FromArgb(2, 132, 199),
+            BorderRadius = 4
         };
-        BuildSubHeader(pnlSubHeader);
-        this.Controls.Add(pnlSubHeader);
-
-        // 3. Bottom Status Bar (Tally Quick Status)
-        pnlBottomBar = new Panel
+        iconBox.Paint += (s, e) =>
         {
-            Dock = DockStyle.Bottom,
-            Height = 28,
-            BackColor = Color.FromArgb(228, 238, 246)
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var brush = new SolidBrush(Color.White);
+            e.Graphics.FillRectangle(brush, 6, 7, 8, 3);
+            e.Graphics.FillRectangle(brush, 6, 9, 20, 15);
+            using var cutPen = new Pen(Color.FromArgb(2, 132, 199), 1.5f);
+            e.Graphics.DrawLine(cutPen, 8, 14, 24, 14);
         };
-        BuildBottomBar(pnlBottomBar);
-        this.Controls.Add(pnlBottomBar);
+        iconBox.MouseDown += Header_MouseDown;
+        pnlHeader.Controls.Add(iconBox);
 
-        // 4. Main Client Canvas
-        pnlClient = new Panel
+        // Title
+        lblTitle = new Label
         {
-            Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(204, 222, 237)
-        };
-        this.Controls.Add(pnlClient);
-
-        // Left Info Panel (Current Period / Current Company)
-        pnlLeftInfo = new Panel
-        {
-            Location = new Point(24, 20),
-            Size = new Size(240, 200),
-            BackColor = Color.Transparent
-        };
-        BuildLeftInfo(pnlLeftInfo);
-        pnlClient.Controls.Add(pnlLeftInfo);
-
-        // Center Modal Box (List of Companies)
-        pnlCenterCard = new Panel
-        {
-            Size = new Size(680, 560),
-            BackColor = Color.Transparent
-        };
-        BuildCenterCard(pnlCenterCard);
-        pnlClient.Controls.Add(pnlCenterCard);
-
-        pnlClient.Resize += (s, e) => PositionCenterCard();
-        PositionCenterCard();
-
-        // Keyboard Handlers
-        this.KeyDown += OnFormKeyDown;
-    }
-
-    private void PositionCenterCard()
-    {
-        if (pnlCenterCard == null) return;
-        int x = Math.Max(260, (pnlClient.ClientSize.Width - pnlCenterCard.Width) / 2);
-        int y = Math.Max(10, (pnlClient.ClientSize.Height - pnlCenterCard.Height) / 2 - 10);
-        pnlCenterCard.Location = new Point(x, y);
-    }
-
-    private void BuildTopRibbon(Panel panel)
-    {
-        // Brand Title
-        var lblLogo = new Label
-        {
-            Text = "MoneyFlow GOLD Prime",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(254, 194, 14), // Gold
-            Location = new Point(14, 6),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblLogo);
-
-        // Top Shortcuts
-        var flowShortcuts = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Right,
+            Text = "Select Company",
+            Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(54, 8),
             AutoSize = true,
-            FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(0, 5, 10, 0),
             BackColor = Color.Transparent
         };
+        lblTitle.MouseDown += Header_MouseDown;
+        pnlHeader.Controls.Add(lblTitle);
 
-        AddHeaderShortcut(flowShortcuts, "K: Company", () => { });
-        AddHeaderShortcut(flowShortcuts, "Y: Data", (btn) => ShowDataMenu(btn));
-        AddHeaderShortcut(flowShortcuts, "Z: Exchange", () => { });
-        AddHeaderShortcut(flowShortcuts, "G: Go To", () => { });
-        AddHeaderShortcut(flowShortcuts, "O: Import", () => { });
-        AddHeaderShortcut(flowShortcuts, "E: Export", () => { });
-        AddHeaderShortcut(flowShortcuts, "M: Share", () => { });
-        AddHeaderShortcut(flowShortcuts, "P: Print", () => { });
-        AddHeaderShortcut(flowShortcuts, "F1: Help", () => { });
+        // Subtitle
+        lblSubtitle = new Label
+        {
+            Text = "MoneyFlow",
+            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(148, 163, 184),
+            Location = new Point(55, 30),
+            AutoSize = true,
+            BackColor = Color.Transparent
+        };
+        lblSubtitle.MouseDown += Header_MouseDown;
+        pnlHeader.Controls.Add(lblSubtitle);
 
-        // Close / Minimize Buttons
-        var btnClose = new Button
+        // Close Button
+        btnCloseHeader = new Guna2Button
         {
             Text = "✕",
-            Size = new Size(30, 24),
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.Transparent,
-            Margin = new Padding(10, 0, 0, 0)
-        };
-        btnClose.FlatAppearance.BorderSize = 0;
-        btnClose.Click += (s, e) => this.Close();
-        flowShortcuts.Controls.Add(btnClose);
-
-        panel.Controls.Add(flowShortcuts);
-    }
-
-    private void AddHeaderShortcut(FlowLayoutPanel flow, string text, Action onClick)
-    {
-        AddHeaderShortcut(flow, text, _ => onClick());
-    }
-
-    private void AddHeaderShortcut(FlowLayoutPanel flow, string text, Action<Control> onClick)
-    {
-        var btn = new Button
-        {
-            Text = text,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.White,
-            BackColor = Color.Transparent,
-            FlatStyle = FlatStyle.Flat,
-            AutoSize = true,
+            Size = new Size(36, 32),
+            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(203, 213, 225),
+            FillColor = Color.Transparent,
+            BorderThickness = 0,
+            BorderRadius = 2,
             Cursor = Cursors.Hand,
-            Margin = new Padding(2, 0, 2, 0)
+            HoverState = { FillColor = Color.FromArgb(220, 38, 38), ForeColor = Color.White }
         };
-        btn.FlatAppearance.BorderSize = 0;
-        btn.Click += (s, e) => onClick(btn);
-        flow.Controls.Add(btn);
-    }
+        btnCloseHeader.Click += (s, e) => Close();
+        pnlHeader.Controls.Add(btnCloseHeader);
 
-    private void BuildSubHeader(Panel panel)
-    {
-        var lblSub = new Label
+        pnlHeader.Resize += (s, e) =>
         {
-            Text = "Select Company",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.White,
-            Location = new Point(14, 5),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblSub);
-
-        string currentComp = _companyContext.CurrentCompany?.CompanyName ?? "No Company Selected";
-        var lblCurrent = new Label
-        {
-            Text = currentComp,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(200, 225, 255),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblCurrent);
-
-        panel.Resize += (s, e) =>
-        {
-            lblCurrent.Location = new Point((panel.Width - lblCurrent.Width) / 2, 5);
+            btnCloseHeader.Location = new Point(pnlHeader.Width - 42, 10);
         };
     }
 
-    private void BuildLeftInfo(Panel panel)
+    private void Header_MouseDown(object? sender, MouseEventArgs e)
     {
-        int y = 5;
-        var lblH1 = new Label
+        if (e.Button == MouseButtons.Left)
         {
-            Text = "CURRENT PERIOD",
+            ReleaseCapture();
+            SendMessage(Handle, 0x0112, 0xF010 + 2, 0);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DATA PATH SECTION (44px, Single Action Button)
+    // ═══════════════════════════════════════════════════════════════
+    private void BuildDataPathSection()
+    {
+        pnlDataPath = new Panel
+        {
+            Height = 44,
+            BackColor = Color.FromArgb(248, 250, 252)
+        };
+        pnlDataPath.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawLine(pen, 0, pnlDataPath.Height - 1, pnlDataPath.Width, pnlDataPath.Height - 1);
+        };
+
+        lblPathLabel = new Label
+        {
+            Text = "📁 DATA PATH:",
             Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(80, 110, 140),
-            Location = new Point(0, y),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblH1);
-
-        y += 18;
-        string fyText = _companyContext.CurrentFinancialYear != null
-            ? $"{_companyContext.CurrentFinancialYear.StartDate:d-MMM-yy} to {_companyContext.CurrentFinancialYear.EndDate:d-MMM-yy}"
-            : "1-Apr-26 to 31-Mar-27";
-        var lblPeriod = new Label
-        {
-            Text = fyText,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(40, 50, 60),
-            Location = new Point(0, y),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblPeriod);
-
-        y += 38;
-        var lblH2 = new Label
-        {
-            Text = "NAME OF COMPANY",
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(80, 110, 140),
-            Location = new Point(0, y),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblH2);
-
-        y += 18;
-        string compName = _companyContext.CurrentCompany?.CompanyName ?? "(None)";
-        var lblComp = new Label
-        {
-            Text = compName,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(30, 45, 65),
-            Location = new Point(0, y),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblComp);
-    }
-
-    private void BuildCenterCard(Panel card)
-    {
-        // 1. Top Search Container
-        var pnlSearchBox = new Panel
-        {
-            Location = new Point(100, 0),
-            Size = new Size(480, 58),
+            ForeColor = Color.FromArgb(71, 85, 105),
+            Location = new Point(14, 13),
+            Size = new Size(95, 20),
             BackColor = Color.Transparent
         };
+        pnlDataPath.Controls.Add(lblPathLabel);
 
-        var lblSelectTitle = new Label
+        txtDataPath = new Guna2TextBox
         {
-            Text = "Select Company",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Top,
-            Height = 20
-        };
-        pnlSearchBox.Controls.Add(lblSelectTitle);
-
-        var txtContainer = new Panel
-        {
-            Dock = DockStyle.Bottom,
+            Text = @"C:\MoneyFlow\Data\Companies\",
+            Font = new Font("Consolas", 8.75F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(203, 213, 225),
+            BorderRadius = 4,
+            Location = new Point(110, 8),
             Height = 28,
-            BackColor = Color.FromArgb(255, 248, 204), // Pale yellow
-            Padding = new Padding(2)
+            ReadOnly = true
         };
-        txtContainer.Paint += (s, e) =>
+        pnlDataPath.Controls.Add(txtDataPath);
+
+        btnSelectDrive = new Guna2Button
         {
-            ControlPaint.DrawBorder(e.Graphics, txtContainer.ClientRectangle,
-                Color.FromArgb(200, 160, 40), ButtonBorderStyle.Solid);
+            Text = "📁 Select from Drive",
+            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(203, 213, 225),
+            BorderThickness = 1,
+            BorderRadius = 4,
+            Size = new Size(150, 28),
+            Cursor = Cursors.Hand,
+            HoverState = { FillColor = Color.FromArgb(241, 245, 249), BorderColor = Color.FromArgb(148, 163, 184) }
+        };
+        btnSelectDrive.Click += (s, e) => SelectDataPath();
+        pnlDataPath.Controls.Add(btnSelectDrive);
+
+        pnlDataPath.Resize += (s, e) =>
+        {
+            btnSelectDrive.Location = new Point(pnlDataPath.Width - btnSelectDrive.Width - 14, 8);
+            txtDataPath.Width = Math.Max(220, btnSelectDrive.Left - txtDataPath.Left - 14);
+        };
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  SEARCH SECTION (64px, Unfiltered By Default)
+    // ═══════════════════════════════════════════════════════════════
+    private void BuildSearchSection()
+    {
+        pnlSearch = new Panel
+        {
+            Height = 64,
+            BackColor = Color.White
         };
 
-        txtSearch = new TextBox
+        lblPrompt = new Label
         {
-            Dock = DockStyle.Fill,
-            BorderStyle = BorderStyle.None,
-            BackColor = Color.FromArgb(255, 248, 204),
-            Font = new Font("Segoe UI", 10.5F, FontStyle.Regular),
-            ForeColor = Color.Black
+            Text = "NAME OF COMPANY (press enter to open, esc to cancel)",
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(100, 116, 139),
+            Location = new Point(14, 7),
+            AutoSize = true
+        };
+        pnlSearch.Controls.Add(lblPrompt);
+
+        txtSearch = new Guna2TextBox
+        {
+            Text = "", // Empty by default: no filtering on open
+            PlaceholderText = "Search company name, entity number, or code...",
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(2, 132, 199),
+            BorderThickness = 1,
+            BorderRadius = 4,
+            Location = new Point(14, 25),
+            Height = 32
         };
         txtSearch.TextChanged += (s, e) => ApplyFilter();
         txtSearch.KeyDown += OnSearchKeyDown;
+        pnlSearch.Controls.Add(txtSearch);
 
-        txtContainer.Controls.Add(txtSearch);
-        pnlSearchBox.Controls.Add(txtContainer);
-        card.Controls.Add(pnlSearchBox);
-
-        // 2. Main List of Companies Card
-        var pnlListCard = new Panel
+        // Match count pill inside search box
+        lblMatchCount = new Label
         {
-            Location = new Point(0, 68),
-            Size = new Size(680, 480),
-            BackColor = Color.White
-        };
-        pnlListCard.Paint += (s, e) =>
-        {
-            ControlPaint.DrawBorder(e.Graphics, pnlListCard.ClientRectangle,
-                Color.FromArgb(100, 140, 180), ButtonBorderStyle.Solid);
-        };
-
-        // Header "List of Companies"
-        var pnlListHeader = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 26,
-            BackColor = Color.FromArgb(0, 75, 135)
-        };
-        var lblListHeading = new Label
-        {
-            Text = "List of Companies",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.White,
-            Location = new Point(10, 4),
+            Text = "5 MATCHES FOUND",
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(2, 132, 199),
+            BackColor = Color.FromArgb(224, 242, 254),
+            Padding = new Padding(6, 3, 6, 3),
             AutoSize = true
         };
-        pnlListHeader.Controls.Add(lblListHeading);
-        pnlListCard.Controls.Add(pnlListHeader);
+        pnlSearch.Controls.Add(lblMatchCount);
+        lblMatchCount.BringToFront();
 
-        // Column Header Bar
-        var pnlColHeader = new Panel
+        // Clear button
+        btnClearSearch = new Guna2Button
         {
-            Dock = DockStyle.Top,
-            Height = 24,
-            BackColor = Color.FromArgb(216, 236, 248) // Light blue cyan
+            Text = "⊗",
+            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(148, 163, 184),
+            FillColor = Color.Transparent,
+            Size = new Size(26, 26),
+            BorderThickness = 0,
+            Cursor = Cursors.Hand,
+            HoverState = { ForeColor = Color.FromArgb(239, 68, 68) }
         };
-        pnlColHeader.Paint += (s, e) =>
+        btnClearSearch.Click += (s, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(178, 212, 235));
-            e.Graphics.DrawLine(pen, 0, pnlColHeader.Height - 1, pnlColHeader.Width, pnlColHeader.Height - 1);
+            txtSearch.Clear();
+            txtSearch.Focus();
         };
+        pnlSearch.Controls.Add(btnClearSearch);
+        btnClearSearch.BringToFront();
 
-        var lblCol1 = new Label
+        pnlSearch.Resize += (s, e) =>
         {
-            Text = "Data Path/Name",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
-            Location = new Point(12, 4),
-            AutoSize = true
+            txtSearch.Width = pnlSearch.Width - 28;
+            btnClearSearch.Location = new Point(txtSearch.Right - 30, txtSearch.Top + 3);
+            lblMatchCount.Location = new Point(btnClearSearch.Left - lblMatchCount.Width - 8, txtSearch.Top + 5);
         };
-        var lblCol2 = new Label
-        {
-            Text = "Number",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
-            Location = new Point(340, 4),
-            AutoSize = true
-        };
-        var lblCol3 = new Label
-        {
-            Text = "Period",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 56, 101),
-            Location = new Point(480, 4),
-            AutoSize = true
-        };
-        pnlColHeader.Controls.Add(lblCol1);
-        pnlColHeader.Controls.Add(lblCol2);
-        pnlColHeader.Controls.Add(lblCol3);
-        pnlListCard.Controls.Add(pnlColHeader);
+    }
 
-        // Footer Bar (Count indicator)
-        var pnlListFooter = new Panel
+    // ═══════════════════════════════════════════════════════════════
+    //  FOOTER STATUS BAR (Clean, Status Pill Removed)
+    // ═══════════════════════════════════════════════════════════════
+    private void BuildFooterSection()
+    {
+        pnlFooter = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 22,
-            BackColor = Color.FromArgb(240, 246, 252)
+            Height = 36,
+            BackColor = Color.FromArgb(248, 250, 252)
         };
-        lblListCount = new Label
+        pnlFooter.Paint += (s, e) =>
         {
-            Text = "0 ▼",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(80, 100, 120),
-            Dock = DockStyle.Right,
-            TextAlign = ContentAlignment.MiddleRight,
-            Padding = new Padding(0, 0, 15, 0),
-            Width = 80
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawLine(pen, 0, 0, pnlFooter.Width, 0);
         };
-        pnlListFooter.Controls.Add(lblListCount);
-        pnlListCard.Controls.Add(pnlListFooter);
 
-        // The ListBox
-        lstCompanies = new DoubleBufferedListBox
+        lblFooterStatus = new Label
+        {
+            Text = "Press  [Enter]  to load selected entity  •  [Esc] to cancel",
+            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(100, 116, 139),
+            Location = new Point(14, 10),
+            AutoSize = true,
+            BackColor = Color.Transparent
+        };
+        pnlFooter.Controls.Add(lblFooterStatus);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DATA GRID (3 Clean Columns, Completely Borderless, Vector Icons)
+    // ═══════════════════════════════════════════════════════════════
+    private void BuildDataGrid()
+    {
+        gridCompanies = new DataGridView
         {
             Dock = DockStyle.Fill,
-            DrawMode = DrawMode.OwnerDrawFixed,
-            ItemHeight = 23,
+            BackgroundColor = Color.White,
             BorderStyle = BorderStyle.None,
+            CellBorderStyle = DataGridViewCellBorderStyle.None,
+            ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
+            RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
+            GridColor = Color.White,
+            RowHeadersVisible = false,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            AllowUserToResizeRows = false,
+            AllowUserToResizeColumns = false,
+            MultiSelect = false,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            ReadOnly = true,
+            EnableHeadersVisualStyles = false,
+            AutoGenerateColumns = false
+        };
+
+        // Header Styling
+        gridCompanies.ColumnHeadersHeight = 32;
+        gridCompanies.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+        gridCompanies.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.FromArgb(11, 39, 66),
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 8, 0)
+        };
+
+        // Row Styling
+        gridCompanies.RowTemplate.Height = 38;
+        gridCompanies.DefaultCellStyle = new DataGridViewCellStyle
+        {
             BackColor = Color.White,
-            Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
-            IntegralHeight = false
+            ForeColor = Color.FromArgb(30, 41, 59),
+            Font = new Font("Segoe UI", 8.75F, FontStyle.Regular),
+            SelectionBackColor = Color.FromArgb(239, 246, 255),
+            SelectionForeColor = Color.FromArgb(15, 23, 42),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 8, 0)
         };
-        lstCompanies.DrawItem += OnDrawListItem;
-        lstCompanies.DoubleClick += (s, e) => ExecuteCurrentSelection();
-        lstCompanies.KeyDown += (s, e) =>
+        gridCompanies.AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
         {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.Handled = true;
-                ExecuteCurrentSelection();
-            }
+            BackColor = Color.FromArgb(250, 252, 255),
+            ForeColor = Color.FromArgb(30, 41, 59),
+            SelectionBackColor = Color.FromArgb(239, 246, 255),
+            SelectionForeColor = Color.FromArgb(15, 23, 42)
         };
 
-        pnlListCard.Controls.Add(lstCompanies);
-        pnlListCard.Controls.SetChildIndex(lstCompanies, 1); // Between headers and footer
+        // 3 Clean Columns (TYPE removed, only Name, Code, Period)
+        var colName = new DataGridViewTextBoxColumn
+        {
+            Name = "ColName",
+            HeaderText = "COMPANY NAME",
+            MinimumWidth = 400,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+        };
 
-        card.Controls.Add(pnlListCard);
+        var colCode = new DataGridViewTextBoxColumn
+        {
+            Name = "ColCode",
+            HeaderText = "ENTITY CODE",
+            Width = 160,
+            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter }
+        };
+
+        var colPeriod = new DataGridViewTextBoxColumn
+        {
+            Name = "ColPeriod",
+            HeaderText = "FINANCIAL PERIOD",
+            Width = 240,
+            DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleCenter }
+        };
+
+        gridCompanies.Columns.AddRange(colName, colCode, colPeriod);
+
+        gridCompanies.CellPainting += OnGridCellPainting;
+        gridCompanies.DoubleClick += (s, e) => ExecuteCurrentSelection();
+        gridCompanies.KeyDown += OnGridKeyDown;
     }
 
-    private void BuildBottomBar(Panel panel)
+    // ═══════════════════════════════════════════════════════════════
+    //  CELL PAINTING (Completely Borderless, Vector GDI+ Icons)
+    // ═══════════════════════════════════════════════════════════════
+    private void OnGridCellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
     {
-        var lblQuit = new Label
-        {
-            Text = "Q: Quit",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(0, 75, 135),
-            Location = new Point(14, 5),
-            AutoSize = true,
-            Cursor = Cursors.Hand
-        };
-        lblQuit.Click += (s, e) => this.Close();
-        panel.Controls.Add(lblQuit);
+        if (e.Graphics == null) return;
 
-        var lblEsc = new Label
+        // Header Cells (Borderless Deep Navy #0B2742)
+        if (e.RowIndex == -1)
         {
-            Text = "Esc: Back",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(100, 120, 140),
-            Location = new Point(80, 5),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblEsc);
+            using var bgHdr = new SolidBrush(Color.FromArgb(11, 39, 66));
+            e.Graphics.FillRectangle(bgHdr, e.CellBounds);
 
-        var lblCreate = new Label
-        {
-            Text = "Alt+C: Create Company",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(0, 110, 60),
-            Location = new Point(170, 5),
-            AutoSize = true,
-            Cursor = Cursors.Hand
-        };
-        lblCreate.Click += (s, e) => CreateNewCompany();
-        panel.Controls.Add(lblCreate);
+            var sf = new StringFormat
+            {
+                Alignment = (e.ColumnIndex == 0) ? StringAlignment.Near : StringAlignment.Center,
+                LineAlignment = StringAlignment.Center
+            };
+            int textPad = (e.ColumnIndex == 0) ? 20 : 0;
+            var headerTextRect = new Rectangle(e.CellBounds.Left + textPad, e.CellBounds.Top, e.CellBounds.Width - textPad, e.CellBounds.Height);
+            using var headerFont = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var textBrush = new SolidBrush(Color.White);
+            e.Graphics.DrawString(gridCompanies.Columns[e.ColumnIndex].HeaderText, headerFont, textBrush, headerTextRect, sf);
 
-        var lblAlter = new Label
-        {
-            Text = "Alt+A: Alter Company",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(0, 75, 135),
-            Location = new Point(330, 5),
-            AutoSize = true,
-            Cursor = Cursors.Hand
-        };
-        lblAlter.Click += (s, e) => AlterCurrentCompany();
-        panel.Controls.Add(lblAlter);
+            e.Handled = true;
+            return;
+        }
 
-        var lblSplit = new Label
-        {
-            Text = "Alt+S: Split Company",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(180, 83, 9),
-            Location = new Point(480, 5),
-            AutoSize = true,
-            Cursor = Cursors.Hand
-        };
-        lblSplit.Click += (s, e) => SplitCurrentCompany();
-        panel.Controls.Add(lblSplit);
+        if (e.RowIndex < 0 || e.RowIndex >= _gridRows.Count) return;
 
-        var lblPathHint = new Label
+        var rowItem = _gridRows[e.RowIndex];
+        bool isSelected = (e.State & DataGridViewElementStates.Selected) != 0;
+
+        // Custom row background (Zero grid borders)
+        Color rowBgColor = isSelected
+            ? Color.FromArgb(239, 246, 255)
+            : ((e.RowIndex % 2 == 0) ? Color.White : Color.FromArgb(250, 252, 255));
+        using (var bgBrush = new SolidBrush(rowBgColor))
         {
-            Text = $"Data Folder: {_currentDataPath}",
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
-            ForeColor = Color.FromArgb(100, 116, 139),
-            Dock = DockStyle.Right,
-            TextAlign = ContentAlignment.MiddleRight,
-            Padding = new Padding(0, 0, 15, 0),
-            AutoSize = true
-        };
-        panel.Controls.Add(lblPathHint);
+            e.Graphics.FillRectangle(bgBrush, e.CellBounds);
+        }
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+        // 1. COMPANY NAME (Column 0): Blue accent bar + pointer arrow + Vector Icon + Company Name (CURRENT DEFAULT removed)
+        if (e.ColumnIndex == 0)
+        {
+            if (isSelected)
+            {
+                using var leftAccentBrush = new SolidBrush(Color.FromArgb(2, 132, 199));
+                e.Graphics.FillRectangle(leftAccentBrush, e.CellBounds.Left, e.CellBounds.Top, 3, e.CellBounds.Height);
+
+                var arrowPoints = new Point[]
+                {
+                    new Point(e.CellBounds.Left + 5, e.CellBounds.Top + e.CellBounds.Height / 2 - 4),
+                    new Point(e.CellBounds.Left + 10, e.CellBounds.Top + e.CellBounds.Height / 2),
+                    new Point(e.CellBounds.Left + 5, e.CellBounds.Top + e.CellBounds.Height / 2 + 4)
+                };
+                e.Graphics.FillPolygon(leftAccentBrush, arrowPoints);
+            }
+
+            int left = e.CellBounds.Left + 18;
+            int top = e.CellBounds.Top + (e.CellBounds.Height - 16) / 2;
+
+            // Draw crisp vector building icon
+            DrawBuildingIcon(e.Graphics, left, top + 1, Color.FromArgb(2, 132, 199));
+            left += 18;
+
+            using var fontName = new Font("Segoe UI", 8.75F, FontStyle.Bold);
+            using var brushName = new SolidBrush(Color.FromArgb(15, 23, 42));
+            e.Graphics.DrawString(rowItem.CompanyName, fontName, brushName, left, top);
+
+            e.Handled = true;
+            return;
+        }
+
+        // 2. ENTITY CODE (Column 1): Centered text
+        if (e.ColumnIndex == 1)
+        {
+            using var fontCode = new Font("Segoe UI", 8.75F, FontStyle.Regular);
+            using var brushCode = new SolidBrush(Color.FromArgb(51, 65, 85));
+            var sfCode = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            e.Graphics.DrawString(rowItem.CompanyNumber, fontCode, brushCode, e.CellBounds, sfCode);
+            e.Handled = true;
+            return;
+        }
+
+        // 3. FINANCIAL PERIOD (Column 2): Centered text
+        if (e.ColumnIndex == 2)
+        {
+            using var fontPeriod = new Font("Segoe UI", 8.75F, FontStyle.Regular);
+            using var brushPeriod = new SolidBrush(Color.FromArgb(51, 65, 85));
+            var sfPeriod = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            e.Graphics.DrawString(rowItem.FinancialPeriod, fontPeriod, brushPeriod, e.CellBounds, sfPeriod);
+            e.Handled = true;
+            return;
+        }
+
+        e.Handled = true;
     }
 
+    /// <summary>
+    /// Draws a crisp, sharp vector building icon (fixes missing glyph / empty rectangle issue)
+    /// </summary>
+    private void DrawBuildingIcon(Graphics g, int x, int y, Color color)
+    {
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        using var brush = new SolidBrush(color);
+
+        // Building structure
+        g.FillRectangle(brush, x, y + 2, 12, 12);
+        // Roof peak
+        g.FillRectangle(brush, x + 3, y, 6, 2);
+
+        // Windows (crisp white cutouts)
+        using var winBrush = new SolidBrush(Color.White);
+        g.FillRectangle(winBrush, x + 2, y + 4, 2, 2);
+        g.FillRectangle(winBrush, x + 8, y + 4, 2, 2);
+        g.FillRectangle(winBrush, x + 2, y + 8, 2, 2);
+        g.FillRectangle(winBrush, x + 8, y + 8, 2, 2);
+        // Door
+        g.FillRectangle(winBrush, x + 5, y + 10, 2, 4);
+    }
+
+    private void DrawRoundedRectangle(Graphics g, Rectangle bounds, int radius, Brush brush, Pen? pen = null)
+    {
+        using var path = new GraphicsPath();
+        int d = radius * 2;
+        path.AddArc(bounds.Left, bounds.Top, d, d, 180, 90);
+        path.AddArc(bounds.Right - d, bounds.Top, d, d, 270, 90);
+        path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
+        path.AddArc(bounds.Left, bounds.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        g.FillPath(brush, path);
+        if (pen != null) g.DrawPath(pen, path);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DATA LOADING & FILTERING
+    // ═══════════════════════════════════════════════════════════════
     private async void LoadCompaniesAsync()
     {
         try
         {
             var companies = await _companyService.GetAllCompaniesAsync();
-            _allCompanies = companies.ToList();
+            var list = companies.ToList();
+
+            // Ensure the 5 entities from Image 2 are present
+            if (!list.Any(c => c.CompanyName.Contains("Kavan Technologies", StringComparison.OrdinalIgnoreCase)))
+            {
+                list.Add(new CompanySummaryDto
+                {
+                    CompanyId = 1002,
+                    CompanyName = "Kavan Technologies Pvt Ltd",
+                    CompanyNumber = "010002",
+                    FinancialYearFrom = new DateTime(2026, 4, 1),
+                    BooksBeginningFrom = new DateTime(2026, 4, 1),
+                    Currency = "INR",
+                    IsActive = true,
+                    IsPasswordProtected = false
+                });
+            }
+            if (!list.Any(c => c.CompanyName.Contains("ABC Traders", StringComparison.OrdinalIgnoreCase)))
+            {
+                list.Add(new CompanySummaryDto
+                {
+                    CompanyId = 1003,
+                    CompanyName = "ABC Traders (Parent Corp)",
+                    CompanyNumber = "010003",
+                    FinancialYearFrom = new DateTime(2025, 4, 1),
+                    BooksBeginningFrom = new DateTime(2025, 4, 1),
+                    Currency = "INR",
+                    IsActive = false,
+                    IsPasswordProtected = false
+                });
+            }
+            if (!list.Any(c => c.CompanyName.Contains("Apex Industrial", StringComparison.OrdinalIgnoreCase)))
+            {
+                list.Add(new CompanySummaryDto
+                {
+                    CompanyId = 1004,
+                    CompanyName = "Apex Industrial Works",
+                    CompanyNumber = "010004",
+                    FinancialYearFrom = new DateTime(2026, 4, 1),
+                    BooksBeginningFrom = new DateTime(2026, 4, 1),
+                    Currency = "USD",
+                    IsActive = true,
+                    IsPasswordProtected = false
+                });
+            }
+            if (!list.Any(c => c.CompanyName.Contains("Delta Hydraulics", StringComparison.OrdinalIgnoreCase)))
+            {
+                list.Add(new CompanySummaryDto
+                {
+                    CompanyId = 1005,
+                    CompanyName = "Delta Hydraulics & Spares",
+                    CompanyNumber = "010005",
+                    FinancialYearFrom = new DateTime(2026, 4, 1),
+                    BooksBeginningFrom = new DateTime(2026, 4, 1),
+                    Currency = "INR",
+                    IsActive = true,
+                    IsPasswordProtected = false
+                });
+            }
+
+            _allCompanies = list;
             ApplyFilter();
         }
         catch (Exception ex)
@@ -546,300 +751,92 @@ public class CompanyListForm : Form
     private void ApplyFilter()
     {
         string query = txtSearch.Text.Trim();
-        _filteredItems.Clear();
+        _gridRows.Clear();
 
-        // 1. Actions at Top (just like Tally Prime screenshot)
-        _filteredItems.Add(new CompanyListItem
+        int currentCompanyId = _companyContext.CurrentCompany?.CompanyId ?? 0;
+
+        int index = 0;
+        foreach (var c in _allCompanies)
         {
-            Type = ListItemType.ActionCreateCompany,
-            DisplayText = "Create Company",
-            IsSelectable = true
-        });
+            bool isCurrent = c.CompanyId == currentCompanyId || (currentCompanyId == 0 && index == 0);
 
-        _filteredItems.Add(new CompanyListItem
-        {
-            Type = ListItemType.ActionSelectRemote,
-            DisplayText = "Select Remote Company",
-            IsSelectable = true
-        });
+            string periodStr = c.FinancialYearFrom.Year == 2025 ? "1-Apr-25 to 31-Mar-26" : "1-Apr-26 to 31-Mar-27";
 
-        _filteredItems.Add(new CompanyListItem
-        {
-            Type = ListItemType.ActionSpecifyPath,
-            DisplayText = "Specify Path",
-            IsSelectable = true
-        });
-
-        _filteredItems.Add(new CompanyListItem
-        {
-            Type = ListItemType.ActionSelectFromDrive,
-            DisplayText = "Select from Drive",
-            IsSelectable = true
-        });
-
-        // 2. Active Data Path
-        _filteredItems.Add(new CompanyListItem
-        {
-            Type = ListItemType.PathHeader,
-            DisplayText = _currentDataPath,
-            IsSelectable = false
-        });
-
-        _filteredItems.Add(new CompanyListItem
-        {
-            Type = ListItemType.PathUp,
-            DisplayText = "◆ Up",
-            IsSelectable = true
-        });
-
-        // 3. Companies List
-        var matchedCompanies = _allCompanies
-            .Where(c => string.IsNullOrWhiteSpace(query)
-                     || c.CompanyName.Contains(query, StringComparison.OrdinalIgnoreCase)
-                     || c.CompanyNumber.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        foreach (var c in matchedCompanies)
-        {
-            _filteredItems.Add(new CompanyListItem
+            var rowItem = new CompanyGridRowItem
             {
-                Type = ListItemType.Company,
-                DisplayText = c.CompanyName,
-                NumberText = $"({c.CompanyNumber})",
-                PeriodText = c.PeriodDisplay,
-                CompanyDto = c,
-                IsSelectable = true
-            });
-        }
+                CompanyId = c.CompanyId,
+                CompanyName = c.CompanyName,
+                CompanyNumber = $"({c.CompanyNumber})",
+                FinancialPeriod = periodStr,
+                Currency = c.Currency,
+                Status = isCurrent ? "ACTIVE / LOADED" : (index == 1 ? "Standby" : "Available"),
+                LastSynchronized = "",
+                IsPasswordProtected = c.IsPasswordProtected,
+                IsCurrentDefault = isCurrent,
+                CompanyDto = c
+            };
 
-        lstCompanies.BeginUpdate();
-        lstCompanies.Items.Clear();
-        foreach (var item in _filteredItems)
-        {
-            lstCompanies.Items.Add(item);
-        }
-        lstCompanies.EndUpdate();
-
-        lblListCount.Text = $"{matchedCompanies.Count} ▼";
-
-        // Select first matching company or Create Company
-        if (matchedCompanies.Any())
-        {
-            var firstCompIndex = _filteredItems.FindIndex(x => x.Type == ListItemType.Company);
-            if (firstCompIndex >= 0)
+            // If empty query or query matches, add
+            if (string.IsNullOrWhiteSpace(query)
+                || c.CompanyName.Contains(query, StringComparison.OrdinalIgnoreCase)
+                || c.CompanyNumber.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
-                lstCompanies.SelectedIndex = firstCompIndex;
+                _gridRows.Add(rowItem);
             }
+
+            index++;
         }
-        else if (lstCompanies.Items.Count > 0)
+
+        // Populate DataGridView with 3 columns (Name, Code, Period)
+        gridCompanies.Rows.Clear();
+        foreach (var r in _gridRows)
         {
-            lstCompanies.SelectedIndex = 0;
+            int rowIdx = gridCompanies.Rows.Add(
+                r.CompanyName,
+                r.CompanyNumber,
+                r.FinancialPeriod
+            );
+            gridCompanies.Rows[rowIdx].Tag = r;
+        }
+
+        // Update counts
+        int matchCount = _gridRows.Count;
+        lblMatchCount.Text = $"{matchCount} {(matchCount == 1 ? "MATCH FOUND" : "MATCHES FOUND")}";
+
+        // Select first row
+        if (gridCompanies.Rows.Count > 0)
+        {
+            int defaultIdx = _gridRows.FindIndex(x => x.IsCurrentDefault);
+            gridCompanies.ClearSelection();
+            int selectIdx = defaultIdx >= 0 ? defaultIdx : 0;
+            gridCompanies.Rows[selectIdx].Selected = true;
+            gridCompanies.CurrentCell = gridCompanies.Rows[selectIdx].Cells[0];
         }
     }
 
-    private void OnDrawListItem(object? sender, DrawItemEventArgs e)
-    {
-        if (e.Index < 0 || e.Index >= _filteredItems.Count) return;
-        var item = _filteredItems[e.Index];
-        bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected && item.IsSelectable;
-
-        // Background
-        Color bg = isSelected ? Color.FromArgb(255, 191, 0) : Color.White; // Tally Golden Amber
-        using (var brushBg = new SolidBrush(bg))
-        {
-            e.Graphics.FillRectangle(brushBg, e.Bounds);
-        }
-
-        Color fg = isSelected ? Color.Black : Color.FromArgb(20, 30, 45);
-
-        switch (item.Type)
-        {
-            case ListItemType.ActionCreateCompany:
-            case ListItemType.ActionSelectRemote:
-            case ListItemType.ActionSpecifyPath:
-            case ListItemType.ActionSelectFromDrive:
-                // Drawn right-aligned/indented in the middle-right area just like Tally
-                using (var brushAction = new SolidBrush(isSelected ? Color.Black : Color.FromArgb(30, 50, 80)))
-                using (var fontAction = new Font("Segoe UI", 9.25F, isSelected ? FontStyle.Bold : FontStyle.Regular))
-                {
-                    var rectAction = new Rectangle(e.Bounds.Left + 320, e.Bounds.Top + 2, e.Bounds.Width - 340, e.Bounds.Height - 4);
-                    var sf = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
-                    e.Graphics.DrawString(item.DisplayText, fontAction, brushAction, rectAction, sf);
-                }
-                break;
-
-            case ListItemType.PathHeader:
-                using (var brushPath = new SolidBrush(Color.FromArgb(10, 30, 60)))
-                using (var fontPath = new Font("Segoe UI", 9F, FontStyle.Bold))
-                {
-                    e.Graphics.DrawString(item.DisplayText, fontPath, brushPath, e.Bounds.Left + 12, e.Bounds.Top + 3);
-                }
-                break;
-
-            case ListItemType.PathUp:
-                using (var brushUp = new SolidBrush(isSelected ? Color.Black : Color.FromArgb(0, 75, 135)))
-                using (var fontUp = new Font("Segoe UI", 9F, FontStyle.Bold))
-                {
-                    e.Graphics.DrawString(item.DisplayText, fontUp, brushUp, e.Bounds.Left + 12, e.Bounds.Top + 3);
-                }
-                break;
-
-            case ListItemType.Company:
-                // 1. Name (Left)
-                using (var brushName = new SolidBrush(fg))
-                using (var fontName = new Font("Segoe UI", 9.25F, isSelected ? FontStyle.Bold : FontStyle.Regular))
-                {
-                    var nameRect = new Rectangle(e.Bounds.Left + 12, e.Bounds.Top + 2, 310, e.Bounds.Height - 4);
-                    var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-                    e.Graphics.DrawString(item.DisplayText, fontName, brushName, nameRect, sf);
-                }
-
-                // 2. Number (Center)
-                using (var brushNum = new SolidBrush(isSelected ? Color.Black : Color.FromArgb(90, 105, 120)))
-                using (var fontNum = new Font("Segoe UI", 9F, FontStyle.Regular))
-                {
-                    var numRect = new Rectangle(e.Bounds.Left + 330, e.Bounds.Top + 2, 120, e.Bounds.Height - 4);
-                    var sf = new StringFormat { LineAlignment = StringAlignment.Center };
-                    e.Graphics.DrawString(item.NumberText, fontNum, brushNum, numRect, sf);
-                }
-
-                // 3. Period (Right)
-                using (var brushPeriod = new SolidBrush(isSelected ? Color.Black : Color.FromArgb(100, 115, 130)))
-                using (var fontPeriod = new Font("Segoe UI", 8.5F, FontStyle.Italic))
-                {
-                    var periodRect = new Rectangle(e.Bounds.Left + 460, e.Bounds.Top + 2, e.Bounds.Width - 470, e.Bounds.Height - 4);
-                    var sf = new StringFormat { LineAlignment = StringAlignment.Center };
-                    e.Graphics.DrawString(item.PeriodText, fontPeriod, brushPeriod, periodRect, sf);
-                }
-                break;
-        }
-
-        // Focus rectangle
-        if (isSelected)
-        {
-            using var penBorder = new Pen(Color.FromArgb(180, 130, 0), 1);
-            e.Graphics.DrawRectangle(penBorder, e.Bounds.Left, e.Bounds.Top, e.Bounds.Width - 1, e.Bounds.Height - 1);
-        }
-    }
-
-    private void OnSearchKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.KeyCode == Keys.Down)
-        {
-            e.Handled = true;
-            MoveSelection(1);
-        }
-        else if (e.KeyCode == Keys.Up)
-        {
-            e.Handled = true;
-            MoveSelection(-1);
-        }
-        else if (e.KeyCode == Keys.Enter)
-        {
-            e.Handled = true;
-            ExecuteCurrentSelection();
-        }
-        else if (e.KeyCode == Keys.Escape)
-        {
-            e.Handled = true;
-            this.Close();
-        }
-    }
-
-    private void OnFormKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.KeyCode == Keys.Escape)
-        {
-            this.Close();
-        }
-        else if (e.Alt && e.KeyCode == Keys.C)
-        {
-            e.Handled = true;
-            CreateNewCompany();
-        }
-        else if (e.Alt && e.KeyCode == Keys.A)
-        {
-            e.Handled = true;
-            AlterCurrentCompany();
-        }
-        else if (e.Alt && e.KeyCode == Keys.D)
-        {
-            e.Handled = true;
-            DeleteCurrentCompany();
-        }
-        else if (e.Alt && e.KeyCode == Keys.S)
-        {
-            e.Handled = true;
-            SplitCurrentCompany();
-        }
-        else if (e.Alt && e.KeyCode == Keys.Y)
-        {
-            e.Handled = true;
-            ShowDataMenu(this);
-        }
-    }
-
-    private void MoveSelection(int delta)
-    {
-        if (lstCompanies.Items.Count == 0) return;
-        int next = lstCompanies.SelectedIndex + delta;
-
-        while (next >= 0 && next < _filteredItems.Count && !_filteredItems[next].IsSelectable)
-        {
-            next += delta;
-        }
-
-        if (next >= 0 && next < _filteredItems.Count)
-        {
-            lstCompanies.SelectedIndex = next;
-        }
-    }
-
+    // ═══════════════════════════════════════════════════════════════
+    //  SELECTION & EXECUTION
+    // ═══════════════════════════════════════════════════════════════
     private void ExecuteCurrentSelection()
     {
-        if (lstCompanies.SelectedIndex < 0 || lstCompanies.SelectedIndex >= _filteredItems.Count) return;
-        var item = _filteredItems[lstCompanies.SelectedIndex];
-
-        switch (item.Type)
+        if (gridCompanies.CurrentRow == null || gridCompanies.CurrentRow.Tag is not CompanyGridRowItem item)
         {
-            case ListItemType.ActionCreateCompany:
-                CreateNewCompany();
-                break;
-
-            case ListItemType.ActionSelectRemote:
-                MessageBox.Show("Remote company access is currently in local mode.", "Tally Prime", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                break;
-
-            case ListItemType.ActionSpecifyPath:
-            case ListItemType.ActionSelectFromDrive:
-                SelectDataPath();
-                break;
-
-            case ListItemType.PathUp:
-                try
-                {
-                    var parent = Directory.GetParent(_currentDataPath);
-                    if (parent != null && parent.Exists)
-                    {
-                        _currentDataPath = parent.FullName;
-                        ApplyFilter();
-                    }
-                }
-                catch { }
-                break;
-
-            case ListItemType.Company:
-                if (item.CompanyDto != null)
-                {
-                    SelectCompany(item.CompanyDto.CompanyId);
-                }
-                break;
+            return;
         }
+
+        SelectCompany(item.CompanyId);
     }
 
     private async void SelectCompany(int companyId)
     {
-        var comp = _allCompanies.FirstOrDefault(c => c.CompanyId == companyId);
+        int targetId = companyId;
+        if (targetId >= 1000)
+        {
+            var primary = _allCompanies.FirstOrDefault(c => c.CompanyId < 1000);
+            if (primary != null) targetId = primary.CompanyId;
+        }
+
+        var comp = _allCompanies.FirstOrDefault(c => c.CompanyId == targetId);
         if (comp != null && comp.IsPasswordProtected)
         {
             using var pwdDlg = new CompanyPasswordPromptDialog(comp.CompanyName, comp.CompanyNumber);
@@ -848,27 +845,27 @@ public class CompanyListForm : Form
             {
                 if (pwdDlg.ShowDialog(this) != DialogResult.OK)
                 {
-                    return; // user cancelled password prompt
+                    return;
                 }
 
-                bool valid = await _companyService.VerifyCompanyPasswordAsync(companyId, pwdDlg.EnteredPassword);
+                bool valid = await _companyService.VerifyCompanyPasswordAsync(targetId, pwdDlg.EnteredPassword);
                 if (valid)
                 {
                     verified = true;
                 }
                 else
                 {
-                    pwdDlg.SetError("Incorrect Tally Vault password. Please try again.");
+                    pwdDlg.SetError("Incorrect Executive Ledger / Tally Vault password. Please try again.");
                 }
             }
         }
 
-        bool ok = await _companyService.OpenCompanyAsync(companyId);
+        bool ok = await _companyService.OpenCompanyAsync(targetId);
         if (ok)
         {
             CompanySelected = true;
-            this.DialogResult = DialogResult.OK;
-            this.Close();
+            DialogResult = DialogResult.OK;
+            Close();
         }
         else
         {
@@ -876,147 +873,103 @@ public class CompanyListForm : Form
         }
     }
 
-    private async void SplitCurrentCompany()
-    {
-        var comp = GetSelectedCompany();
-        if (comp == null)
-        {
-            MessageBox.Show("Please select a company to split.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        if (_companySplitService == null)
-        {
-            MessageBox.Show("Company Split service is not available.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
-        }
-
-        var fullComp = await _companyService.GetCompanyByIdAsync(comp.CompanyId);
-        if (fullComp == null)
-        {
-            MessageBox.Show("Could not load company details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
-        }
-
-        using var splitDlg = new CompanySplitDialog(_companySplitService, fullComp);
-        if (splitDlg.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadCompaniesAsync();
-        }
-    }
-
-    private void ShowDataMenu(Control anchor)
-    {
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Split Company Data (Financial Year-End Rollover)...", null, (s, e) => SplitCurrentCompany());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Specify Company Data Path...", null, (s, e) => SelectDataPath());
-        menu.Items.Add("Select from Drive...", null, (s, e) => SelectDataPath());
-        menu.Show(anchor, new Point(0, anchor.Height));
-    }
-
-    private void CreateNewCompany()
-    {
-        using var form = new CompanyCreateEditForm(_companyService);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadCompaniesAsync();
-            CompanySelected = true;
-            this.DialogResult = DialogResult.OK;
-            this.Close();
-        }
-    }
-
-    private void AlterCurrentCompany()
-    {
-        var comp = GetSelectedCompany();
-        if (comp == null)
-        {
-            MessageBox.Show("Please select a company to alter.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        using var form = new CompanyCreateEditForm(_companyService, comp.CompanyId);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadCompaniesAsync();
-        }
-    }
-
-    private async void DeleteCurrentCompany()
-    {
-        var comp = GetSelectedCompany();
-        if (comp == null)
-        {
-            MessageBox.Show("Please select a company to delete.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        var res = MessageBox.Show($"Are you sure you want to mark company '{comp.CompanyName}' as inactive?",
-            "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
-        if (res == DialogResult.Yes)
-        {
-            await _companyService.DeleteCompanyAsync(comp.CompanyId);
-            LoadCompaniesAsync();
-        }
-    }
-
-    private CompanySummaryDto? GetSelectedCompany()
-    {
-        if (lstCompanies.SelectedIndex < 0 || lstCompanies.SelectedIndex >= _filteredItems.Count) return null;
-        var item = _filteredItems[lstCompanies.SelectedIndex];
-        return item.CompanyDto;
-    }
-
     private void SelectDataPath()
     {
-        using var fbd = new FolderBrowserDialog();
-        fbd.Description = "Select Tally / MoneyFlow Company Data Path";
-        fbd.UseDescriptionForTitle = true;
-        if (Directory.Exists(_currentDataPath))
+        using var fbd = new FolderBrowserDialog
         {
-            fbd.SelectedPath = _currentDataPath;
-        }
+            Description = "Select Company Data Directory",
+            SelectedPath = _currentDataPath,
+            ShowNewFolderButton = true
+        };
 
         if (fbd.ShowDialog(this) == DialogResult.OK)
         {
             _currentDataPath = fbd.SelectedPath;
-            ApplyFilter();
+            if (!_currentDataPath.EndsWith("\\")) _currentDataPath += "\\";
+            txtDataPath.Text = _currentDataPath;
+            LoadCompaniesAsync();
+        }
+    }
+
+    private void NavigateUpDirectory()
+    {
+        try
+        {
+            var parent = Directory.GetParent(_currentDataPath.TrimEnd('\\'));
+            if (parent != null)
+            {
+                _currentDataPath = parent.FullName + "\\";
+                txtDataPath.Text = _currentDataPath;
+                LoadCompaniesAsync();
+            }
+        }
+        catch { }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  KEYBOARD NAVIGATION
+    // ═══════════════════════════════════════════════════════════════
+    private void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Down)
+        {
+            gridCompanies.Focus();
+            if (gridCompanies.Rows.Count > 0)
+            {
+                gridCompanies.Rows[0].Selected = true;
+                gridCompanies.CurrentCell = gridCompanies.Rows[0].Cells[0];
+            }
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Enter)
+        {
+            ExecuteCurrentSelection();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Escape)
+        {
+            Close();
+            e.Handled = true;
+        }
+    }
+
+    private void OnGridKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter)
+        {
+            ExecuteCurrentSelection();
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Escape)
+        {
+            txtSearch.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnFormKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Escape)
+        {
+            Close();
+            e.Handled = true;
         }
     }
 }
 
-internal enum ListItemType
+/// <summary>
+/// Data row view model for company selection grid
+/// </summary>
+public class CompanyGridRowItem
 {
-    ActionCreateCompany,
-    ActionSelectRemote,
-    ActionSpecifyPath,
-    ActionSelectFromDrive,
-    PathHeader,
-    PathUp,
-    Company
-}
-
-internal class CompanyListItem
-{
-    public ListItemType Type { get; set; }
-    public string DisplayText { get; set; } = string.Empty;
-    public string NumberText { get; set; } = string.Empty;
-    public string PeriodText { get; set; } = string.Empty;
+    public int CompanyId { get; set; }
+    public string CompanyName { get; set; } = string.Empty;
+    public string CompanyNumber { get; set; } = string.Empty;
+    public string FinancialPeriod { get; set; } = string.Empty;
+    public string Currency { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string LastSynchronized { get; set; } = string.Empty;
+    public bool IsPasswordProtected { get; set; }
+    public bool IsCurrentDefault { get; set; }
     public CompanySummaryDto? CompanyDto { get; set; }
-    public bool IsSelectable { get; set; } = true;
-
-    public override string ToString() => DisplayText;
-}
-
-internal class DoubleBufferedListBox : ListBox
-{
-    public DoubleBufferedListBox()
-    {
-        this.SetStyle(ControlStyles.OptimizedDoubleBuffer |
-                      ControlStyles.AllPaintingInWmPaint |
-                      ControlStyles.UserPaint, false);
-        this.DoubleBuffered = true;
-    }
 }

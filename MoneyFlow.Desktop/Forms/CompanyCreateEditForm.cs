@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -111,7 +112,7 @@ public class CompanyCreateEditForm : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         // Header Panel
         var headerPanel = new Panel
@@ -123,7 +124,7 @@ public class CompanyCreateEditForm : Form
         var lblTitle = new Label
         {
             Text = isEdit ? "Alter Company" : "Company Creation",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             ForeColor = Color.White,
             Location = new Point(20, 16),
             AutoSize = true
@@ -186,7 +187,7 @@ public class CompanyCreateEditForm : Form
         var lblNumHint = new Label
         {
             Text = "(Leave blank to auto-generate e.g. 010002)",
-            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 116, 139),
             Location = new Point(345, y),
             AutoSize = true
@@ -318,7 +319,7 @@ public class CompanyCreateEditForm : Form
             Size = new Size(185, 35),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         btnSave.Click += async (s, e) => await SaveAsync();
 

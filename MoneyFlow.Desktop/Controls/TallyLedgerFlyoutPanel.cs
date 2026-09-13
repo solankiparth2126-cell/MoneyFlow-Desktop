@@ -3,18 +3,23 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Controls;
 
+/// <summary>
+/// Executive Ledger lookup flyout panel — used for F4 account/item lookup.
+/// Sharp borders, navy header, search input, keyboard navigation, Enter to select, Esc to cancel.
+/// </summary>
 public class TallyLedgerFlyoutPanel : UserControl
 {
     private readonly Label _lblTitle;
-    private readonly Button _btnClose;
+    private readonly Guna2Button _btnClose;
     private readonly LinkLabel _lnkCreate;
     private readonly LinkLabel _lnkShowMore;
-    private readonly TextBox _txtSearch;
+    private readonly Guna2TextBox _txtSearch;
     private readonly ListBox _lstLedgers;
 
     private List<LedgerSummaryDto> _allLedgers = new();
@@ -27,50 +32,59 @@ public class TallyLedgerFlyoutPanel : UserControl
     public TallyLedgerFlyoutPanel()
     {
         Width = 290;
-        BackColor = TallyPrimeTheme.FlyoutBodyBg;
-        BorderStyle = BorderStyle.FixedSingle;
+        BackColor = ExecLedgerTheme.WorkSurface;
+        BorderStyle = BorderStyle.None;
+
+        // Outer border
+        Paint += (s, e) =>
+        {
+            using var pen = new Pen(ExecLedgerTheme.PrimaryBorder, 1);
+            e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+        };
 
         var mainLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 4,
-            Padding = new Padding(0),
+            Padding = new Padding(1),
             Margin = new Padding(0)
         };
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // Header
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24)); // Actions (Create / Show More)
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26)); // Search box
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24)); // Actions
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // Search
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // List
 
         // 1. Header Bar
         var pnlHeader = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = TallyPrimeTheme.FlyoutHeaderBg,
+            BackColor = ExecLedgerTheme.PrimaryNavy,
             Margin = new Padding(0)
         };
         _lblTitle = new Label
         {
             Text = "List of Ledger Accounts",
-            ForeColor = TallyPrimeTheme.FlyoutHeaderFg,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            ForeColor = ExecLedgerTheme.WhiteText,
+            Font = ExecLedgerTheme.UIBold9,
             AutoSize = false,
             Location = new Point(8, 5),
-            Size = new Size(245, 18)
+            Size = new Size(240, 18),
+            BackColor = Color.Transparent
         };
-        _btnClose = new Button
+        _btnClose = new Guna2Button
         {
             Text = "✕",
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.Transparent,
-            Size = new Size(22, 20),
-            Location = new Point(262, 3),
+            ForeColor = ExecLedgerTheme.WhiteText,
+            FillColor = Color.Transparent,
+            BorderThickness = 0,
+            BorderRadius = 0,
+            Size = new Size(28, 28),
+            Location = new Point(260, 0),
+            Font = ExecLedgerTheme.UIRegular8,
             Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold)
+            HoverState = { FillColor = ExecLedgerTheme.CloseHover }
         };
-        _btnClose.FlatAppearance.BorderSize = 0;
         _btnClose.Click += (s, e) =>
         {
             Visible = false;
@@ -79,28 +93,28 @@ public class TallyLedgerFlyoutPanel : UserControl
         pnlHeader.Controls.Add(_lblTitle);
         pnlHeader.Controls.Add(_btnClose);
 
-        // 2. Action bar (Create, Show More)
+        // 2. Action bar
         var pnlActions = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.RightToLeft,
-            BackColor = TallyPrimeTheme.FlyoutBodyBg,
+            BackColor = ExecLedgerTheme.WorkSurface,
             Padding = new Padding(4, 2, 4, 0),
             Margin = new Padding(0)
         };
         _lnkShowMore = new LinkLabel
         {
             Text = "Show More",
-            LinkColor = Color.FromArgb(0, 75, 135),
-            Font = new Font("Segoe UI", 8.5F),
+            LinkColor = ExecLedgerTheme.SteelBlue,
+            Font = ExecLedgerTheme.UIRegular8,
             AutoSize = true,
             Margin = new Padding(6, 2, 0, 0)
         };
         _lnkCreate = new LinkLabel
         {
             Text = "Create",
-            LinkColor = Color.FromArgb(0, 75, 135),
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            LinkColor = ExecLedgerTheme.SteelBlue,
+            Font = ExecLedgerTheme.UIBold8,
             AutoSize = true,
             Margin = new Padding(0, 2, 0, 0)
         };
@@ -109,12 +123,19 @@ public class TallyLedgerFlyoutPanel : UserControl
         pnlActions.Controls.Add(_lnkCreate);
 
         // 3. Search Box
-        _txtSearch = new TextBox
+        _txtSearch = new Guna2TextBox
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9F),
-            Margin = new Padding(4, 0, 4, 2)
+            Font = ExecLedgerTheme.UIRegular9,
+            BorderRadius = ExecLedgerTheme.BorderRadius,
+            BorderColor = ExecLedgerTheme.PrimaryBorder,
+            BorderThickness = 1,
+            FillColor = ExecLedgerTheme.InputBg,
+            ForeColor = ExecLedgerTheme.PrimaryText,
+            PlaceholderText = "Search ledger...",
+            Margin = new Padding(4, 2, 4, 2)
         };
+        _txtSearch.FocusedState.BorderColor = ExecLedgerTheme.InputFocusBorder;
         _txtSearch.TextChanged += (s, e) => ApplyFilter(_txtSearch.Text);
         _txtSearch.KeyDown += (s, e) =>
         {
@@ -143,15 +164,15 @@ public class TallyLedgerFlyoutPanel : UserControl
             }
         };
 
-        // 4. ListBox with Tally-style golden selection
+        // 4. ListBox with Executive Ledger selection style
         _lstLedgers = new ListBox
         {
             Dock = DockStyle.Fill,
             DrawMode = DrawMode.OwnerDrawFixed,
-            ItemHeight = 22,
+            ItemHeight = ExecLedgerTheme.DenseGridRow,
             BorderStyle = BorderStyle.None,
-            Font = new Font("Segoe UI", 9F),
-            BackColor = Color.White,
+            Font = ExecLedgerTheme.UIRegular9,
+            BackColor = ExecLedgerTheme.WorkSurface,
             IntegralHeight = false
         };
         _lstLedgers.DrawItem += OnDrawItem;
@@ -194,7 +215,6 @@ public class TallyLedgerFlyoutPanel : UserControl
     public void FocusSearch()
     {
         _txtSearch.Focus();
-        _txtSearch.SelectAll();
     }
 
     private void ApplyFilter(string query, bool includeEndOfList = true)
@@ -204,7 +224,7 @@ public class TallyLedgerFlyoutPanel : UserControl
 
         if (includeEndOfList && string.IsNullOrWhiteSpace(query))
         {
-            _lstLedgers.Items.Add("♦ End of List");
+            _lstLedgers.Items.Add("— End of List —");
         }
 
         if (string.IsNullOrWhiteSpace(query))
@@ -239,32 +259,43 @@ public class TallyLedgerFlyoutPanel : UserControl
         bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
         var item = _lstLedgers.Items[e.Index];
 
-        using var bgBrush = new SolidBrush(isSelected ? TallyPrimeTheme.FlyoutSelectedBg : Color.White);
+        // Background
+        using var bgBrush = new SolidBrush(isSelected ? ExecLedgerTheme.PrimarySelection : ExecLedgerTheme.WorkSurface);
         e.Graphics.FillRectangle(bgBrush, e.Bounds);
 
+        // Selection left accent
+        if (isSelected)
+        {
+            using var accentBrush = new SolidBrush(ExecLedgerTheme.PrimaryNavy);
+            e.Graphics.FillRectangle(accentBrush, e.Bounds.Left, e.Bounds.Top, 3, e.Bounds.Height);
+        }
+
         string text;
-        Font font = TallyPrimeTheme.RegularFont;
-        Color textColor = isSelected ? Color.Black : TallyPrimeTheme.TextPrimary;
+        Font font;
+        Color textColor;
 
         if (item is string str)
         {
             text = str;
-            font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            font = ExecLedgerTheme.UIBold8;
+            textColor = ExecLedgerTheme.SecondaryText;
         }
         else if (item is LedgerSummaryDto dto)
         {
             text = dto.LedgerName;
+            font = isSelected ? ExecLedgerTheme.UIBold9 : ExecLedgerTheme.UIRegular9;
+            textColor = isSelected ? ExecLedgerTheme.PrimaryNavy : ExecLedgerTheme.PrimaryText;
         }
         else
         {
             text = item.ToString() ?? string.Empty;
+            font = ExecLedgerTheme.UIRegular9;
+            textColor = ExecLedgerTheme.PrimaryText;
         }
 
         using var textBrush = new SolidBrush(textColor);
-        var textBounds = new Rectangle(e.Bounds.Left + 8, e.Bounds.Top + 2, e.Bounds.Width - 16, e.Bounds.Height - 4);
+        var textBounds = new Rectangle(e.Bounds.Left + 10, e.Bounds.Top + 2, e.Bounds.Width - 16, e.Bounds.Height - 4);
         e.Graphics.DrawString(text, font, textBrush, textBounds, new StringFormat { LineAlignment = StringAlignment.Center });
-
-        e.DrawFocusRectangle();
     }
 
     private void ConfirmSelection()
@@ -272,7 +303,7 @@ public class TallyLedgerFlyoutPanel : UserControl
         if (_lstLedgers.SelectedIndex < 0) return;
 
         var selected = _lstLedgers.SelectedItem;
-        if (selected is string && selected.ToString() == "♦ End of List")
+        if (selected is string && selected.ToString() == "— End of List —")
         {
             LedgerSelected?.Invoke(null);
         }

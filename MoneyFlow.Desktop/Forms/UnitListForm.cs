@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -14,7 +16,7 @@ public class UnitListForm : Form
     private readonly IInventoryService _inventoryService;
     private readonly ICompanyContext _companyContext;
 
-    private DataGridView _dgvUnits = null!;
+    private Guna2DataGridView _dgvUnits = null!;
     private TextBox _txtSearch = null!;
     private Button _btnCreate = null!;
     private Button _btnAlter = null!;
@@ -39,7 +41,7 @@ public class UnitListForm : Form
         Text = "Units of Measure (Inventory Masters)";
         Size = new Size(820, 520);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -70,7 +72,7 @@ public class UnitListForm : Form
         mainLayout.Controls.Add(topPanel, 0, 0);
 
         // 2. DataGridView
-        _dgvUnits = new DataGridView
+        _dgvUnits = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
@@ -112,7 +114,7 @@ public class UnitListForm : Form
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             ForeColor = Color.FromArgb(70, 80, 95),
-            Font = new Font("Segoe UI", 9F)
+            Font = ExecLedgerTheme.UIRegular9
         };
         mainLayout.Controls.Add(_lblStatus, 0, 2);
 

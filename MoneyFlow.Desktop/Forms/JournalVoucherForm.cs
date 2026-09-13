@@ -9,6 +9,9 @@ using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class JournalVoucherForm : Form
@@ -24,7 +27,7 @@ public class JournalVoucherForm : Form
     private Label _lblVoucherNumber = null!;
     private DateTimePicker _dtpVoucherDate = null!;
     private TextBox _txtRefNo = null!;
-    private DataGridView _dgvEntries = null!;
+    private Guna2DataGridView _dgvEntries = null!;
     private TextBox _txtNarration = null!;
     private Label _lblTotalDebit = null!;
     private Label _lblTotalCredit = null!;
@@ -54,7 +57,7 @@ public class JournalVoucherForm : Form
         Text = "Journal Voucher (F7) — Adjustment & Transfer Entries";
         Size = new Size(980, 680);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -75,7 +78,7 @@ public class JournalVoucherForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 6,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10)
         };
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
@@ -85,8 +88,8 @@ public class JournalVoucherForm : Form
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80));
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
-        pnlHeader.Controls.Add(new Label { Text = "Voucher No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
-        _lblVoucherNumber = new Label { Text = "JRN-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
+        pnlHeader.Controls.Add(new Label { Text = "Voucher No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 0, 0);
+        _lblVoucherNumber = new Label { Text = "JRN-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
         pnlHeader.Controls.Add(_lblVoucherNumber, 1, 0);
 
         pnlHeader.Controls.Add(new Label { Text = "Date:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
@@ -94,11 +97,11 @@ public class JournalVoucherForm : Form
         pnlHeader.Controls.Add(_dtpVoucherDate, 3, 0);
 
         pnlHeader.Controls.Add(new Label { Text = "Ref No:", AutoSize = true, Anchor = AnchorStyles.Left }, 4, 0);
-        _txtRefNo = new TextBox { Width = 140, Font = new Font("Segoe UI", 9.5F) };
+        _txtRefNo = new TextBox { Width = 140, Font = ExecLedgerTheme.UIRegular9 };
         pnlHeader.Controls.Add(_txtRefNo, 5, 0);
 
         // 2. DataGridView for Line Items (Dual Dr / Cr entries)
-        _dgvEntries = new DataGridView
+        _dgvEntries = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -182,13 +185,13 @@ public class JournalVoucherForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true
         };
-        _lblTotalCredit = new Label { Text = "Credit: ₹0.00", Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), AutoSize = true, Margin = new Padding(15, 0, 0, 0) };
-        _lblTotalDebit = new Label { Text = "Debit: ₹0.00", Font = new Font("Segoe UI", 10F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102), AutoSize = true };
+        _lblTotalCredit = new Label { Text = "Credit: ₹0.00", Font = ExecLedgerTheme.UIBold10, ForeColor = ExecLedgerTheme.PrimaryNavy, AutoSize = true, Margin = new Padding(15, 0, 0, 0) };
+        _lblTotalDebit = new Label { Text = "Debit: ₹0.00", Font = ExecLedgerTheme.UIBold10, ForeColor = ExecLedgerTheme.PrimaryNavy, AutoSize = true };
         pnlTotals.Controls.Add(_lblTotalCredit);
         pnlTotals.Controls.Add(_lblTotalDebit);
         pnlSummary.Controls.Add(pnlTotals, 1, 0);
 
-        _txtNarration = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F), Multiline = true, Height = 40 };
+        _txtNarration = new TextBox { Dock = DockStyle.Fill, Font = ExecLedgerTheme.UIRegular9, Multiline = true, Height = 40 };
         pnlSummary.Controls.Add(_txtNarration, 0, 1);
         pnlSummary.SetRowSpan(_txtNarration, 2);
 
@@ -198,8 +201,8 @@ public class JournalVoucherForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             AutoSize = true
         };
-        _lblDifference = new Label { Text = "Diff: ₹0.00", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DimGray, AutoSize = true, Margin = new Padding(15, 0, 0, 0) };
-        _lblBalanceStatus = new Label { Text = "Enter entries", Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkOrange, AutoSize = true };
+        _lblDifference = new Label { Text = "Diff: ₹0.00", Font = ExecLedgerTheme.UIBold10, ForeColor = Color.DimGray, AutoSize = true, Margin = new Padding(15, 0, 0, 0) };
+        _lblBalanceStatus = new Label { Text = "Enter entries", Font = ExecLedgerTheme.UIBold10, ForeColor = Color.DarkOrange, AutoSize = true };
         pnlStatus.Controls.Add(_lblDifference);
         pnlStatus.Controls.Add(_lblBalanceStatus);
         pnlSummary.Controls.Add(pnlStatus, 1, 1);
@@ -215,12 +218,12 @@ public class JournalVoucherForm : Form
         _btnSave = new Button
         {
             Text = "Save (Ctrl+A)",
-            BackColor = Color.FromArgb(0, 51, 102),
+            BackColor = ExecLedgerTheme.PrimaryNavy,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Height = 34,
             Width = 130,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Margin = new Padding(0, 0, 8, 0)
         };
         _btnSave.FlatAppearance.BorderSize = 0;
@@ -234,7 +237,7 @@ public class JournalVoucherForm : Form
             FlatStyle = FlatStyle.Flat,
             Height = 34,
             Width = 140,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             Margin = new Padding(0, 0, 8, 0)
         };
         _btnSaveAndNew.FlatAppearance.BorderSize = 0;
@@ -290,7 +293,7 @@ public class JournalVoucherForm : Form
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("No active company or financial year selected.", "MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Close();
                 return;
             }

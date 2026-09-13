@@ -11,6 +11,9 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class CashBankBookForm : Form
@@ -36,7 +39,7 @@ public class CashBankBookForm : Form
     private Label _lblOpeningBalance = null!;
 
     // UI Controls - Data Grid
-    private DataGridView _dgvEntries = null!;
+    private Guna2DataGridView _dgvEntries = null!;
 
     // UI Controls - Footer
     private Label _lblTxnCount = null!;
@@ -79,7 +82,7 @@ public class CashBankBookForm : Form
         Text = "Cash & Bank Books Register";
         Size = new Size(1220, 780);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -101,7 +104,7 @@ public class CashBankBookForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 10,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115)); // Radio Cash Book
@@ -119,7 +122,7 @@ public class CashBankBookForm : Form
         {
             Text = "Cash Book",
             Checked = true,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             AutoSize = true,
             Anchor = AnchorStyles.Left
@@ -138,7 +141,7 @@ public class CashBankBookForm : Form
         _rbBankBook = new RadioButton
         {
             Text = "Bank Book",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             AutoSize = true,
             Anchor = AnchorStyles.Left
@@ -159,7 +162,7 @@ public class CashBankBookForm : Form
             Text = "Account:",
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         }, 2, 0);
 
         _cmbAccount = new ComboBox
@@ -175,7 +178,7 @@ public class CashBankBookForm : Form
             Text = "From (F2):",
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         }, 4, 0);
 
         _dtpFromDate = new DateTimePicker
@@ -191,7 +194,7 @@ public class CashBankBookForm : Form
             Text = "To:",
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         }, 6, 0);
 
         _dtpToDate = new DateTimePicker
@@ -232,7 +235,7 @@ public class CashBankBookForm : Form
         _lblAccountInfo = new Label
         {
             Text = "Book: Cash Book | Account: All Cash Accounts",
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             ForeColor = Color.FromArgb(24, 43, 73),
             AutoSize = true,
             Dock = DockStyle.Left
@@ -241,7 +244,7 @@ public class CashBankBookForm : Form
         _lblOpeningBalance = new Label
         {
             Text = "Opening Balance: ₹0.00 Dr",
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold10,
             ForeColor = Color.FromArgb(37, 99, 235),
             AutoSize = true,
             Dock = DockStyle.Right
@@ -252,7 +255,7 @@ public class CashBankBookForm : Form
         mainLayout.Controls.Add(pnlCard, 0, 1);
 
         // 3. High-Density DataGridView
-        _dgvEntries = new DataGridView
+        _dgvEntries = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = false,
@@ -285,7 +288,7 @@ public class CashBankBookForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 5,
             RowCount = 1,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10, 8, 10, 8)
         };
         pnlFooter.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
@@ -297,7 +300,7 @@ public class CashBankBookForm : Form
         _lblTxnCount = new Label
         {
             Text = "Transactions: 0",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(70, 80, 95),
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -306,7 +309,7 @@ public class CashBankBookForm : Form
         _lblTotalDebit = new Label
         {
             Text = "Total Receipts: ₹0.00",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(16, 125, 65), // Green
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -315,7 +318,7 @@ public class CashBankBookForm : Form
         _lblTotalCredit = new Label
         {
             Text = "Total Payments: ₹0.00",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(180, 40, 40), // Red
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -324,7 +327,7 @@ public class CashBankBookForm : Form
         _lblClosingBalance = new Label
         {
             Text = "Closing: ₹0.00 Dr",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(24, 43, 73),
             Anchor = AnchorStyles.Left,
             AutoSize = true
@@ -333,7 +336,7 @@ public class CashBankBookForm : Form
         _lblValidationBadge = new Label
         {
             Text = "[ ✔ ] RECONCILED",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(16, 125, 65),
             Anchor = AnchorStyles.Right,
             AutoSize = true
@@ -479,7 +482,7 @@ public class CashBankBookForm : Form
             Width = 150,
             DefaultCellStyle = {
                 Alignment = DataGridViewContentAlignment.MiddleRight,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Font = ExecLedgerTheme.UIBold9,
                 ForeColor = Color.FromArgb(24, 43, 73)
             }
         });
@@ -606,8 +609,8 @@ public class CashBankBookForm : Form
         // Render Opening Balance Row
         var opIdx = _dgvEntries.Rows.Add();
         var opRow = _dgvEntries.Rows[opIdx];
-        opRow.DefaultCellStyle.BackColor = Color.FromArgb(245, 248, 252);
-        opRow.DefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Italic);
+        opRow.DefaultCellStyle.BackColor = ExecLedgerTheme.SecondarySurface;
+        opRow.DefaultCellStyle.Font = ExecLedgerTheme.UIRegular8;
         opRow.Cells["ColDate"].Value = _currentReport.FromDate.ToString("dd-MMM-yyyy");
         opRow.Cells["ColParticulars"].Value = "** Opening Balance **";
         opRow.Cells["ColRunningBalance"].Value = _currentReport.FormattedOpeningBalance;
@@ -755,9 +758,9 @@ public class CashBankBookForm : Form
                 var g = e.Graphics!;
                 float y = 50;
                 var fontHeader = new Font("Segoe UI", 13F, FontStyle.Bold);
-                var fontSubHeader = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-                var fontBody = new Font("Segoe UI", 8.5F);
-                var fontItalic = new Font("Segoe UI", 8.5F, FontStyle.Italic);
+                var fontSubHeader = ExecLedgerTheme.UIBold9;
+                var fontBody = ExecLedgerTheme.UIRegular8;
+                var fontItalic = ExecLedgerTheme.UIRegular8;
 
                 // Title
                 string companyName = _companyContext.CurrentCompany?.CompanyName ?? "MoneyFlow Desktop Accounting";

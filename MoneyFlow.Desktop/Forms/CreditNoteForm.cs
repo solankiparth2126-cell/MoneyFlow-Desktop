@@ -9,6 +9,9 @@ using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
+using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class CreditNoteForm : Form
@@ -29,7 +32,7 @@ public class CreditNoteForm : Form
     private Label _lblPartyBalance = null!;
     private ComboBox _cmbSalesLedger = null!;
     private Label _lblSalesBalance = null!;
-    private DataGridView _dgvItems = null!;
+    private Guna2DataGridView _dgvItems = null!;
     private TextBox _txtNarration = null!;
     private Label _lblNetTotal = null!;
     private Label _lblBalanceStatus = null!;
@@ -55,7 +58,7 @@ public class CreditNoteForm : Form
         Text = "Credit Note (Sales Return / Customer Credit Adjustment) — No GST";
         Size = new Size(1020, 720);
         StartPosition = FormStartPosition.CenterParent;
-        Font = new Font("Segoe UI", 9.5F);
+        Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
         var mainLayout = new TableLayoutPanel
@@ -76,7 +79,7 @@ public class CreditNoteForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 6,
             RowCount = 3,
-            BackColor = Color.FromArgb(245, 248, 252),
+            BackColor = ExecLedgerTheme.SecondarySurface,
             Padding = new Padding(10)
         };
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
@@ -87,8 +90,8 @@ public class CreditNoteForm : Form
         pnlHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
         // Row 0: Voucher No, Date
-        pnlHeader.Controls.Add(new Label { Text = "Credit Note No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 0);
-        _lblVoucherNumber = new Label { Text = "CRN-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.FromArgb(0, 51, 102), Font = new Font("Segoe UI", 10F, FontStyle.Bold) };
+        pnlHeader.Controls.Add(new Label { Text = "Credit Note No:", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 0, 0);
+        _lblVoucherNumber = new Label { Text = "CRN-00001", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = ExecLedgerTheme.PrimaryNavy, Font = ExecLedgerTheme.UIBold10 };
         pnlHeader.Controls.Add(_lblVoucherNumber, 1, 0);
 
         pnlHeader.Controls.Add(new Label { Text = "Date:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 0);
@@ -97,7 +100,7 @@ public class CreditNoteForm : Form
 
         // Row 1: Original Sales Invoice Ref & Date
         pnlHeader.Controls.Add(new Label { Text = "Orig Inv No:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-        _txtOriginalInvoiceNo = new TextBox { Width = 160, Font = new Font("Segoe UI", 9.5F) };
+        _txtOriginalInvoiceNo = new TextBox { Width = 160, Font = ExecLedgerTheme.UIRegular9 };
         pnlHeader.Controls.Add(_txtOriginalInvoiceNo, 1, 1);
 
         pnlHeader.Controls.Add(new Label { Text = "Orig Date:", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 1);
@@ -105,18 +108,18 @@ public class CreditNoteForm : Form
         pnlHeader.Controls.Add(_dtpOriginalInvoiceDate, 3, 1);
 
         // Row 2: Customer Party (Cr) & Sales Return / Income Account (Dr)
-        pnlHeader.Controls.Add(new Label { Text = "Customer (Cr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 0, 2);
+        pnlHeader.Controls.Add(new Label { Text = "Customer (Cr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 0, 2);
         var pnlParty = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _cmbParty = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220, Font = new Font("Segoe UI", 9.5F) };
+        _cmbParty = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220, Font = ExecLedgerTheme.UIRegular9 };
         _cmbParty.SelectedIndexChanged += async (s, e) => await OnPartySelectedAsync();
         _lblPartyBalance = new Label { Text = "Cur Bal: ₹0.00", AutoSize = true, ForeColor = Color.FromArgb(0, 100, 0), Margin = new Padding(10, 5, 0, 0) };
         pnlParty.Controls.Add(_cmbParty);
         pnlParty.Controls.Add(_lblPartyBalance);
         pnlHeader.Controls.Add(pnlParty, 1, 2);
 
-        pnlHeader.Controls.Add(new Label { Text = "Return A/c (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) }, 2, 2);
+        pnlHeader.Controls.Add(new Label { Text = "Return A/c (Dr):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold10 }, 2, 2);
         var pnlSales = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _cmbSalesLedger = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Font = new Font("Segoe UI", 9.5F) };
+        _cmbSalesLedger = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Font = ExecLedgerTheme.UIRegular9 };
         _cmbSalesLedger.SelectedIndexChanged += async (s, e) => await OnSalesLedgerSelectedAsync();
         _lblSalesBalance = new Label { Text = "Cur Bal: ₹0.00", AutoSize = true, ForeColor = Color.FromArgb(0, 100, 0), Margin = new Padding(10, 5, 0, 0) };
         pnlSales.Controls.Add(_cmbSalesLedger);
@@ -126,7 +129,7 @@ public class CreditNoteForm : Form
         mainLayout.Controls.Add(pnlHeader, 0, 0);
 
         // 2. Line Items DataGridView (Section 16/29 Sales Return Items)
-        _dgvItems = new DataGridView
+        _dgvItems = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             AutoGenerateColumns = false,
@@ -137,8 +140,8 @@ public class CreditNoteForm : Form
             RowHeadersWidth = 35,
             SelectionMode = DataGridViewSelectionMode.CellSelect
         };
-        _dgvItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 248);
-        _dgvItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        _dgvItems.ColumnHeadersDefaultCellStyle.BackColor = ExecLedgerTheme.ApplicationCanvas;
+        _dgvItems.ColumnHeadersDefaultCellStyle.Font = ExecLedgerTheme.UIBold10;
         _dgvItems.EnableHeadersVisualStyles = false;
 
         ConfigureGridColumns();
@@ -161,7 +164,7 @@ public class CreditNoteForm : Form
 
         // Narration box
         var pnlNarration = new Panel { Dock = DockStyle.Fill };
-        pnlNarration.Controls.Add(new Label { Text = "Narration / Return Reason:", Top = 0, Left = 0, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+        pnlNarration.Controls.Add(new Label { Text = "Narration / Return Reason:", Top = 0, Left = 0, AutoSize = true, Font = ExecLedgerTheme.UIBold9 });
         _txtNarration = new TextBox
         {
             Multiline = true,
@@ -187,8 +190,8 @@ public class CreditNoteForm : Form
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         pnlTotals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-        pnlTotals.Controls.Add(new Label { Text = "Total Return Amount:", Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold) }, 0, 0);
-        _lblNetTotal = new Label { Text = "₹ 0.00", Anchor = AnchorStyles.Right, Font = new Font("Segoe UI", 11F, FontStyle.Bold), ForeColor = Color.FromArgb(0, 51, 102) };
+        pnlTotals.Controls.Add(new Label { Text = "Total Return Amount:", Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold10 }, 0, 0);
+        _lblNetTotal = new Label { Text = "₹ 0.00", Anchor = AnchorStyles.Right, Font = ExecLedgerTheme.UIBold11, ForeColor = ExecLedgerTheme.PrimaryNavy };
         pnlTotals.Controls.Add(_lblNetTotal, 1, 0);
 
         _lblBalanceStatus = new Label
@@ -197,7 +200,7 @@ public class CreditNoteForm : Form
             Anchor = AnchorStyles.Left,
             AutoSize = true,
             ForeColor = Color.DarkGreen,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Italic)
+            Font = ExecLedgerTheme.UIRegular8
         };
         pnlTotals.Controls.Add(_lblBalanceStatus, 0, 1);
         pnlTotals.SetColumnSpan(_lblBalanceStatus, 2);
@@ -225,7 +228,7 @@ public class CreditNoteForm : Form
         _btnSaveAndNew = new Button { Text = "Save & New (Alt+S)", Width = 140, Height = 35, BackColor = Color.FromArgb(230, 240, 250) };
         _btnSaveAndNew.Click += async (s, e) => await SaveVoucherInternalAsync(true);
 
-        _btnSave = new Button { Text = "Save (Ctrl+A)", Width = 120, Height = 35, BackColor = Color.FromArgb(0, 51, 102), ForeColor = Color.White };
+        _btnSave = new Button { Text = "Save (Ctrl+A)", Width = 120, Height = 35, BackColor = ExecLedgerTheme.PrimaryNavy, ForeColor = Color.White };
         _btnSave.Click += async (s, e) => await SaveVoucherInternalAsync(false);
 
         pnlActions.Controls.Add(_btnCancel);
@@ -272,7 +275,7 @@ public class CreditNoteForm : Form
             HeaderText = "Return Amount (₹)",
             Width = 140,
             ReadOnly = true,
-            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = Color.FromArgb(0, 51, 102) }
+            DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight, Format = "N2", ForeColor = ExecLedgerTheme.PrimaryNavy }
         });
 
         _dgvItems.Columns.Add(new DataGridViewTextBoxColumn

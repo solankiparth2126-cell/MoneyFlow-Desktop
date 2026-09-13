@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
+using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -14,7 +16,7 @@ public class GroupListForm : Form
     private readonly ICompanyContext _companyContext;
 
     private TreeView tvGroups = null!;
-    private DataGridView dgvGroups = null!;
+    private Guna2DataGridView dgvGroups = null!;
     private TextBox txtSearch = null!;
     private Button btnCreate = null!;
     private Button btnAlter = null!;
@@ -39,7 +41,7 @@ public class GroupListForm : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
-        this.Font = new Font("Segoe UI", 9.5F);
+        this.Font = ExecLedgerTheme.UIRegular9;
 
         // Header Panel
         var headerPanel = new Panel
@@ -51,7 +53,7 @@ public class GroupListForm : Form
         var lblTitle = new Label
         {
             Text = $"Account Groups (Chart of Accounts) — {_companyContext.CurrentCompany?.CompanyName}",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.White,
             Location = new Point(18, 15),
             AutoSize = true
@@ -94,14 +96,14 @@ public class GroupListForm : Form
             Dock = DockStyle.Top,
             Height = 28,
             BackColor = Color.FromArgb(240, 243, 246),
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(10, 0, 0, 0)
         };
         tvGroups = new TreeView
         {
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 9.5F),
+            Font = ExecLedgerTheme.UIRegular9,
             HideSelection = false
         };
         tvGroups.AfterSelect += (s, e) => OnTreeNodeSelected();
@@ -111,7 +113,7 @@ public class GroupListForm : Form
 
         // Right: DataGridView
         var rightPanel = new Panel { Dock = DockStyle.Fill };
-        dgvGroups = new DataGridView
+        dgvGroups = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
@@ -169,7 +171,7 @@ public class GroupListForm : Form
             Size = new Size(160, 32),
             BackColor = Color.FromArgb(16, 185, 129),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
         btnCreate.Click += (s, e) => CreateGroup();
 

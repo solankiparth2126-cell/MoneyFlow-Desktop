@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Dialogs;
 
@@ -32,7 +33,7 @@ public class CrashReportDialog : Form
         MinimizeBox = false;
         ShowInTaskbar = true;
         BackColor = Color.FromArgb(248, 250, 252);
-        Font = new Font("Segoe UI", 9F);
+        Font = ExecLedgerTheme.UIRegular9;
 
         // Header Panel
         var headerPanel = new Panel
@@ -47,7 +48,7 @@ public class CrashReportDialog : Form
         {
             Text = "MoneyFlow encountered an unexpected error",
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             AutoSize = true,
             Location = new Point(15, 12)
         };
@@ -56,7 +57,7 @@ public class CrashReportDialog : Form
         {
             Text = "We apologize for the inconvenience. Details have been captured below.",
             ForeColor = Color.FromArgb(254, 226, 226),
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             AutoSize = true,
             Location = new Point(16, 38)
         };
@@ -75,7 +76,7 @@ public class CrashReportDialog : Form
         var lblMessage = new Label
         {
             Text = $"Error: {_exception.GetType().Name}: {_exception.Message}",
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             ForeColor = Color.FromArgb(30, 41, 59),
             Dock = DockStyle.Top,
             Height = 45
@@ -116,7 +117,7 @@ public class CrashReportDialog : Form
         btnCopy.Click += (s, e) =>
         {
             Clipboard.SetText(GetDiagnosticReport());
-            MessageBox.Show(this, "Diagnostic details copied to clipboard.", "MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "Diagnostic details copied to clipboard.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
 
         var btnOpenLogs = new Button

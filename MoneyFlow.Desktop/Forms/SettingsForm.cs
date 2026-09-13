@@ -4,6 +4,7 @@ using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
@@ -91,7 +92,7 @@ public class SettingsForm : Form
         var lblHeaderTitle = new Label
         {
             Text = "Settings & Configuration (F11)",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold12,
             ForeColor = Color.White,
             AutoSize = true,
             Location = new Point(15, 12)
@@ -100,7 +101,7 @@ public class SettingsForm : Form
         var lblHeaderSub = new Label
         {
             Text = "Configure accounting defaults, regional formatting, backup folders, and printer preferences.",
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(200, 230, 220),
             AutoSize = true,
             Location = new Point(16, 36)
@@ -145,7 +146,7 @@ public class SettingsForm : Form
             Location = new Point(430, 11),
             BackColor = Color.FromArgb(0, 105, 92),
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold9,
             FlatStyle = FlatStyle.Flat
         };
         btnSave.FlatAppearance.BorderColor = Color.FromArgb(0, 77, 64);
@@ -183,7 +184,7 @@ public class SettingsForm : Form
         tab.Padding = new Padding(20);
 
         // Default Company
-        var lblComp = new Label { Text = "Default Startup Company:", Location = new Point(20, 25), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblComp = new Label { Text = "Default Startup Company:", Location = new Point(20, 25), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbDefaultCompany = new ComboBox
         {
             Location = new Point(20, 48),
@@ -197,7 +198,7 @@ public class SettingsForm : Form
             Text = "Period Lock & Protection",
             Location = new Point(20, 95),
             Size = new Size(600, 130),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
 
         chkEnableLockDate = new CheckBox
@@ -205,7 +206,7 @@ public class SettingsForm : Form
             Text = "Enable Voucher Lock Date",
             Location = new Point(20, 30),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
         chkEnableLockDate.CheckedChanged += (s, e) => dtpLockDate.Enabled = chkEnableLockDate.Checked;
 
@@ -215,7 +216,7 @@ public class SettingsForm : Form
             Width = 160,
             Format = DateTimePickerFormat.Short,
             Enabled = false,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var lblLockNote = new Label
@@ -223,7 +224,7 @@ public class SettingsForm : Form
             Text = "Transactions dated on or before this lock date cannot be added, edited, or cancelled.\nThis protects reconciled and audited financial periods from accidental alterations.",
             Location = new Point(20, 92),
             Size = new Size(560, 32),
-            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 110, 120)
         };
 
@@ -237,7 +238,7 @@ public class SettingsForm : Form
             Text = "Transaction Behavior",
             Location = new Point(20, 240),
             Size = new Size(600, 100),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
 
         chkAutoRoundOff = new CheckBox
@@ -245,7 +246,7 @@ public class SettingsForm : Form
             Text = "Auto-calculate round-off split on sales/purchase vouchers",
             Location = new Point(20, 30),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         chkPrintAfterSave = new CheckBox
@@ -253,7 +254,7 @@ public class SettingsForm : Form
             Text = "Automatically open Print Preview dialog immediately after saving voucher",
             Location = new Point(20, 60),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         grpAuto.Controls.Add(chkAutoRoundOff);
@@ -273,7 +274,7 @@ public class SettingsForm : Form
         tab.BackColor = Color.White;
         tab.Padding = new Padding(20);
 
-        var lblBackupDir = new Label { Text = "Default Backup Folder:", Location = new Point(20, 25), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblBackupDir = new Label { Text = "Default Backup Folder:", Location = new Point(20, 25), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
 
         txtBackupPath = new TextBox
         {
@@ -303,7 +304,7 @@ public class SettingsForm : Form
             Text = "Backup Security & Automation",
             Location = new Point(20, 95),
             Size = new Size(600, 150),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
 
         chkPromptBackupOnExit = new CheckBox
@@ -311,7 +312,7 @@ public class SettingsForm : Form
             Text = "Prompt to create a backup when exiting MoneyFlow application",
             Location = new Point(20, 30),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         var lblInfo = new Label
@@ -322,7 +323,7 @@ public class SettingsForm : Form
                    "• SHA-256 integrity verification guarantees archive consistency prior to any restoration.",
             Location = new Point(20, 65),
             Size = new Size(560, 70),
-            Font = new Font("Segoe UI", 8.5F),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(70, 80, 90)
         };
 
@@ -343,7 +344,7 @@ public class SettingsForm : Form
         tab.BackColor = Color.White;
         tab.Padding = new Padding(20);
 
-        var lblPrinter = new Label { Text = "Default Windows Printer:", Location = new Point(20, 25), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblPrinter = new Label { Text = "Default Windows Printer:", Location = new Point(20, 25), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbPrinter = new ComboBox
         {
             Location = new Point(20, 48),
@@ -359,7 +360,7 @@ public class SettingsForm : Form
         }
         cmbPrinter.SelectedIndex = 0;
 
-        var lblPaper = new Label { Text = "Default Paper Size:", Location = new Point(20, 95), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblPaper = new Label { Text = "Default Paper Size:", Location = new Point(20, 95), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbPaperSize = new ComboBox
         {
             Location = new Point(20, 118),
@@ -374,7 +375,7 @@ public class SettingsForm : Form
             Text = "Print Job Execution",
             Location = new Point(20, 165),
             Size = new Size(600, 90),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
 
         chkDirectPrint = new CheckBox
@@ -382,7 +383,7 @@ public class SettingsForm : Form
             Text = "Send directly to printer without displaying print preview modal",
             Location = new Point(20, 35),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Font = ExecLedgerTheme.UIRegular9
         };
 
         grpOutput.Controls.Add(chkDirectPrint);
@@ -403,7 +404,7 @@ public class SettingsForm : Form
         tab.Padding = new Padding(20);
 
         // Date format
-        var lblDate = new Label { Text = "Date Display Format:", Location = new Point(20, 20), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblDate = new Label { Text = "Date Display Format:", Location = new Point(20, 20), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbDateFormat = new ComboBox
         {
             Location = new Point(20, 42),
@@ -415,7 +416,7 @@ public class SettingsForm : Form
         cmbDateFormat.SelectedIndexChanged += (s, e) => UpdateFormatPreview();
 
         // Number format
-        var lblNum = new Label { Text = "Number Grouping Style:", Location = new Point(300, 20), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblNum = new Label { Text = "Number Grouping Style:", Location = new Point(300, 20), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbNumberFormat = new ComboBox
         {
             Location = new Point(300, 42),
@@ -431,7 +432,7 @@ public class SettingsForm : Form
         cmbNumberFormat.SelectedIndexChanged += (s, e) => UpdateFormatPreview();
 
         // Currency Symbol
-        var lblCurrency = new Label { Text = "Currency Symbol:", Location = new Point(20, 85), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblCurrency = new Label { Text = "Currency Symbol:", Location = new Point(20, 85), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         txtCurrencySymbol = new TextBox
         {
             Location = new Point(20, 107),
@@ -441,7 +442,7 @@ public class SettingsForm : Form
         txtCurrencySymbol.TextChanged += (s, e) => UpdateFormatPreview();
 
         // Decimal Precision
-        var lblDec = new Label { Text = "Decimal Places:", Location = new Point(300, 85), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblDec = new Label { Text = "Decimal Places:", Location = new Point(300, 85), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         nudDecimalPrecision = new NumericUpDown
         {
             Location = new Point(300, 107),
@@ -458,14 +459,14 @@ public class SettingsForm : Form
             Text = "Live Formatting Preview",
             Location = new Point(20, 160),
             Size = new Size(560, 95),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            Font = ExecLedgerTheme.UIBold9
         };
 
         lblFormatPreview = new Label
         {
             Location = new Point(20, 30),
             Size = new Size(520, 50),
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = ExecLedgerTheme.UIBold11,
             ForeColor = Color.FromArgb(0, 105, 92),
             Text = "Sample Date: 11-09-2026\nSample Amount: ₹ 12,34,567.89"
         };
@@ -490,7 +491,7 @@ public class SettingsForm : Form
         tab.BackColor = Color.White;
         tab.Padding = new Padding(20);
 
-        var lblTheme = new Label { Text = "Application Theme:", Location = new Point(20, 25), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblTheme = new Label { Text = "Application Theme:", Location = new Point(20, 25), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbTheme = new ComboBox
         {
             Location = new Point(20, 48),
@@ -505,7 +506,7 @@ public class SettingsForm : Form
         });
         cmbTheme.SelectedIndex = 0;
 
-        var lblDensity = new Label { Text = "Grid & UI Density:", Location = new Point(20, 95), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblDensity = new Label { Text = "Grid & UI Density:", Location = new Point(20, 95), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
         cmbGridDensity = new ComboBox
         {
             Location = new Point(20, 118),
@@ -524,7 +525,7 @@ public class SettingsForm : Form
             Text = "Theme customizations apply globally across all financial ledgers, vouchers, and report grids.",
             Location = new Point(20, 170),
             Size = new Size(560, 40),
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+            Font = ExecLedgerTheme.UIRegular8,
             ForeColor = Color.FromArgb(100, 110, 120)
         };
 
@@ -726,7 +727,7 @@ public class SettingsForm : Form
         chkPrintAfterSave.Checked = false;
 
         var defaultDocs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        txtBackupPath.Text = Path.Combine(defaultDocs, "MoneyFlow", "Backups");
+        txtBackupPath.Text = Path.Combine(defaultDocs, "Executive Ledger", "Backups");
         chkPromptBackupOnExit = new CheckBox { Checked = true };
 
         cmbPrinter.SelectedIndex = 0;
