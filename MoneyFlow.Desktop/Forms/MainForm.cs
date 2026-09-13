@@ -59,8 +59,8 @@ public class MainForm : Form
     // Title bar
     private Guna2Panel titleBar = null!;
     private Label lblTitleText = null!;
+    private Label lblTitleSeparator = null!;
     private Label lblTitleContext = null!;
-    private Label lblEngineOnline = null!;
     private Guna2Button btnMinimize = null!;
     private Guna2Button btnMaxRestore = null!;
     private Guna2Button btnClose = null!;
@@ -70,17 +70,20 @@ public class MainForm : Form
 
     // Toolbar
     private Guna2Panel toolbarPanel = null!;
-    private Label lblSessionTime = null!;
     private System.Windows.Forms.Timer sessionTimer = null!;
     private DateTime sessionStartTime;
 
     // Company Banner Card (Full Width)
     private Guna2Panel pnlCompanyBanner = null!;
+    private Panel pnlBannerSpacer = null!;
     private Label lblBannerCompName = null!;
     private Label lblBannerCompSubtitle = null!;
     private Label lblBannerBooksBeginning = null!;
     private Label lblBannerFY = null!;
     private Label lblBannerDate = null!;
+
+    // Main Content Container
+    private Panel mainContainer = null!;
 
     // Bottom Colored Operations Rail
     private Guna2Panel operationsRail = null!;
@@ -162,14 +165,22 @@ public class MainForm : Form
         // 3. Action Toolbar (40px, Pill Buttons + Quick Search + Exit)
         CreateToolbar();
 
-        // 4. Bottom Status Bar (24px) — Add first to dock at very bottom
+        // 4. Bottom Status Bar (24px)
         CreateStatusBar();
 
-        // 5. Operations Rail (34px Horizontal Colored Buttons) — Above Status Bar
+        // 5. Operations Rail (34px Horizontal Colored Buttons)
         CreateOperationsRail();
 
         // 6. Main Workspace Layout (Fill)
         CreateGatewayLayout();
+
+        // Add controls in reverse docking order for proper z-order placement
+        Controls.Add(mainContainer);
+        Controls.Add(operationsRail);
+        Controls.Add(statusBar);
+        Controls.Add(toolbarPanel);
+        Controls.Add(menuStrip);
+        Controls.Add(titleBar);
 
         // 7. Keyboard Shortcuts
         KeyDown += MainForm_KeyDown;
@@ -193,29 +204,28 @@ public class MainForm : Form
         {
             Dock = DockStyle.Top,
             Height = 32,
-            FillColor = Color.FromArgb(13, 30, 50), // #0D1E32 Dark Navy
+            FillColor = Color.FromArgb(11, 25, 44), // #0B192C Dark Slate Navy matching Image 2
             BorderRadius = 0,
             BorderThickness = 0
         };
 
-        // Icon Badge "MF"
+        // Icon Badge with stylized emerald monogram
         var iconBadge = new Guna2Panel
         {
-            Size = new Size(20, 20),
-            Location = new Point(8, 6),
-            FillColor = Color.FromArgb(30, 58, 138),
-            BorderRadius = 3
+            Size = new Size(22, 22),
+            Location = new Point(10, 5),
+            FillColor = Color.FromArgb(19, 62, 77), // #133E4D Deep Slate-Teal
+            BorderRadius = 5
         };
-        var lblBadgeText = new Label
+        var picBadge = new PictureBox
         {
-            Text = "MF",
-            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
-            ForeColor = Color.White,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
+            Image = ExecLedgerIcons.CreateAppLogoIcon(Color.FromArgb(16, 185, 129)),
+            Size = new Size(18, 18),
+            Location = new Point(2, 2),
+            SizeMode = PictureBoxSizeMode.CenterImage,
             BackColor = Color.Transparent
         };
-        iconBadge.Controls.Add(lblBadgeText);
+        iconBadge.Controls.Add(picBadge);
         titleBar.Controls.Add(iconBadge);
 
         // App Title
@@ -225,49 +235,50 @@ public class MainForm : Form
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(34, 7),
+            Location = new Point(38, 7),
             BackColor = Color.Transparent
         };
         titleBar.Controls.Add(lblTitleText);
 
-        // Company context text (e.g. "  |  ABC TRADERS • FY 2026-27")
+        // Separator "|"
+        lblTitleSeparator = new Label
+        {
+            Text = "|",
+            ForeColor = Color.FromArgb(71, 85, 105), // #475569
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            AutoSize = true,
+            Location = new Point(lblTitleText.Right + 8, 7),
+            BackColor = Color.Transparent
+        };
+        titleBar.Controls.Add(lblTitleSeparator);
+
+        // Company context text (e.g. "ABC TRADERS • FY 2026-27")
         lblTitleContext = new Label
         {
             Text = "",
-            ForeColor = Color.FromArgb(148, 163, 184),
+            ForeColor = Color.FromArgb(148, 163, 184), // #94A3B8 Slate Gray
             Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
             AutoSize = true,
-            Location = new Point(325, 8),
+            Location = new Point(lblTitleSeparator.Right + 8, 7),
             BackColor = Color.Transparent
         };
         titleBar.Controls.Add(lblTitleContext);
 
-        // Engine Status on right
-        lblEngineOnline = new Label
-        {
-            Text = "● WPF Runtime .NET 8   |   Engine: Online",
-            ForeColor = Color.FromArgb(148, 163, 184),
-            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
-            AutoSize = true,
-            BackColor = Color.Transparent,
-            Anchor = AnchorStyles.Top | AnchorStyles.Right
-        };
-        titleBar.Controls.Add(lblEngineOnline);
-
         // Window Control Buttons
         int btnW = 46;
         int btnH = 32;
+        Color titleBg = Color.FromArgb(11, 25, 44);
 
         btnClose = new Guna2Button
         {
             Text = "✕",
-            ForeColor = Color.White,
-            FillColor = Color.Transparent,
+            ForeColor = Color.FromArgb(203, 213, 225),
+            FillColor = titleBg,
+            BackColor = titleBg,
             BorderThickness = 0,
             BorderRadius = 0,
             Size = new Size(btnW, btnH),
-            Font = new Font("Segoe UI", 10F),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Font = new Font("Segoe UI", 9.5F),
             HoverState = { FillColor = Color.FromArgb(220, 38, 38), ForeColor = Color.White },
             Cursor = Cursors.Hand
         };
@@ -275,15 +286,15 @@ public class MainForm : Form
 
         btnMaxRestore = new Guna2Button
         {
-            Text = "☐",
-            ForeColor = Color.White,
-            FillColor = Color.Transparent,
+            Text = "▢",
+            ForeColor = Color.FromArgb(203, 213, 225),
+            FillColor = titleBg,
+            BackColor = titleBg,
             BorderThickness = 0,
             BorderRadius = 0,
             Size = new Size(btnW, btnH),
-            Font = new Font("Segoe UI", 10F),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            HoverState = { FillColor = Color.FromArgb(50, 255, 255, 255) },
+            Font = new Font("Segoe UI", 9.5F),
+            HoverState = { FillColor = Color.FromArgb(30, 41, 59), ForeColor = Color.White },
             Cursor = Cursors.Hand
         };
         btnMaxRestore.Click += (s, e) =>
@@ -291,20 +302,20 @@ public class MainForm : Form
             WindowState = WindowState == FormWindowState.Maximized
                 ? FormWindowState.Normal
                 : FormWindowState.Maximized;
-            btnMaxRestore.Text = WindowState == FormWindowState.Maximized ? "❐" : "☐";
+            btnMaxRestore.Text = WindowState == FormWindowState.Maximized ? "❐" : "▢";
         };
 
         btnMinimize = new Guna2Button
         {
             Text = "—",
-            ForeColor = Color.White,
-            FillColor = Color.Transparent,
+            ForeColor = Color.FromArgb(203, 213, 225),
+            FillColor = titleBg,
+            BackColor = titleBg,
             BorderThickness = 0,
             BorderRadius = 0,
             Size = new Size(btnW, btnH),
-            Font = new Font("Segoe UI", 10F),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            HoverState = { FillColor = Color.FromArgb(50, 255, 255, 255) },
+            Font = new Font("Segoe UI", 9.5F),
+            HoverState = { FillColor = Color.FromArgb(30, 41, 59), ForeColor = Color.White },
             Cursor = Cursors.Hand
         };
         btnMinimize.Click += (s, e) => WindowState = FormWindowState.Minimized;
@@ -314,24 +325,26 @@ public class MainForm : Form
         titleBar.Controls.Add(btnClose);
 
         // Position from right on resize
-        titleBar.Resize += (s, e) =>
+        void PositionRightControls()
         {
             btnClose.Location = new Point(titleBar.Width - btnW, 0);
             btnMaxRestore.Location = new Point(titleBar.Width - btnW * 2, 0);
             btnMinimize.Location = new Point(titleBar.Width - btnW * 3, 0);
-            lblEngineOnline.Location = new Point(titleBar.Width - btnW * 3 - lblEngineOnline.Width - 16, 9);
-        };
+        }
+
+        titleBar.Resize += (s, e) => PositionRightControls();
+        PositionRightControls();
 
         // Title bar drag handlers
         titleBar.MouseDown += TitleBar_MouseDown;
         lblTitleText.MouseDown += TitleBar_MouseDown;
+        lblTitleSeparator.MouseDown += TitleBar_MouseDown;
         lblTitleContext.MouseDown += TitleBar_MouseDown;
         iconBadge.MouseDown += TitleBar_MouseDown;
+        picBadge.MouseDown += TitleBar_MouseDown;
 
         titleBar.DoubleClick += (s, e) => btnMaxRestore.PerformClick();
         lblTitleText.DoubleClick += (s, e) => btnMaxRestore.PerformClick();
-
-        Controls.Add(titleBar);
     }
 
     private void TitleBar_MouseDown(object? sender, MouseEventArgs e)
@@ -418,7 +431,6 @@ public class MainForm : Form
 
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuCompany, menuMasters, menuTransactions, menuReports, menuUtilities, menuHelp });
         MainMenuStrip = menuStrip;
-        Controls.Add(menuStrip);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -435,128 +447,224 @@ public class MainForm : Form
             BorderColor = Color.FromArgb(226, 232, 240),
             BorderThickness = 1,
             BorderRadius = 0,
-            Padding = new Padding(8, 5, 8, 5)
+            Padding = new Padding(8, 6, 8, 6)
         };
 
-        int x = 12;
-
-        // Left Pill Buttons
-        var leftPills = new (string Text, Action Click)[]
+        // Left Action Pills & Inline Search Container
+        var flowLeft = new FlowLayoutPanel
         {
-            ("Change Co.  F3", () => _navigationService.OpenCompanyList(this)),
-            ("Date  F2", () => _navigationService.OpenFinancialYearList(this)),
-            ("Day Book", () => _navigationService.OpenDayBook(this)),
-            ("Trial Balance", () => _navigationService.OpenTrialBalance(this)),
-            ("P & L", () => _navigationService.OpenProfitLoss(this)),
-            ("Balance Sheet", () => _navigationService.OpenBalanceSheet(this)),
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Padding = new Padding(2, 0, 2, 0),
+            AutoScroll = false
         };
 
-        foreach (var (text, click) in leftPills)
-        {
-            var btn = CreateActionPill(text);
-            btn.Location = new Point(x, 6);
-            btn.Click += (s, e) => click();
-            toolbarPanel.Controls.Add(btn);
-            x += btn.Width + 6;
-        }
+        // 1. Change Co. F3
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateCompanyIcon(Color.FromArgb(37, 99, 235)),
+            "Change Co.", "F3",
+            () => _navigationService.OpenCompanyList(this)));
 
-        // Right side controls container
-        var pnlRightControls = new Panel
-        {
-            Dock = DockStyle.Right,
-            Width = 460,
-            BackColor = Color.Transparent
-        };
+        // 2. Date F2
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateCalendarIcon(Color.FromArgb(16, 185, 129)),
+            "Date", "F2",
+            () => _navigationService.OpenFinancialYearList(this)));
 
-        // Jump to ledger / voucher Search Box
+        // Separator
+        flowLeft.Controls.Add(CreateToolbarSeparator());
+
+        // 3. Day Book
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateDayBookIcon(Color.FromArgb(124, 58, 237)),
+            "Day Book", null,
+            () => _navigationService.OpenDayBook(this)));
+
+        // 4. Trial Balance
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateTrialBalanceIcon(Color.FromArgb(217, 119, 6)),
+            "Trial Balance", null,
+            () => _navigationService.OpenTrialBalance(this)));
+
+        // 5. P & L
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateProfitLossIcon(Color.FromArgb(147, 51, 234)),
+            "P & L", null,
+            () => _navigationService.OpenProfitLoss(this)));
+
+        // 6. Balance Sheet
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateBalanceSheetIcon(Color.FromArgb(13, 148, 136)),
+            "Balance Sheet", null,
+            () => _navigationService.OpenBalanceSheet(this)));
+
+        // Separator
+        flowLeft.Controls.Add(CreateToolbarSeparator());
+
+        // 7. Jump to ledger / voucher Search Box (inline in flow)
         var pnlSearch = new Guna2Panel
         {
-            Size = new Size(240, 30),
-            Location = new Point(10, 6),
+            Size = new Size(220, 28),
             FillColor = Color.White,
             BorderColor = Color.FromArgb(203, 213, 225),
             BorderThickness = 1,
-            BorderRadius = 15,
-            Cursor = Cursors.Hand
+            BorderRadius = 14,
+            Cursor = Cursors.Hand,
+            Margin = new Padding(3, 1, 3, 1)
         };
-        var lblSearchIcon = new Label
+        var picSearch = new PictureBox
         {
-            Text = "🔍 Jump to ledger / voucher (Ctrl+F)",
-            ForeColor = Color.FromArgb(148, 163, 184),
-            Font = new Font("Segoe UI", 8.25F),
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(10, 0, 0, 0),
+            Image = ExecLedgerIcons.CreateSearchIcon(Color.FromArgb(148, 163, 184)),
+            Size = new Size(16, 16),
+            Location = new Point(10, 6),
+            SizeMode = PictureBoxSizeMode.CenterImage,
             BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
-        pnlSearch.Controls.Add(lblSearchIcon);
-        Action openSearch = () => _navigationService.OpenGlobalSearch(this);
-        pnlSearch.Click += (s, e) => openSearch();
-        lblSearchIcon.Click += (s, e) => openSearch();
-        pnlRightControls.Controls.Add(pnlSearch);
-
-        // Session Time Label
-        lblSessionTime = new Label
+        var lblSearchPlaceholder = new Label
         {
-            Text = "Session Time: 00:00 hrs",
-            ForeColor = Color.FromArgb(100, 116, 139),
-            Font = new Font("Segoe UI", 8F),
-            Location = new Point(260, 13),
+            Text = "Jump to ledger / voucher (Ctrl+F)",
+            ForeColor = Color.FromArgb(148, 163, 184),
+            Font = new Font("Segoe UI", 8.25F),
+            Location = new Point(28, 6),
             AutoSize = true,
-            BackColor = Color.Transparent
-        };
-        pnlRightControls.Controls.Add(lblSessionTime);
-
-        // Red Exit Pill
-        var btnExit = new Guna2Button
-        {
-            Text = "Exit  Esc",
-            Size = new Size(72, 28),
-            Location = new Point(380, 7),
-            FillColor = Color.FromArgb(254, 242, 242),
-            BorderColor = Color.FromArgb(239, 68, 68),
-            BorderThickness = 1,
-            BorderRadius = 14,
-            ForeColor = Color.FromArgb(220, 38, 38),
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+            BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
-        btnExit.HoverState.FillColor = Color.FromArgb(254, 226, 226);
-        btnExit.Click += (s, e) => Application.Exit();
-        pnlRightControls.Controls.Add(btnExit);
+        pnlSearch.Controls.Add(picSearch);
+        pnlSearch.Controls.Add(lblSearchPlaceholder);
 
-        toolbarPanel.Controls.Add(pnlRightControls);
-        Controls.Add(toolbarPanel);
+        Action openSearch = () => _navigationService.OpenGlobalSearch(this);
+        pnlSearch.Click += (s, e) => openSearch();
+        picSearch.Click += (s, e) => openSearch();
+        lblSearchPlaceholder.Click += (s, e) => openSearch();
+
+        pnlSearch.MouseEnter += (s, e) => pnlSearch.BorderColor = Color.FromArgb(100, 116, 139);
+        pnlSearch.MouseLeave += (s, e) => pnlSearch.BorderColor = Color.FromArgb(203, 213, 225);
+        lblSearchPlaceholder.MouseEnter += (s, e) => pnlSearch.BorderColor = Color.FromArgb(100, 116, 139);
+        lblSearchPlaceholder.MouseLeave += (s, e) => pnlSearch.BorderColor = Color.FromArgb(203, 213, 225);
+
+        flowLeft.Controls.Add(pnlSearch);
+
+        toolbarPanel.Controls.Add(flowLeft);
     }
 
-    private Guna2Button CreateActionPill(string text)
+    private Control CreateToolbarActionItem(Image icon, string text, string? badge, Action onClick)
     {
-        int width = TextRenderer.MeasureText(text, ExecLedgerTheme.UIRegular8).Width + 24;
-        return new Guna2Button
+        var pnl = new Guna2Panel
         {
-            Text = text,
-            Size = new Size(width, 28),
+            Height = 28,
             FillColor = Color.White,
-            BorderColor = Color.FromArgb(226, 232, 240),
+            BorderColor = Color.FromArgb(203, 213, 225),
             BorderThickness = 1,
             BorderRadius = 14,
-            ForeColor = Color.FromArgb(51, 65, 85),
-            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
             Cursor = Cursors.Hand,
-            HoverState =
+            Margin = new Padding(3, 1, 3, 1)
+        };
+
+        int curX = 9;
+
+        if (icon != null)
+        {
+            var pic = new PictureBox
+            {
+                Image = icon,
+                Size = new Size(16, 16),
+                SizeMode = PictureBoxSizeMode.CenterImage,
+                Location = new Point(curX, 6),
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            pnl.Controls.Add(pic);
+            pic.Click += (s, e) => onClick();
+            curX += 20;
+        }
+
+        var lblText = new Label
+        {
+            Text = text,
+            Font = new Font("Segoe UI", 8.25F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(51, 65, 85),
+            AutoSize = true,
+            Location = new Point(curX, 6),
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        pnl.Controls.Add(lblText);
+        lblText.Click += (s, e) => onClick();
+        curX += TextRenderer.MeasureText(text, lblText.Font).Width + 4;
+
+        if (!string.IsNullOrEmpty(badge))
+        {
+            var pnlBadge = new Guna2Panel
             {
                 FillColor = Color.FromArgb(241, 245, 249),
-                BorderColor = Color.FromArgb(148, 163, 184)
-            }
+                BorderColor = Color.FromArgb(203, 213, 225),
+                BorderThickness = 1,
+                BorderRadius = 4,
+                Height = 17,
+                Location = new Point(curX, 5),
+                Cursor = Cursors.Hand
+            };
+            var lblBadge = new Label
+            {
+                Text = badge,
+                Font = new Font("Segoe UI", 7F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(100, 116, 139),
+                AutoSize = true,
+                BackColor = Color.Transparent,
+                Location = new Point(3, 1),
+                Cursor = Cursors.Hand
+            };
+            pnlBadge.Controls.Add(lblBadge);
+            pnlBadge.Width = TextRenderer.MeasureText(badge, lblBadge.Font).Width + 8;
+            pnl.Controls.Add(pnlBadge);
+            pnlBadge.Click += (s, e) => onClick();
+            lblBadge.Click += (s, e) => onClick();
+            curX += pnlBadge.Width + 8;
+        }
+        else
+        {
+            curX += 6;
+        }
+
+        pnl.Width = curX;
+
+        void SetHover(bool hover)
+        {
+            pnl.FillColor = hover ? Color.FromArgb(241, 245, 249) : Color.White;
+            pnl.BorderColor = hover ? Color.FromArgb(148, 163, 184) : Color.FromArgb(203, 213, 225);
+        }
+
+        pnl.MouseEnter += (s, e) => SetHover(true);
+        pnl.MouseLeave += (s, e) => SetHover(false);
+        foreach (Control c in pnl.Controls)
+        {
+            c.MouseEnter += (s, e) => SetHover(true);
+            c.MouseLeave += (s, e) => SetHover(false);
+        }
+
+        pnl.Click += (s, e) => onClick();
+
+        return pnl;
+    }
+
+    private Control CreateToolbarSeparator()
+    {
+        return new Panel
+        {
+            Width = 1,
+            Height = 18,
+            BackColor = Color.FromArgb(226, 232, 240),
+            Margin = new Padding(4, 5, 4, 5)
         };
     }
 
     private void UpdateSessionTime()
     {
-        var elapsed = DateTime.Now - sessionStartTime;
-        if (lblSessionTime != null)
-            lblSessionTime.Text = $"Session Time: {elapsed.Hours:D2}:{elapsed.Minutes:D2} hrs";
+        // Session time tracking without toolbar display
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -605,8 +713,6 @@ public class MainForm : Form
         {
             lblStatusLockKeys.Location = new Point(statusBar.Width - lblStatusLockKeys.Width - 14, 5);
         };
-
-        Controls.Add(statusBar);
     }
 
     private Label CreateStatusItem(string text, ref int x)
@@ -705,7 +811,6 @@ public class MainForm : Form
         pnlRightRail.Controls.Add(btnEscExit);
 
         operationsRail.Controls.Add(pnlRightRail);
-        Controls.Add(operationsRail);
     }
 
     private Guna2Button CreateRailButton(string text, Color bg)
@@ -730,7 +835,7 @@ public class MainForm : Form
 
     private void CreateGatewayLayout()
     {
-        var mainContainer = new Panel
+        mainContainer = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(241, 245, 249),
@@ -742,7 +847,7 @@ public class MainForm : Form
         pnlCompanyBanner = new Guna2Panel
         {
             Dock = DockStyle.Top,
-            Height = 72,
+            Height = 74,
             FillColor = Color.White,
             BorderColor = Color.FromArgb(226, 232, 240),
             BorderThickness = 1,
@@ -755,7 +860,7 @@ public class MainForm : Form
         var badgePanel = new Guna2Panel
         {
             Size = new Size(38, 38),
-            Location = new Point(12, 17),
+            Location = new Point(12, 18),
             FillColor = Color.FromArgb(15, 23, 42),
             BorderRadius = 6
         };
@@ -815,7 +920,7 @@ public class MainForm : Form
 
         lblBannerCompSubtitle = new Label
         {
-            Text = "Commercial Accounts • Wholesale & Retail Trading • Base Currency: INR (₹)",
+            Text = "Accounts",
             Font = new Font("Segoe UI", 8F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
@@ -824,54 +929,80 @@ public class MainForm : Form
         };
         pnlCompanyBanner.Controls.Add(lblBannerCompSubtitle);
 
-        // Right Side FY and Date Info
+        // Right Side FY and Date Unified Card (matching design reference)
         var pnlBannerRight = new Panel
         {
             Dock = DockStyle.Right,
             Width = 360,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 11, 16, 11)
         };
 
+        var boxUnified = new Guna2Panel
+        {
+            Dock = DockStyle.Fill,
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(226, 232, 240),
+            BorderThickness = 1,
+            BorderRadius = 6
+        };
+
+        // Left Section: Financial Year
         var lblFYTag = new Label
         {
             Text = "FINANCIAL YEAR",
             Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(148, 163, 184),
-            Location = new Point(20, 14),
-            AutoSize = true
+            Location = new Point(14, 8),
+            AutoSize = true,
+            BackColor = Color.Transparent
         };
         lblBannerFY = new Label
         {
             Text = "2026 - 2027",
             Font = new Font("Segoe UI", 10F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
-            Location = new Point(20, 32),
-            AutoSize = true
+            Location = new Point(14, 26),
+            AutoSize = true,
+            BackColor = Color.Transparent
         };
-        pnlBannerRight.Controls.Add(lblFYTag);
-        pnlBannerRight.Controls.Add(lblBannerFY);
+        boxUnified.Controls.Add(lblFYTag);
+        boxUnified.Controls.Add(lblBannerFY);
 
+        // Middle Divider Line
+        var sepFYDate = new Panel
+        {
+            Width = 1,
+            Height = 34,
+            Location = new Point(135, 9),
+            BackColor = Color.FromArgb(226, 232, 240)
+        };
+        boxUnified.Controls.Add(sepFYDate);
+
+        // Right Section: Current Voucher Date
         var lblDateTag = new Label
         {
             Text = "CURRENT VOUCHER DATE",
             Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(148, 163, 184),
-            Location = new Point(170, 14),
-            AutoSize = true
+            Location = new Point(148, 8),
+            AutoSize = true,
+            BackColor = Color.Transparent
         };
         lblBannerDate = new Label
         {
             Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)"),
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42),
-            Location = new Point(170, 32),
-            AutoSize = true
+            ForeColor = Color.FromArgb(13, 148, 136), // #0D9488 Teal
+            Location = new Point(148, 26),
+            AutoSize = true,
+            BackColor = Color.Transparent
         };
-        pnlBannerRight.Controls.Add(lblDateTag);
-        pnlBannerRight.Controls.Add(lblBannerDate);
+        boxUnified.Controls.Add(lblDateTag);
+        boxUnified.Controls.Add(lblBannerDate);
 
+        pnlBannerRight.Controls.Add(boxUnified);
         pnlCompanyBanner.Controls.Add(pnlBannerRight);
-        mainContainer.Controls.Add(pnlCompanyBanner);
 
         // Position Active pill dynamically after company name
         lblBannerCompName.SizeChanged += (s, e) =>
@@ -881,29 +1012,21 @@ public class MainForm : Form
         };
 
         // Spacer below banner
-        var spacer = new Panel { Dock = DockStyle.Top, Height = 10, BackColor = Color.Transparent };
-        mainContainer.Controls.Add(spacer);
-
-        // ── B. 70/30 SPLIT WORKSPACE ──
-        var splitTable = new TableLayoutPanel
+        pnlBannerSpacer = new Panel
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            BackColor = Color.Transparent
+            Dock = DockStyle.Top,
+            Height = 10,
+            BackColor = Color.Transparent,
+            Visible = _companyContext.IsCompanyOpen && _companyContext.CurrentCompany != null
         };
-        splitTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 69F)); // Left 69%
-        splitTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 31F)); // Right 31%
-        splitTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        pnlCompanyBanner.Visible = pnlBannerSpacer.Visible;
 
-        // ───────────────────────────────────────────────────────────
-        //  LEFT SECTION: GATEWAY OF ACCOUNTING (6 Structured Cards)
-        // ───────────────────────────────────────────────────────────
+        // ── B. GATEWAY OF ACCOUNTING (3 Structured Cards) ──
         var pnlLeftGateway = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent,
-            Margin = new Padding(0, 0, 8, 0)
+            Margin = new Padding(0)
         };
 
         // Gateway Header
@@ -957,21 +1080,20 @@ public class MainForm : Form
         {
             pnlNavTip.Location = new Point(pnlGatewayHeader.Width - pnlNavTip.Width, 6);
         };
-        pnlLeftGateway.Controls.Add(pnlGatewayHeader);
 
-        // 3x2 Grid of 6 Cards
+        // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS
         var cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
-            RowCount = 2,
-            BackColor = Color.Transparent
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 4, 0, 0)
         };
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
-        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         // ── Card 1: MASTERS [M] ──
         var cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235));
@@ -1004,183 +1126,18 @@ public class MainForm : Form
         AddCardActionRow(cardReports, "Outstandings (AR/AP)", "Aging", () => _navigationService.OpenOutstandingReport(this));
         cardsGrid.Controls.Add(cardReports, 2, 0);
 
-        // ── Card 4: COMPANY OPERATIONS [C] ──
-        var cardCompany = CreateStructuredCard("COMPANY OPERATIONS", "C", Color.FromArgb(124, 58, 237));
-        AddCardActionRow(cardCompany, "Select Company", "F1", () => _navigationService.OpenCompanyList(this));
-        AddCardActionRow(cardCompany, "Create New Company", "Setup", () => _navigationService.OpenCreateCompany(this));
-        AddCardActionRow(cardCompany, "Alter Company Info", "Edit", () => _navigationService.OpenAlterCompany(this));
-        AddCardActionRow(cardCompany, "Financial Year Change", "FY 26-27", () => _navigationService.OpenFinancialYearList(this));
-        cardsGrid.Controls.Add(cardCompany, 0, 1);
-
-        // ── Card 5: GLOBAL SEARCH [Ctrl+F] ──
-        var cardSearch = CreateStructuredCard("GLOBAL SEARCH", "Ctrl+f", Color.FromArgb(6, 182, 212));
-        var lblSearchDesc = new Label
-        {
-            Text = "Fast indexing across all ledgers, voucher numbers, amounts, and dates.",
-            Font = new Font("Segoe UI", 7.5F),
-            ForeColor = Color.FromArgb(100, 116, 139),
-            Dock = DockStyle.Top,
-            Height = 34,
-            Padding = new Padding(12, 4, 12, 0),
-            BackColor = Color.Transparent
-        };
-        cardSearch.Controls.Add(lblSearchDesc);
-        lblSearchDesc.BringToFront();
-
-        AddCardActionRow(cardSearch, "Quick Query Filter", "Instant", () => _navigationService.OpenGlobalSearch(this));
-
-        // Search Filter Chips
-        var pnlChips = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 32,
-            Padding = new Padding(12, 2, 12, 2),
-            BackColor = Color.Transparent
-        };
-        var chip1 = CreateFilterChip("Ledger", () => _navigationService.OpenGlobalSearch(this));
-        chip1.Location = new Point(12, 2);
-        var chip2 = CreateFilterChip("Voucher", () => _navigationService.OpenGlobalSearch(this));
-        chip2.Location = new Point(chip1.Right + 6, 2);
-        var chip3 = CreateFilterChip("Amount", () => _navigationService.OpenGlobalSearch(this));
-        chip3.Location = new Point(chip2.Right + 6, 2);
-        pnlChips.Controls.AddRange(new Control[] { chip1, chip2, chip3 });
-        cardSearch.Controls.Add(pnlChips);
-        pnlChips.BringToFront();
-
-        cardsGrid.Controls.Add(cardSearch, 1, 1);
-
-        // ── Card 6: UTILITIES & SYSTEM [U] ──
-        var cardUtils = CreateStructuredCard("UTILITIES & SYSTEM", "U", Color.FromArgb(71, 85, 105));
-        AddCardActionRow(cardUtils, "Backup Company Data", "ZIP/SQL", () => _navigationService.OpenBackupRestore(this));
-        AddCardActionRow(cardUtils, "Restore From Backup", "Archive", () => _navigationService.OpenBackupRestore(this));
-        AddCardActionRow(cardUtils, "Import Masters (CSV/Excel)", "Batch", () => _navigationService.OpenImportExport(this));
-        AddCardActionRow(cardUtils, "Export Day Books / Trial Bal.", "PDF/XLS", () => _navigationService.OpenImportExport(this));
-        cardsGrid.Controls.Add(cardUtils, 2, 1);
-
+        // Add fill first, top last so header is at Y=0
         pnlLeftGateway.Controls.Add(cardsGrid);
-        splitTable.Controls.Add(pnlLeftGateway, 0, 0);
+        pnlLeftGateway.Controls.Add(pnlGatewayHeader);
 
-        // ───────────────────────────────────────────────────────────
-        //  RIGHT SECTION: QUICK WIDGETS (3 Stacked Widgets)
-        // ───────────────────────────────────────────────────────────
-        var pnlRightWidgets = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
-            AutoScroll = true
-        };
-
-        // Stacked widgets layout
-        var widgetsStack = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 3,
-            BackColor = Color.Transparent
-        };
-        widgetsStack.RowStyles.Add(new RowStyle(SizeType.Absolute, 110)); // Balance glance
-        widgetsStack.RowStyles.Add(new RowStyle(SizeType.Percent, 55F));   // Today's Vouchers table
-        widgetsStack.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));   // Accelerators
-
-        // ── Widget 1: QUICK BALANCE GLANCE ──
-        var widgetBalance = CreateWidgetContainer("QUICK BALANCE GLANCE", "Refresh (F5)", () => { /* refresh balance */ });
-        var pnlBalBoxes = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            BackColor = Color.Transparent,
-            Padding = new Padding(8, 2, 8, 8)
-        };
-        pnlBalBoxes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-        pnlBalBoxes.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-
-        var boxCash = CreateBalanceBox("Cash in Hand", "₹ 42,850.00 Dr", Color.FromArgb(15, 23, 42));
-        var boxBank = CreateBalanceBox("Bank Accounts", "₹ 3,84,120.00 Dr", Color.FromArgb(15, 23, 42));
-        pnlBalBoxes.Controls.Add(boxCash, 0, 0);
-        pnlBalBoxes.Controls.Add(boxBank, 1, 0);
-        widgetBalance.Controls.Add(pnlBalBoxes);
-        widgetsStack.Controls.Add(widgetBalance, 0, 0);
-
-        // ── Widget 2: TODAY'S VOUCHERS ──
-        var widgetVouchers = CreateWidgetContainer("Today's Vouchers (10-Sep)", "Total: 4", null);
-        var gridVouchers = new DataGridView
-        {
-            Dock = DockStyle.Fill,
-            BackgroundColor = Color.White,
-            BorderStyle = BorderStyle.None,
-            RowHeadersVisible = false,
-            AllowUserToAddRows = false,
-            AllowUserToResizeRows = false,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            ReadOnly = true,
-            Font = new Font("Segoe UI", 8F),
-            EnableHeadersVisualStyles = false
-        };
-        gridVouchers.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-        gridVouchers.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(100, 116, 139);
-        gridVouchers.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 7.5F, FontStyle.Bold);
-        gridVouchers.ColumnHeadersHeight = 26;
-        gridVouchers.RowTemplate.Height = 24;
-
-        gridVouchers.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Vch No", Width = 65 });
-        gridVouchers.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", Width = 60 });
-        gridVouchers.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Particulars", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-        var colAmt = new DataGridViewTextBoxColumn { HeaderText = "Amount (₹)", Width = 80 };
-        colAmt.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
-        colAmt.DefaultCellStyle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
-        gridVouchers.Columns.Add(colAmt);
-
-        gridVouchers.Rows.Add("P-00042", "Payment", "Office Stat..", "1,250.00");
-        gridVouchers.Rows.Add("R-00019", "Receipt", "Shiv Hard..", "18,500.00");
-        gridVouchers.Rows.Add("S-00108", "Sales", "Apex Enter..", "45,000.00");
-        gridVouchers.Rows.Add("C-00008", "Contra", "Cash - HDFC", "10,000.00");
-
-        widgetVouchers.Controls.Add(gridVouchers);
-        widgetsStack.Controls.Add(widgetVouchers, 0, 1);
-
-        // ── Widget 3: KEYBOARD ACCELERATORS ──
-        var widgetAccel = CreateWidgetContainer("KEYBOARD ACCELERATORS", "Accounting Standard", null);
-        var pnlAccelBody = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.White,
-            Padding = new Padding(12, 6, 12, 6),
-            AutoScroll = true
-        };
-
-        var shortcutsData = new[]
-        {
-            ("F2", "Date", "F4", "Contra"),
-            ("F5", "Payment", "F6", "Receipt"),
-            ("F7", "Journal", "F8", "Sales"),
-            ("F9", "Purchase", "Ctrl+F", "Search")
-        };
-
-        int ay = 8;
-        foreach (var (k1, n1, k2, n2) in shortcutsData)
-        {
-            var lblK1 = new Label { Text = k1, Font = new Font("Segoe UI", 7.5F, FontStyle.Bold), ForeColor = Color.FromArgb(37, 99, 235), AutoSize = true, Location = new Point(12, ay), BackColor = Color.Transparent };
-            var lblN1 = new Label { Text = n1, Font = new Font("Segoe UI", 7.5F), ForeColor = Color.FromArgb(51, 65, 85), AutoSize = true, Location = new Point(48, ay), BackColor = Color.Transparent };
-            var lblK2 = new Label { Text = k2, Font = new Font("Segoe UI", 7.5F, FontStyle.Bold), ForeColor = Color.FromArgb(37, 99, 235), AutoSize = true, Location = new Point(140, ay), BackColor = Color.Transparent };
-            var lblN2 = new Label { Text = n2, Font = new Font("Segoe UI", 7.5F), ForeColor = Color.FromArgb(51, 65, 85), AutoSize = true, Location = new Point(190, ay), BackColor = Color.Transparent };
-
-            pnlAccelBody.Controls.AddRange(new Control[] { lblK1, lblN1, lblK2, lblN2 });
-            ay += 22;
-        }
-
-        widgetAccel.Controls.Add(pnlAccelBody);
-        widgetsStack.Controls.Add(widgetAccel, 0, 2);
-
-        pnlRightWidgets.Controls.Add(widgetsStack);
-        splitTable.Controls.Add(pnlRightWidgets, 1, 0);
-
-        mainContainer.Controls.Add(splitTable);
-        Controls.Add(mainContainer);
+        // Add fill first, top last so banner is at Y=0 and pnlLeftGateway fills below
+        mainContainer.Controls.Add(pnlLeftGateway);
+        mainContainer.Controls.Add(pnlBannerSpacer);
+        mainContainer.Controls.Add(pnlCompanyBanner);
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  CARD & WIDGET FACTORY HELPERS
+    //  CARD FACTORY HELPERS
     // ═══════════════════════════════════════════════════════════════
 
     private Guna2Panel CreateStructuredCard(string title, string hotkey, Color dotColor)
@@ -1191,8 +1148,8 @@ public class MainForm : Form
             FillColor = Color.White,
             BorderColor = Color.FromArgb(226, 232, 240),
             BorderThickness = 1,
-            BorderRadius = 6,
-            Margin = new Padding(4),
+            BorderRadius = 8,
+            Margin = new Padding(6, 4, 6, 4),
             Padding = new Padding(0)
         };
 
@@ -1200,21 +1157,24 @@ public class MainForm : Form
         var header = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 34,
-            BackColor = Color.Transparent,
-            Padding = new Padding(12, 0, 12, 0)
+            Height = 44,
+            BackColor = Color.FromArgb(248, 250, 252),
+            Padding = new Padding(16, 0, 16, 0)
         };
 
-        // Dot + Title
+        // Dot + Title + Bottom line
         header.Paint += (s, e) =>
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var brush = new SolidBrush(dotColor);
-            e.Graphics.FillEllipse(brush, 12, 12, 8, 8);
+            e.Graphics.FillEllipse(brush, 14, 17, 10, 10);
 
-            using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            using var font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
             using var textBrush = new SolidBrush(Color.FromArgb(15, 23, 42));
-            e.Graphics.DrawString(title, font, textBrush, 26, 9);
+            e.Graphics.DrawString(title, font, textBrush, 32, 12);
+
+            using var linePen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawLine(linePen, 0, header.Height - 1, header.Width, header.Height - 1);
         };
 
         // Hotkey badge on right
@@ -1222,17 +1182,17 @@ public class MainForm : Form
         {
             var badge = new Guna2Panel
             {
-                Size = new Size(TextRenderer.MeasureText(hotkey, new Font("Segoe UI", 7F, FontStyle.Bold)).Width + 10, 18),
+                Size = new Size(TextRenderer.MeasureText(hotkey, new Font("Segoe UI", 7.5F, FontStyle.Bold)).Width + 14, 22),
                 FillColor = Color.FromArgb(241, 245, 249),
                 BorderColor = Color.FromArgb(203, 213, 225),
                 BorderThickness = 1,
-                BorderRadius = 3,
+                BorderRadius = 4,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             var lblHotkey = new Label
             {
                 Text = hotkey,
-                Font = new Font("Segoe UI", 7F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(71, 85, 105),
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -1242,32 +1202,63 @@ public class MainForm : Form
             header.Controls.Add(badge);
             header.Resize += (s, e) =>
             {
-                badge.Location = new Point(header.Width - badge.Width - 12, 8);
+                badge.Location = new Point(header.Width - badge.Width - 14, 11);
             };
         }
 
+        var pnlContent = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.White,
+            Padding = new Padding(8, 6, 8, 6),
+            AutoScroll = true
+        };
+
+        var tblRows = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 0,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
+        };
+        tblRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+        pnlContent.Controls.Add(tblRows);
+        card.Controls.Add(pnlContent);
         card.Controls.Add(header);
+        card.Tag = tblRows;
         return card;
     }
 
     private void AddCardActionRow(Guna2Panel card, string title, string rightTag, Action click, bool isHighlighted = false, bool isGoldBadge = false)
     {
-        var row = new Panel
+        if (card.Tag is not TableLayoutPanel tblRows) return;
+
+        int rowIndex = tblRows.RowCount;
+        tblRows.RowCount = rowIndex + 1;
+        tblRows.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+
+        var row = new Guna2Panel
         {
-            Dock = DockStyle.Top,
-            Height = 26,
+            Dock = DockStyle.Fill,
+            Height = 36,
+            Margin = new Padding(0, 1, 0, 1),
             Padding = new Padding(12, 0, 12, 0),
-            BackColor = Color.Transparent,
+            FillColor = Color.Transparent,
+            BorderRadius = 4,
             Cursor = Cursors.Hand
         };
 
         var lblTitle = new Label
         {
             Text = title,
-            Font = new Font("Segoe UI", 8.25F, FontStyle.Regular),
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
             ForeColor = Color.FromArgb(30, 41, 59),
             AutoSize = true,
-            Location = new Point(14, 4),
+            Location = new Point(14, 9),
             BackColor = Color.Transparent,
             Cursor = Cursors.Hand
         };
@@ -1280,9 +1271,9 @@ public class MainForm : Form
                 // Soft blue pill
                 var pill = new Guna2Panel
                 {
-                    Size = new Size(48, 18),
+                    Size = new Size(54, 22),
                     FillColor = Color.FromArgb(219, 234, 254),
-                    BorderRadius = 3,
+                    BorderRadius = 4,
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
@@ -1298,7 +1289,7 @@ public class MainForm : Form
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
-                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 4);
+                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
                 pill.Click += (s, e) => click();
                 lblPill.Click += (s, e) => click();
             }
@@ -1307,9 +1298,9 @@ public class MainForm : Form
                 // Gold pill
                 var pill = new Guna2Panel
                 {
-                    Size = new Size(50, 18),
+                    Size = new Size(56, 22),
                     FillColor = Color.FromArgb(254, 243, 199),
-                    BorderRadius = 3,
+                    BorderRadius = 4,
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
@@ -1325,7 +1316,7 @@ public class MainForm : Form
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
-                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 4);
+                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
                 pill.Click += (s, e) => click();
                 lblPill.Click += (s, e) => click();
             }
@@ -1343,7 +1334,7 @@ public class MainForm : Form
                     Cursor = Cursors.Hand
                 };
                 row.Controls.Add(lblTag);
-                row.Resize += (s, e) => lblTag.Location = new Point(row.Width - lblTag.Width - 14, 5);
+                row.Resize += (s, e) => lblTag.Location = new Point(row.Width - lblTag.Width - 14, 9);
                 lblTag.Click += (s, e) => click();
             }
         }
@@ -1351,7 +1342,7 @@ public class MainForm : Form
         // Hover Effect
         Action<bool> setHover = isHover =>
         {
-            row.BackColor = isHover ? Color.FromArgb(241, 245, 249) : Color.Transparent;
+            row.FillColor = isHover ? Color.FromArgb(241, 245, 249) : Color.Transparent;
             lblTitle.ForeColor = isHover ? Color.FromArgb(37, 99, 235) : Color.FromArgb(30, 41, 59);
         };
 
@@ -1371,114 +1362,12 @@ public class MainForm : Form
         row.Click += (s, e) => click();
         lblTitle.Click += (s, e) => click();
 
-        card.Controls.Add(row);
-        row.BringToFront();
+        tblRows.Controls.Add(row, 0, rowIndex);
     }
 
-    private Guna2Button CreateFilterChip(string text, Action click)
-    {
-        return new Guna2Button
-        {
-            Text = text,
-            Size = new Size(58, 22),
-            FillColor = Color.FromArgb(241, 245, 249),
-            BorderColor = Color.FromArgb(203, 213, 225),
-            BorderThickness = 1,
-            BorderRadius = 3,
-            ForeColor = Color.FromArgb(51, 65, 85),
-            Font = new Font("Segoe UI", 7F),
-            Cursor = Cursors.Hand
-        };
-    }
 
-    private Guna2Panel CreateWidgetContainer(string title, string rightNote, Action? rightClick)
-    {
-        var widget = new Guna2Panel
-        {
-            Dock = DockStyle.Fill,
-            FillColor = Color.White,
-            BorderColor = Color.FromArgb(226, 232, 240),
-            BorderThickness = 1,
-            BorderRadius = 6,
-            Margin = new Padding(0, 0, 0, 8),
-            Padding = new Padding(0)
-        };
 
-        var header = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 30,
-            BackColor = Color.Transparent,
-            Padding = new Padding(12, 0, 12, 0)
-        };
 
-        var lblTitle = new Label
-        {
-            Text = title,
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(30, 41, 59),
-            Location = new Point(12, 7),
-            AutoSize = true,
-            BackColor = Color.Transparent
-        };
-        header.Controls.Add(lblTitle);
-
-        if (!string.IsNullOrEmpty(rightNote))
-        {
-            var lblRight = new Label
-            {
-                Text = rightNote,
-                Font = new Font("Segoe UI", 7.5F),
-                ForeColor = rightClick != null ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184),
-                AutoSize = true,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.Transparent,
-                Cursor = rightClick != null ? Cursors.Hand : Cursors.Default
-            };
-            if (rightClick != null) lblRight.Click += (s, e) => rightClick();
-            header.Controls.Add(lblRight);
-            header.Resize += (s, e) => lblRight.Location = new Point(header.Width - lblRight.Width - 12, 8);
-        }
-
-        widget.Controls.Add(header);
-        return widget;
-    }
-
-    private Guna2Panel CreateBalanceBox(string label, string amount, Color textCol)
-    {
-        var box = new Guna2Panel
-        {
-            Dock = DockStyle.Fill,
-            FillColor = Color.FromArgb(248, 250, 252),
-            BorderColor = Color.FromArgb(226, 232, 240),
-            BorderThickness = 1,
-            BorderRadius = 4,
-            Margin = new Padding(4),
-            Padding = new Padding(8, 6, 8, 6)
-        };
-
-        var lbl = new Label
-        {
-            Text = label,
-            Font = new Font("Segoe UI", 7.5F),
-            ForeColor = Color.FromArgb(100, 116, 139),
-            Location = new Point(8, 6),
-            AutoSize = true,
-            BackColor = Color.Transparent
-        };
-        var val = new Label
-        {
-            Text = amount,
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            ForeColor = textCol,
-            Location = new Point(8, 26),
-            AutoSize = true,
-            BackColor = Color.Transparent
-        };
-        box.Controls.Add(lbl);
-        box.Controls.Add(val);
-        return box;
-    }
 
     // ═══════════════════════════════════════════════════════════════
     //  CONTEXT UPDATES (Company, Financial Year, Status)
@@ -1490,6 +1379,9 @@ public class MainForm : Form
         {
             var company = _companyContext.CurrentCompany;
             var fy = _companyContext.CurrentFinancialYear;
+
+            if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = true;
+            if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = true;
 
             if (lblBannerCompName != null) lblBannerCompName.Text = company.CompanyName;
             if (lblBannerBooksBeginning != null && fy != null)
@@ -1503,19 +1395,25 @@ public class MainForm : Form
 
             if (lblStatusCompany != null) lblStatusCompany.Text = $"● Company: {company.CompanyName}";
             if (lblStatusFY != null) lblStatusFY.Text = fy != null ? $"FY: {fy.YearName}" : "FY: Not set";
-            if (lblTitleContext != null)
-                lblTitleContext.Text = $"  |  {company.CompanyName} • FY {(fy != null ? fy.YearName : "2026-27")}";
+            if (lblTitleSeparator != null && lblTitleText != null)
+            {
+                lblTitleSeparator.Visible = true;
+                lblTitleSeparator.Location = new Point(lblTitleText.Right + 8, 7);
+            }
+            if (lblTitleContext != null && lblTitleSeparator != null)
+            {
+                lblTitleContext.Text = $"{company.CompanyName} • FY {(fy != null ? fy.YearName : "2026-27")}";
+                lblTitleContext.Location = new Point(lblTitleSeparator.Right + 8, 7);
+            }
         }
         else
         {
-            if (lblBannerCompName != null) lblBannerCompName.Text = "[No Company Selected]";
-            if (lblBannerBooksBeginning != null) lblBannerBooksBeginning.Text = "|   Books Beginning: Not Set";
-            if (lblBannerCompSubtitle != null) lblBannerCompSubtitle.Text = "No company open. Press F3 to select a company.";
-            if (lblBannerFY != null) lblBannerFY.Text = "Not Selected";
-            if (lblBannerDate != null) lblBannerDate.Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)");
+            if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = false;
+            if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = false;
 
             if (lblStatusCompany != null) lblStatusCompany.Text = "● Company: [None Selected]";
             if (lblStatusFY != null) lblStatusFY.Text = "FY: Not Selected";
+            if (lblTitleSeparator != null) lblTitleSeparator.Visible = false;
             if (lblTitleContext != null) lblTitleContext.Text = "";
         }
     }
@@ -1598,17 +1496,6 @@ public class MainForm : Form
 
             var cursor = PointToClient(Cursor.Position);
 
-            // Windows 11 Snap Layouts: report maximize button area as HTMAXBUTTON
-            if (btnMaxRestore != null && cursor.Y < 32)
-            {
-                var maxBtnRect = btnMaxRestore.Bounds;
-                if (maxBtnRect.Contains(cursor))
-                {
-                    m.Result = (IntPtr)HTMAXBUTTON;
-                    return;
-                }
-            }
-
             // Edge resize areas for borderless window
             if (WindowState == FormWindowState.Normal)
             {
@@ -1640,7 +1527,7 @@ public class MainForm : Form
     {
         base.OnSizeChanged(e);
         if (btnMaxRestore != null)
-            btnMaxRestore.Text = WindowState == FormWindowState.Maximized ? "❐" : "☐";
+            btnMaxRestore.Text = WindowState == FormWindowState.Maximized ? "❐" : "▢";
     }
 
     protected override void OnResize(EventArgs e)

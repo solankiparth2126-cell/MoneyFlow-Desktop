@@ -568,16 +568,31 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
 
     protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
     {
-        var rc = new Rectangle(Point.Empty, e.Item.Size);
+        if (e.ToolStrip is MenuStrip)
+        {
+            if (e.Item.Selected || e.Item.Pressed)
+            {
+                var rc = new Rectangle(2, 2, e.Item.Width - 4, e.Item.Height - 4);
+                using var brush = new SolidBrush(Color.FromArgb(224, 242, 254)); // #E0F2FE Light Sky
+                using var pen = new Pen(Color.FromArgb(186, 230, 253), 1);      // #BAE6FD
+                using var path = ExecLedgerIcons.CreateRoundedRectanglePath(rc, 4f);
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(pen, path);
+            }
+            return;
+        }
+
+        var dropRc = new Rectangle(Point.Empty, e.Item.Size);
         if (e.Item.Selected || e.Item.Pressed)
         {
             using var brush = new SolidBrush(ExecLedgerTheme.MenuHover);
-            e.Graphics.FillRectangle(brush, rc);
+            e.Graphics.FillRectangle(brush, dropRc);
         }
         else
         {
             using var brush = new SolidBrush(e.Item.Owner?.BackColor ?? ExecLedgerTheme.ApplicationCanvas);
-            e.Graphics.FillRectangle(brush, rc);
+            e.Graphics.FillRectangle(brush, dropRc);
         }
     }
 
@@ -591,7 +606,7 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
     {
         if (e.ToolStrip is MenuStrip)
         {
-            using var pen = new Pen(ExecLedgerTheme.PrimaryBorder, 1);
+            using var pen = new Pen(ExecLedgerTheme.GridBorder, 1);
             e.Graphics.DrawLine(pen, 0, e.AffectedBounds.Height - 1, e.AffectedBounds.Width, e.AffectedBounds.Height - 1);
         }
         else
@@ -610,7 +625,16 @@ internal class ExecLedgerMenuRenderer : ToolStripProfessionalRenderer
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = ExecLedgerTheme.PrimaryText;
+        if (e.ToolStrip is MenuStrip && (e.Item.Selected || e.Item.Pressed))
+        {
+            e.TextColor = Color.FromArgb(2, 132, 199); // #0284C7 Sky Blue
+        }
+        else
+        {
+            e.TextColor = ExecLedgerTheme.PrimaryText;
+        }
+        e.TextFormat &= ~TextFormatFlags.HidePrefix;
+        e.TextFormat &= ~TextFormatFlags.NoPrefix;
         base.OnRenderItemText(e);
     }
 
