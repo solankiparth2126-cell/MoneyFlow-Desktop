@@ -173,6 +173,7 @@ public class CompanyListForm : Form
         pnlTopContainer.Resize += (s, e) => LayoutTopSections();
         LayoutTopSections();
 
+        Shown += (s, e) => txtSearch.Focus();
         KeyDown += OnFormKeyDown;
     }
 
@@ -532,6 +533,17 @@ public class CompanyListForm : Form
 
         gridCompanies.CellPainting += OnGridCellPainting;
         gridCompanies.DoubleClick += (s, e) => ExecuteCurrentSelection();
+        gridCompanies.SelectionChanged += (s, e) => gridCompanies.Invalidate();
+        gridCompanies.CellClick += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && e.RowIndex < gridCompanies.Rows.Count)
+            {
+                gridCompanies.ClearSelection();
+                gridCompanies.Rows[e.RowIndex].Selected = true;
+                gridCompanies.CurrentCell = gridCompanies.Rows[e.RowIndex].Cells[0];
+                gridCompanies.Invalidate();
+            }
+        };
         gridCompanies.KeyDown += OnGridKeyDown;
     }
 
@@ -819,10 +831,21 @@ public class CompanyListForm : Form
     // ═══════════════════════════════════════════════════════════════
     private void ExecuteCurrentSelection()
     {
-        if (gridCompanies.CurrentRow == null || gridCompanies.CurrentRow.Tag is not CompanyGridRowItem item)
+        CompanyGridRowItem? item = null;
+        if (gridCompanies.CurrentRow?.Tag is CompanyGridRowItem cur)
         {
-            return;
+            item = cur;
         }
+        else if (gridCompanies.SelectedRows.Count > 0 && gridCompanies.SelectedRows[0].Tag is CompanyGridRowItem sel)
+        {
+            item = sel;
+        }
+        else if (gridCompanies.Rows.Count > 0 && gridCompanies.Rows[0].Tag is CompanyGridRowItem first)
+        {
+            item = first;
+        }
+
+        if (item == null) return;
 
         SelectCompany(item.CompanyId);
     }
@@ -909,16 +932,94 @@ public class CompanyListForm : Form
     // ═══════════════════════════════════════════════════════════════
     //  KEYBOARD NAVIGATION
     // ═══════════════════════════════════════════════════════════════
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        Keys key = keyData & Keys.KeyCode;
+
+        if (key == Keys.Down)
+        {
+            NavigateGrid(1);
+            return true;
+        }
+        if (key == Keys.Up)
+        {
+            NavigateGrid(-1);
+            return true;
+        }
+        if (key == Keys.PageDown)
+        {
+            NavigateGrid(5);
+            return true;
+        }
+        if (key == Keys.PageUp)
+        {
+            NavigateGrid(-5);
+            return true;
+        }
+        if (key == Keys.Enter)
+        {
+            ExecuteCurrentSelection();
+            return true;
+        }
+        if (key == Keys.Escape)
+        {
+            Close();
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void NavigateGrid(int delta)
+    {
+        if (gridCompanies.Rows.Count == 0) return;
+
+        int currentIndex = -1;
+        if (gridCompanies.CurrentRow != null && gridCompanies.CurrentRow.Index >= 0)
+        {
+            currentIndex = gridCompanies.CurrentRow.Index;
+        }
+        else if (gridCompanies.SelectedRows.Count > 0)
+        {
+            currentIndex = gridCompanies.SelectedRows[0].Index;
+        }
+
+        int targetIndex;
+        if (currentIndex == -1)
+        {
+            targetIndex = delta > 0 ? 0 : gridCompanies.Rows.Count - 1;
+        }
+        else
+        {
+            targetIndex = Math.Clamp(currentIndex + delta, 0, gridCompanies.Rows.Count - 1);
+        }
+
+        gridCompanies.ClearSelection();
+        gridCompanies.Rows[targetIndex].Selected = true;
+        gridCompanies.CurrentCell = gridCompanies.Rows[targetIndex].Cells[0];
+
+        try
+        {
+            if (!gridCompanies.Rows[targetIndex].Displayed)
+            {
+                gridCompanies.FirstDisplayedScrollingRowIndex = targetIndex;
+            }
+        }
+        catch { }
+
+        gridCompanies.Invalidate();
+    }
+
     private void OnSearchKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.KeyCode == Keys.Down)
         {
-            gridCompanies.Focus();
-            if (gridCompanies.Rows.Count > 0)
-            {
-                gridCompanies.Rows[0].Selected = true;
-                gridCompanies.CurrentCell = gridCompanies.Rows[0].Cells[0];
-            }
+            NavigateGrid(1);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Up)
+        {
+            NavigateGrid(-1);
             e.Handled = true;
         }
         else if (e.KeyCode == Keys.Enter)
@@ -935,14 +1036,24 @@ public class CompanyListForm : Form
 
     private void OnGridKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.Enter)
+        if (e.KeyCode == Keys.Down)
+        {
+            NavigateGrid(1);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Up)
+        {
+            NavigateGrid(-1);
+            e.Handled = true;
+        }
+        else if (e.KeyCode == Keys.Enter)
         {
             ExecuteCurrentSelection();
             e.Handled = true;
         }
         else if (e.KeyCode == Keys.Escape)
         {
-            txtSearch.Focus();
+            Close();
             e.Handled = true;
         }
     }

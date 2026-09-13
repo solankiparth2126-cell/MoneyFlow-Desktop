@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using System.Windows.Forms;
 using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
 
@@ -103,6 +105,24 @@ public class MainForm : Form
     // Resize border
     private const int ResizeBorder = 6;
 
+    // Gateway of Accounting keyboard navigation state
+    private class GatewayItem
+    {
+        public int ColumnIndex { get; set; }
+        public int RowIndex { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string RightTag { get; set; } = string.Empty;
+        public char? HotkeyChar { get; set; }
+        public bool IsGoldBadge { get; set; }
+        public bool IsKeyBadge { get; set; }
+        public Action Action { get; set; } = () => { };
+        public Guna2Panel? RowPanel { get; set; }
+    }
+
+    private readonly List<GatewayItem> _gatewayItems = new();
+    private int _gatewayCol = 0; // 0: Masters, 1: Transactions, 2: Reports
+    private int _gatewayRow = 1; // Default to Ledgers Master
+
     public MainForm(
         ICompanyContext companyContext,
         IUserContext userContext,
@@ -165,19 +185,15 @@ public class MainForm : Form
         // 3. Action Toolbar (40px, Pill Buttons + Quick Search + Exit)
         CreateToolbar();
 
-        // 4. Bottom Status Bar (24px)
-        CreateStatusBar();
-
-        // 5. Operations Rail (34px Horizontal Colored Buttons)
+        // 4. Operations Rail (36px Horizontal Fn Button Bar as per reference design)
         CreateOperationsRail();
 
-        // 6. Main Workspace Layout (Fill)
+        // 5. Main Workspace Layout (Fill)
         CreateGatewayLayout();
 
         // Add controls in reverse docking order for proper z-order placement
         Controls.Add(mainContainer);
         Controls.Add(operationsRail);
-        Controls.Add(statusBar);
         Controls.Add(toolbarPanel);
         Controls.Add(menuStrip);
         Controls.Add(titleBar);
@@ -282,7 +298,7 @@ public class MainForm : Form
             HoverState = { FillColor = Color.FromArgb(220, 38, 38), ForeColor = Color.White },
             Cursor = Cursors.Hand
         };
-        btnClose.Click += (s, e) => Application.Exit();
+        btnClose.Click += (s, e) => PromptExitApplication();
 
         btnMaxRestore = new Guna2Button
         {
@@ -373,7 +389,7 @@ public class MainForm : Form
         var menuFile = new ToolStripMenuItem("&File");
         menuFile.DropDownItems.Add("Close Company", null, (s, e) => _navigationService.CloseActiveCompany(this));
         menuFile.DropDownItems.Add(new ToolStripSeparator());
-        menuFile.DropDownItems.Add("E&xit\tEsc", null, (s, e) => Application.Exit());
+        menuFile.DropDownItems.Add("E&xit\tEsc", null, (s, e) => PromptExitApplication());
 
         var menuCompany = new ToolStripMenuItem("&Company");
         menuCompany.DropDownItems.Add("Select Company\tF3", null, (s, e) => _navigationService.OpenCompanyList(this));
@@ -382,7 +398,7 @@ public class MainForm : Form
         menuCompany.DropDownItems.Add("Change Financial Year\tF2", null, (s, e) => _navigationService.OpenFinancialYearList(this));
         menuCompany.DropDownItems.Add("Close Active Company", null, (s, e) => _navigationService.CloseActiveCompany(this));
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
-        menuCompany.DropDownItems.Add("E&xit\tEsc", null, (s, e) => Application.Exit());
+        menuCompany.DropDownItems.Add("E&xit\tEsc", null, (s, e) => PromptExitApplication());
 
         var menuMasters = new ToolStripMenuItem("&Masters");
         menuMasters.DropDownItems.Add("&Groups (Chart of Accounts)", null, (s, e) => _navigationService.OpenGroupList(this));
@@ -753,80 +769,154 @@ public class MainForm : Form
         {
             Dock = DockStyle.Bottom,
             Height = 34,
-            FillColor = Color.FromArgb(15, 23, 42), // #0F172A Dark Slate
+            FillColor = Color.FromArgb(27, 54, 93), // Exact Prussian Navy sampled from Image 2 (#1B365D)
+            BackColor = Color.FromArgb(27, 54, 93),
             BorderRadius = 0,
             BorderThickness = 0,
-            Padding = new Padding(6, 3, 6, 3)
+            Padding = new Padding(6, 4, 6, 4)
         };
 
         int ox = 8;
 
-        // Colored function keys
-        var fnKeys = new (string Text, Color Bg, Action Action)[]
+        // Compound function keys with rounded colored badges + white text matching Image 2
+        var fnKeys = new (string Key, string ActionText, Color BadgeColor, Action Action)[]
         {
-            ("F1 Help", Color.FromArgb(217, 119, 6), () => _navigationService.OpenGlobalSearch(this)),
-            ("F2 Date", Color.FromArgb(37, 99, 235), () => _navigationService.OpenFinancialYearList(this)),
-            ("F3 Company", Color.FromArgb(37, 99, 235), () => _navigationService.OpenCompanyList(this)),
-            ("F4 Contra", Color.FromArgb(5, 150, 105), () => _navigationService.OpenContraVoucher(this)),
-            ("F5 Payment", Color.FromArgb(5, 150, 105), () => _navigationService.OpenPaymentVoucher(this)),
-            ("F6 Receipt", Color.FromArgb(13, 148, 136), () => _navigationService.OpenReceiptVoucher(this)),
-            ("F7 Journal", Color.FromArgb(13, 148, 136), () => _navigationService.OpenJournalVoucher(this)),
-            ("F8 Sales", Color.FromArgb(37, 99, 235), () => _navigationService.OpenSalesVoucher(this)),
-            ("F9 Purchase", Color.FromArgb(13, 148, 136), () => _navigationService.OpenPurchaseVoucher(this)),
-            ("F10 Menu", Color.FromArgb(30, 58, 138), () => _navigationService.OpenBackupRestore(this)),
-            ("F11 Features", Color.FromArgb(67, 56, 202), () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync())),
-            ("F12 Reports", Color.FromArgb(217, 119, 6), () => _navigationService.OpenTrialBalance(this)),
+            ("F1", "Help", Color.FromArgb(217, 119, 6), () => _navigationService.OpenGlobalSearch(this)),
+            ("F2", "Date", Color.FromArgb(37, 99, 235), () => _navigationService.OpenFinancialYearList(this)),
+            ("F3", "Company", Color.FromArgb(37, 99, 235), () => _navigationService.OpenCompanyList(this)),
+            ("F4", "Contra", Color.FromArgb(5, 150, 105), () => _navigationService.OpenContraVoucher(this)),
+            ("F5", "Payment", Color.FromArgb(5, 150, 105), () => _navigationService.OpenPaymentVoucher(this)),
+            ("F6", "Receipt", Color.FromArgb(13, 148, 136), () => _navigationService.OpenReceiptVoucher(this)),
+            ("F7", "Journal", Color.FromArgb(13, 148, 136), () => _navigationService.OpenJournalVoucher(this)),
+            ("F8", "Sales", Color.FromArgb(13, 148, 136), () => _navigationService.OpenSalesVoucher(this)),
+            ("F9", "Purchase", Color.FromArgb(13, 148, 136), () => _navigationService.OpenPurchaseVoucher(this)),
+            ("F10", "Menu", Color.FromArgb(30, 58, 138), () => _navigationService.OpenBackupRestore(this)),
+            ("F11", "Features", Color.FromArgb(99, 102, 241), () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync())),
+            ("F12", "Reports", Color.FromArgb(217, 119, 6), () => _navigationService.OpenTrialBalance(this)),
         };
 
-        foreach (var (text, bg, action) in fnKeys)
+        foreach (var (key, actionText, badgeColor, action) in fnKeys)
         {
-            var btn = CreateRailButton(text, bg);
-            btn.Location = new Point(ox, 4);
-            btn.Click += (s, e) => action();
+            var btn = CreateRailCompoundKey(key, actionText, badgeColor, action);
+            btn.Location = new Point(ox, 5);
             operationsRail.Controls.Add(btn);
             ox += btn.Width + 4;
         }
 
-        // Right quick buttons container
-        var pnlRightRail = new Panel
+        // Right quick button: Ctrl+F Search (Save and Exit removed as per user request)
+        var btnCtrlSearch = CreateRailCompoundKey("Ctrl+F", "Search", Color.FromArgb(8, 145, 178), () => _navigationService.OpenGlobalSearch(this));
+        btnCtrlSearch.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        operationsRail.Controls.Add(btnCtrlSearch);
+
+        void LayoutRightSearch()
         {
-            Dock = DockStyle.Right,
-            Width = 260,
-            BackColor = Color.Transparent
-        };
+            btnCtrlSearch.Location = new Point(operationsRail.ClientSize.Width - btnCtrlSearch.Width - 14, 5);
+        }
 
-        var btnCtrlSearch = CreateRailButton("Ctrl+F Search", Color.FromArgb(30, 41, 59));
-        btnCtrlSearch.Location = new Point(0, 4);
-        btnCtrlSearch.Click += (s, e) => _navigationService.OpenGlobalSearch(this);
-        pnlRightRail.Controls.Add(btnCtrlSearch);
-
-        var btnCtrlSave = CreateRailButton("Ctrl+S Save", Color.FromArgb(22, 163, 74));
-        btnCtrlSave.Location = new Point(btnCtrlSearch.Width + 4, 4);
-        btnCtrlSave.Click += (s, e) => { /* Quick Save trigger */ };
-        pnlRightRail.Controls.Add(btnCtrlSave);
-
-        var btnEscExit = CreateRailButton("Esc Exit", Color.FromArgb(220, 38, 38));
-        btnEscExit.Location = new Point(btnCtrlSearch.Width + btnCtrlSave.Width + 8, 4);
-        btnEscExit.Click += (s, e) => Application.Exit();
-        pnlRightRail.Controls.Add(btnEscExit);
-
-        operationsRail.Controls.Add(pnlRightRail);
+        operationsRail.Resize += (s, e) => LayoutRightSearch();
+        LayoutRightSearch();
     }
 
-    private Guna2Button CreateRailButton(string text, Color bg)
+    private Control CreateRailCompoundKey(string keyText, string actionText, Color badgeColor, Action onClick)
     {
-        int width = TextRenderer.MeasureText(text, ExecLedgerTheme.UIBold8).Width + 14;
-        return new Guna2Button
+        return new RailButton(keyText, actionText, badgeColor, onClick);
+    }
+
+    private sealed class RailButton : Control
+    {
+        private readonly string _keyText;
+        private readonly string _actionText;
+        private readonly Color _badgeColor;
+        private readonly Action _onClick;
+        private bool _isHovered;
+
+        public RailButton(string keyText, string actionText, Color badgeColor, Action onClick)
         {
-            Text = text,
-            Size = new Size(width, 24),
-            FillColor = bg,
-            BorderThickness = 0,
-            BorderRadius = 3,
-            ForeColor = Color.White,
-            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
-            Cursor = Cursors.Hand
-        };
+            _keyText = keyText;
+            _actionText = actionText;
+            _badgeColor = badgeColor;
+            _onClick = onClick;
+            Cursor = Cursors.Hand;
+            DoubleBuffered = true;
+            TabStop = false;
+            SetStyle(ControlStyles.Selectable, false);
+            SetStyle(ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.FromArgb(27, 54, 93);
+
+            using var fontBadge = new Font("Segoe UI", 7F, FontStyle.Bold);
+            using var fontText = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+
+            int keyWidth = TextRenderer.MeasureText(_keyText, fontBadge).Width + 6;
+            int textWidth = TextRenderer.MeasureText(_actionText, fontText).Width;
+            int totalWidth = 3 + keyWidth + 5 + textWidth + 7;
+
+            Size = new Size(totalWidth, 24);
+
+            MouseEnter += (s, e) => { _isHovered = true; Invalidate(); };
+            MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
+            Click += (s, e) => _onClick();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            // 0. Completely erase background with rail color (#1B365D) to prevent any white corner boxes
+            using (var clearBrush = new SolidBrush(Color.FromArgb(27, 54, 93)))
+            {
+                g.FillRectangle(clearBrush, ClientRectangle);
+            }
+
+            // 1. Button Rounded Pill (#1D2C42, hover #2A4160) - zero border to eliminate white frames
+            var rect = new Rectangle(0, 0, Width, Height);
+            Color bg = _isHovered ? Color.FromArgb(42, 65, 96) : Color.FromArgb(29, 44, 66);
+            using (var path = CreateRoundedPath(rect, 4))
+            using (var brush = new SolidBrush(bg))
+            {
+                g.FillPath(brush, path);
+            }
+
+            // 2. Key Badge (rounded rectangle with solid badge color)
+            using var fontBadge = new Font("Segoe UI", 7F, FontStyle.Bold);
+            using var fontText = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+
+            int keyWidth = TextRenderer.MeasureText(_keyText, fontBadge).Width + 6;
+            var badgeRect = new Rectangle(3, 3, keyWidth, 18);
+            using (var badgePath = CreateRoundedPath(badgeRect, 3))
+            using (var badgeBrush = new SolidBrush(_badgeColor))
+            {
+                g.FillPath(badgeBrush, badgePath);
+            }
+
+            // 3. Key Text inside badge
+            var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            using (var textBrush = new SolidBrush(Color.White))
+            {
+                g.DrawString(_keyText, fontBadge, textBrush, badgeRect, sfCenter);
+            }
+
+            // 4. Action Text
+            var textRect = new Rectangle(3 + keyWidth + 5, 1, Width - (3 + keyWidth + 5) - 2, 22);
+            var sfLeft = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+            using (var textBrush = new SolidBrush(Color.White))
+            {
+                g.DrawString(_actionText, fontText, textBrush, textRect, sfLeft);
+            }
+        }
+    }
+
+    private static GraphicsPath CreateRoundedPath(Rectangle rect, int radius)
+    {
+        var path = new GraphicsPath();
+        int d = radius * 2;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -923,7 +1013,7 @@ public class MainForm : Form
 
         lblBannerCompSubtitle = new Label
         {
-            Text = "Commercial Accounts • Wholesale & Retail Trading • Base Currency: INR (₹)",
+            Text = "Accounts",
             Font = new Font("Segoe UI", 8F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
@@ -1066,33 +1156,106 @@ public class MainForm : Form
         pnlGatewayHeader.Controls.Add(lblGwTitle);
         pnlGatewayHeader.Controls.Add(lblGwSub);
 
-        // Navigation Tip Pill
+        // Navigation Tip Pill with key badges (matching Image 1)
         var pnlNavTip = new Guna2Panel
         {
-            Size = new Size(330, 26),
+            Size = new Size(395, 28),
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
             FillColor = Color.FromArgb(239, 246, 255),
             BorderColor = Color.FromArgb(191, 219, 254),
             BorderThickness = 1,
             BorderRadius = 4
         };
-        var lblNavTip = new Label
+
+        var flowNav = new FlowLayoutPanel
         {
-            Text = "Navigation Tip: Use  [Arrow Keys] + [Enter]  or single hotkeys.",
+            Dock = DockStyle.Fill,
+            WrapContents = false,
+            AutoSize = false,
+            BackColor = Color.Transparent,
+            Padding = new Padding(8, 3, 8, 3)
+        };
+
+        var lblNavPrefix = new Label
+        {
+            Text = "Navigation Tip: Use",
             Font = new Font("Segoe UI", 7.5F),
             ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(0, 3, 2, 0)
+        };
+
+        var badgeArrow = new Guna2Panel
+        {
+            Size = new Size(72, 20),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(191, 219, 254),
+            BorderThickness = 1,
+            BorderRadius = 3,
+            Margin = new Padding(2, 0, 2, 0)
+        };
+        var lblArrow = new Label
+        {
+            Text = "Arrow Keys",
+            Font = new Font("Segoe UI", 7F),
+            ForeColor = Color.FromArgb(51, 65, 85),
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
             BackColor = Color.Transparent
         };
-        pnlNavTip.Controls.Add(lblNavTip);
+        badgeArrow.Controls.Add(lblArrow);
+
+        var lblNavPlus = new Label
+        {
+            Text = "+",
+            Font = new Font("Segoe UI", 7.5F),
+            ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(2, 3, 2, 0)
+        };
+
+        var badgeEnter = new Guna2Panel
+        {
+            Size = new Size(38, 20),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(191, 219, 254),
+            BorderThickness = 1,
+            BorderRadius = 3,
+            Margin = new Padding(2, 0, 2, 0)
+        };
+        var lblEnter = new Label
+        {
+            Text = "Enter",
+            Font = new Font("Segoe UI", 7F),
+            ForeColor = Color.FromArgb(51, 65, 85),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent
+        };
+        badgeEnter.Controls.Add(lblEnter);
+
+        var lblNavSuffix = new Label
+        {
+            Text = "or single hotkeys.",
+            Font = new Font("Segoe UI", 7.5F),
+            ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(2, 3, 0, 0)
+        };
+
+        flowNav.Controls.Add(lblNavPrefix);
+        flowNav.Controls.Add(badgeArrow);
+        flowNav.Controls.Add(lblNavPlus);
+        flowNav.Controls.Add(badgeEnter);
+        flowNav.Controls.Add(lblNavSuffix);
+        pnlNavTip.Controls.Add(flowNav);
         pnlGatewayHeader.Controls.Add(pnlNavTip);
         pnlGatewayHeader.Resize += (s, e) =>
         {
             pnlNavTip.Location = new Point(pnlGatewayHeader.Width - pnlNavTip.Width, 6);
         };
 
-        // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS
+        // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Fit to screen)
         var cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -1106,42 +1269,46 @@ public class MainForm : Form
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
+        _gatewayItems.Clear();
+
         // ── Card 1: MASTERS [M] ──
-        var cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235));
-        AddCardActionRow(cardMasters, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this));
-        AddCardActionRow(cardMasters, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), isHighlighted: true);
-        AddCardActionRow(cardMasters, "Stock Items", "Inventory", () => _navigationService.OpenStockItemList(this));
-        AddCardActionRow(cardMasters, "Units of Measure", "Qty", () => _navigationService.OpenUnitList(this));
-        AddCardActionRow(cardMasters, "Voucher Types", "Config", () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()));
+        var cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
+        AddCardActionRow(cardMasters, 0, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
+        AddCardActionRow(cardMasters, 0, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
+        AddCardActionRow(cardMasters, 0, "Stock Items", "Inventory", () => _navigationService.OpenStockItemList(this), hotkeyChar: 'S');
+        AddCardActionRow(cardMasters, 0, "Units of Measure", "Qty", () => _navigationService.OpenUnitList(this), hotkeyChar: 'U');
+        AddCardActionRow(cardMasters, 0, "Voucher Types", "Config", () => _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()), hotkeyChar: 'V');
         cardsGrid.Controls.Add(cardMasters, 0, 0);
 
         // ── Card 2: TRANSACTIONS [T] ──
-        var cardTrans = CreateStructuredCard("TRANSACTIONS", "T", Color.FromArgb(13, 148, 136));
-        AddCardActionRow(cardTrans, "Payment", "F5", () => _navigationService.OpenPaymentVoucher(this));
-        AddCardActionRow(cardTrans, "Receipt", "F6", () => _navigationService.OpenReceiptVoucher(this));
-        AddCardActionRow(cardTrans, "Contra", "F4", () => _navigationService.OpenContraVoucher(this));
-        AddCardActionRow(cardTrans, "Journal", "F7", () => _navigationService.OpenJournalVoucher(this));
-        AddCardActionRow(cardTrans, "Sales Voucher", "F8", () => _navigationService.OpenSalesVoucher(this));
-        AddCardActionRow(cardTrans, "Purchase Voucher", "F9", () => _navigationService.OpenPurchaseVoucher(this));
-        AddCardActionRow(cardTrans, "Debit / Credit Note", "Ctrl+F9", () => _navigationService.OpenDebitNote(this));
+        var cardTrans = CreateStructuredCard("TRANSACTIONS", "T", Color.FromArgb(16, 185, 129), 1);
+        AddCardActionRow(cardTrans, 1, "Payment", "F5", () => _navigationService.OpenPaymentVoucher(this), hotkeyChar: 'P', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Receipt", "F6", () => _navigationService.OpenReceiptVoucher(this), hotkeyChar: 'R', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Contra", "F4", () => _navigationService.OpenContraVoucher(this), hotkeyChar: 'C', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Journal", "F7", () => _navigationService.OpenJournalVoucher(this), hotkeyChar: 'J', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Sales Voucher", "F8", () => _navigationService.OpenSalesVoucher(this), hotkeyChar: 'S', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Purchase Voucher", "F9", () => _navigationService.OpenPurchaseVoucher(this), hotkeyChar: 'P', isKeyBadge: true);
+        AddCardActionRow(cardTrans, 1, "Debit / Credit Note", "Ctrl+F9", () => _navigationService.OpenDebitNote(this));
         cardsGrid.Controls.Add(cardTrans, 1, 0);
 
         // ── Card 3: REPORTS [R] ──
-        var cardReports = CreateStructuredCard("REPORTS", "R", Color.FromArgb(217, 119, 6));
-        AddCardActionRow(cardReports, "Day Book", "Daily Ledger", () => _navigationService.OpenDayBook(this));
-        AddCardActionRow(cardReports, "Ledger Accounts", "Statement", () => _navigationService.OpenLedgerStatement(this));
-        AddCardActionRow(cardReports, "Trial Balance", "Auditing", () => _navigationService.OpenTrialBalance(this), isGoldBadge: true);
-        AddCardActionRow(cardReports, "Profit & Loss", "P&L Stmt", () => _navigationService.OpenProfitLoss(this));
-        AddCardActionRow(cardReports, "Balance Sheet", "Financials", () => _navigationService.OpenBalanceSheet(this));
-        AddCardActionRow(cardReports, "Cash & Bank Book", "Funds Flow", () => _navigationService.OpenCashBankBook(this));
-        AddCardActionRow(cardReports, "Outstandings (AR/AP)", "Aging", () => _navigationService.OpenOutstandingReport(this));
+        var cardReports = CreateStructuredCard("REPORTS", "R", Color.FromArgb(245, 158, 11), 2);
+        AddCardActionRow(cardReports, 2, "Day Book", "Daily Ledger", () => _navigationService.OpenDayBook(this), hotkeyChar: 'D');
+        AddCardActionRow(cardReports, 2, "Ledger Accounts", "Statement", () => _navigationService.OpenLedgerStatement(this), hotkeyChar: 'L');
+        AddCardActionRow(cardReports, 2, "Trial Balance", "Auditing", () => _navigationService.OpenTrialBalance(this), hotkeyChar: 'T', isGoldBadge: true);
+        AddCardActionRow(cardReports, 2, "Profit & Loss", "P&L Stmt", () => _navigationService.OpenProfitLoss(this), hotkeyChar: 'P');
+        AddCardActionRow(cardReports, 2, "Balance Sheet", "Financials", () => _navigationService.OpenBalanceSheet(this), hotkeyChar: 'B');
+        AddCardActionRow(cardReports, 2, "Cash & Bank Book", "Funds Flow", () => _navigationService.OpenCashBankBook(this), hotkeyChar: 'C');
+        AddCardActionRow(cardReports, 2, "Outstandings (AR/AP)", "Aging", () => _navigationService.OpenOutstandingReport(this), hotkeyChar: 'O');
         cardsGrid.Controls.Add(cardReports, 2, 0);
 
-        // Add fill first, top last so header is at Y=0
+        UpdateGatewaySelectionUI();
+
+        // Add cardsGrid and header to gateway panel
         pnlLeftGateway.Controls.Add(cardsGrid);
         pnlLeftGateway.Controls.Add(pnlGatewayHeader);
 
-        // Add fill first, top last so banner is at Y=0 and pnlLeftGateway fills below
+        // Add to main container
         mainContainer.Controls.Add(pnlLeftGateway);
         mainContainer.Controls.Add(pnlBannerSpacer);
         mainContainer.Controls.Add(pnlCompanyBanner);
@@ -1151,7 +1318,7 @@ public class MainForm : Form
     //  CARD FACTORY HELPERS
     // ═══════════════════════════════════════════════════════════════
 
-    private Guna2Panel CreateStructuredCard(string title, string hotkey, Color dotColor)
+    private Guna2Panel CreateStructuredCard(string title, string hotkey, Color dotColor, int colIndex)
     {
         var card = new Guna2Panel
         {
@@ -1170,7 +1337,8 @@ public class MainForm : Form
             Dock = DockStyle.Top,
             Height = 44,
             BackColor = Color.FromArgb(248, 250, 252),
-            Padding = new Padding(16, 0, 16, 0)
+            Padding = new Padding(16, 0, 16, 0),
+            Cursor = Cursors.Hand
         };
 
         // Dot + Title + Bottom line
@@ -1188,33 +1356,46 @@ public class MainForm : Form
             e.Graphics.DrawLine(linePen, 0, header.Height - 1, header.Width, header.Height - 1);
         };
 
-        // Hotkey badge on right
+        // Hotkey badge on right: [ M ], [ T ], [ R ]
         if (!string.IsNullOrEmpty(hotkey))
         {
+            var pnlBadgeRight = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 44,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+
             var badge = new Guna2Panel
             {
-                Size = new Size(TextRenderer.MeasureText(hotkey, new Font("Segoe UI", 7.5F, FontStyle.Bold)).Width + 14, 22),
+                Size = new Size(26, 22),
+                Location = new Point(4, 11),
                 FillColor = Color.FromArgb(241, 245, 249),
                 BorderColor = Color.FromArgb(203, 213, 225),
                 BorderThickness = 1,
                 BorderRadius = 4,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
+                Cursor = Cursors.Hand
             };
             var lblHotkey = new Label
             {
                 Text = hotkey,
-                Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(71, 85, 105),
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
             };
             badge.Controls.Add(lblHotkey);
-            header.Controls.Add(badge);
-            header.Resize += (s, e) =>
-            {
-                badge.Location = new Point(header.Width - badge.Width - 14, 11);
-            };
+            pnlBadgeRight.Controls.Add(badge);
+            header.Controls.Add(pnlBadgeRight);
+
+            Action selectCol = () => JumpToGatewayColumn(colIndex);
+            badge.Click += (s, e) => selectCol();
+            lblHotkey.Click += (s, e) => selectCol();
+            pnlBadgeRight.Click += (s, e) => selectCol();
+            header.Click += (s, e) => selectCol();
         }
 
         var pnlContent = new Panel
@@ -1222,7 +1403,7 @@ public class MainForm : Form
             Dock = DockStyle.Fill,
             BackColor = Color.White,
             Padding = new Padding(8, 6, 8, 6),
-            AutoScroll = true
+            AutoScroll = false
         };
 
         var tblRows = new TableLayoutPanel
@@ -1244,7 +1425,16 @@ public class MainForm : Form
         return card;
     }
 
-    private void AddCardActionRow(Guna2Panel card, string title, string rightTag, Action click, bool isHighlighted = false, bool isGoldBadge = false)
+    private void AddCardActionRow(
+        Guna2Panel card,
+        int colIndex,
+        string title,
+        string rightTag,
+        Action click,
+        char? hotkeyChar = null,
+        bool isHighlighted = false,
+        bool isGoldBadge = false,
+        bool isKeyBadge = false)
     {
         if (card.Tag is not TableLayoutPanel tblRows) return;
 
@@ -1258,28 +1448,68 @@ public class MainForm : Form
             Height = 36,
             Margin = new Padding(0, 1, 0, 1),
             Padding = new Padding(12, 0, 12, 0),
-            FillColor = Color.Transparent,
+            FillColor = isHighlighted ? Color.FromArgb(239, 246, 255) : Color.Transparent,
+            BorderColor = isHighlighted ? Color.FromArgb(191, 219, 254) : Color.Transparent,
+            BorderThickness = isHighlighted ? 1 : 0,
             BorderRadius = 4,
             Cursor = Cursors.Hand
         };
+        row.Tag = isHighlighted;
 
-        var lblTitle = new Label
+        var item = new GatewayItem
         {
-            Text = title,
-            Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(30, 41, 59),
-            AutoSize = true,
-            Location = new Point(14, 9),
-            BackColor = Color.Transparent,
-            Cursor = Cursors.Hand
+            ColumnIndex = colIndex,
+            RowIndex = rowIndex,
+            Title = title,
+            RightTag = rightTag,
+            HotkeyChar = hotkeyChar,
+            IsGoldBadge = isGoldBadge,
+            IsKeyBadge = isKeyBadge,
+            Action = click,
+            RowPanel = row
         };
-        row.Controls.Add(lblTitle);
+        _gatewayItems.Add(item);
+
+        bool isHovered = false;
+
+        // Custom text painting to draw the hotkey letter with bold underline matching Image 1
+        row.Paint += (s, e) =>
+        {
+            e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            bool isSelected = (row.Tag is true);
+
+            Color textColor = isHovered
+                ? Color.FromArgb(37, 99, 235)
+                : (isSelected ? Color.FromArgb(30, 64, 175) : Color.FromArgb(30, 41, 59));
+
+            int startX = 14;
+            int startY = 9;
+
+            if (hotkeyChar.HasValue && title.StartsWith(hotkeyChar.Value))
+            {
+                string keyStr = hotkeyChar.Value.ToString();
+                string restStr = title.Substring(1);
+
+                using var keyFont = new Font("Segoe UI", 9F, FontStyle.Bold | FontStyle.Underline);
+                using var restFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+
+                var keySize = TextRenderer.MeasureText(e.Graphics, keyStr, keyFont, Size.Empty, TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(e.Graphics, keyStr, keyFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding);
+                TextRenderer.DrawText(e.Graphics, restStr, restFont, new Point(startX + keySize.Width, startY), textColor, TextFormatFlags.NoPadding);
+            }
+            else
+            {
+                using var normFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+                TextRenderer.DrawText(e.Graphics, title, normFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding);
+            }
+        };
 
         if (!string.IsNullOrEmpty(rightTag))
         {
             if (isHighlighted)
             {
-                // Soft blue pill
+                // Soft blue pill (e.g. Primary)
                 var pill = new Guna2Panel
                 {
                     Size = new Size(54, 22),
@@ -1296,17 +1526,18 @@ public class MainForm : Form
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
                     BackColor = Color.Transparent,
-                    Cursor = Cursors.Hand
+                    Cursor = Cursors.Hand,
+                    UseMnemonic = false
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
                 row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
-                pill.Click += (s, e) => click();
-                lblPill.Click += (s, e) => click();
+                pill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
+                lblPill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
             else if (isGoldBadge)
             {
-                // Gold pill
+                // Gold pill (e.g. Auditing)
                 var pill = new Guna2Panel
                 {
                     Size = new Size(56, 22),
@@ -1323,17 +1554,48 @@ public class MainForm : Form
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
                     BackColor = Color.Transparent,
-                    Cursor = Cursors.Hand
+                    Cursor = Cursors.Hand,
+                    UseMnemonic = false
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
                 row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
-                pill.Click += (s, e) => click();
-                lblPill.Click += (s, e) => click();
+                pill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
+                lblPill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
+            }
+            else if (isKeyBadge)
+            {
+                // Key badge (e.g. F5, F6, F4, etc.)
+                var keyBox = new Guna2Panel
+                {
+                    Size = new Size(32, 22),
+                    FillColor = Color.FromArgb(248, 250, 252),
+                    BorderColor = Color.FromArgb(203, 213, 225),
+                    BorderThickness = 1,
+                    BorderRadius = 4,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    Cursor = Cursors.Hand
+                };
+                var lblKey = new Label
+                {
+                    Text = rightTag,
+                    Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    BackColor = Color.Transparent,
+                    Cursor = Cursors.Hand,
+                    UseMnemonic = false
+                };
+                keyBox.Controls.Add(lblKey);
+                row.Controls.Add(keyBox);
+                row.Resize += (s, e) => keyBox.Location = new Point(row.Width - keyBox.Width - 14, 7);
+                keyBox.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
+                lblKey.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
             else
             {
-                // Plain tag
+                // Plain tag (e.g. Hierarchy, Inventory, P&L Stmt)
                 var lblTag = new Label
                 {
                     Text = rightTag,
@@ -1342,38 +1604,106 @@ public class MainForm : Form
                     AutoSize = true,
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     BackColor = Color.Transparent,
-                    Cursor = Cursors.Hand
+                    Cursor = Cursors.Hand,
+                    UseMnemonic = false
                 };
                 row.Controls.Add(lblTag);
                 row.Resize += (s, e) => lblTag.Location = new Point(row.Width - lblTag.Width - 14, 9);
-                lblTag.Click += (s, e) => click();
+                lblTag.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
         }
 
         // Hover Effect
-        Action<bool> setHover = isHover =>
+        row.MouseEnter += (s, e) =>
         {
-            row.FillColor = isHover ? Color.FromArgb(241, 245, 249) : Color.Transparent;
-            lblTitle.ForeColor = isHover ? Color.FromArgb(37, 99, 235) : Color.FromArgb(30, 41, 59);
+            isHovered = true;
+            bool isSelected = (row.Tag is true);
+            if (!isSelected) row.FillColor = Color.FromArgb(241, 245, 249);
+            row.Invalidate();
         };
 
-        row.MouseEnter += (s, e) => setHover(true);
         row.MouseLeave += (s, e) =>
         {
             if (!row.ClientRectangle.Contains(row.PointToClient(Cursor.Position)))
-                setHover(false);
-        };
-        lblTitle.MouseEnter += (s, e) => setHover(true);
-        lblTitle.MouseLeave += (s, e) =>
-        {
-            if (!row.ClientRectangle.Contains(row.PointToClient(Cursor.Position)))
-                setHover(false);
+            {
+                isHovered = false;
+                bool isSelected = (row.Tag is true);
+                if (!isSelected) row.FillColor = Color.Transparent;
+                row.Invalidate();
+            }
         };
 
-        row.Click += (s, e) => click();
-        lblTitle.Click += (s, e) => click();
+        row.Click += (s, e) =>
+        {
+            SetGatewaySelection(colIndex, rowIndex);
+            click();
+        };
 
         tblRows.Controls.Add(row, 0, rowIndex);
+    }
+
+    private void SetGatewaySelection(int col, int row)
+    {
+        _gatewayCol = col;
+        _gatewayRow = row;
+        UpdateGatewaySelectionUI();
+    }
+
+    private void NavigateGateway(int deltaCol, int deltaRow)
+    {
+        if (_gatewayItems.Count == 0) return;
+
+        if (deltaCol != 0)
+        {
+            _gatewayCol = Math.Clamp(_gatewayCol + deltaCol, 0, 2);
+        }
+
+        var colItems = _gatewayItems.Where(i => i.ColumnIndex == _gatewayCol).OrderBy(i => i.RowIndex).ToList();
+        if (colItems.Count == 0) return;
+
+        if (deltaRow != 0)
+        {
+            _gatewayRow += deltaRow;
+            if (_gatewayRow < 0) _gatewayRow = colItems.Count - 1;
+            else if (_gatewayRow >= colItems.Count) _gatewayRow = 0;
+        }
+        else
+        {
+            _gatewayRow = Math.Clamp(_gatewayRow, 0, colItems.Count - 1);
+        }
+
+        UpdateGatewaySelectionUI();
+    }
+
+    private void JumpToGatewayColumn(int col)
+    {
+        _gatewayCol = Math.Clamp(col, 0, 2);
+        var colItems = _gatewayItems.Where(i => i.ColumnIndex == _gatewayCol).ToList();
+        if (_gatewayRow >= colItems.Count)
+            _gatewayRow = 0;
+
+        UpdateGatewaySelectionUI();
+    }
+
+    private void ExecuteSelectedGatewayItem()
+    {
+        var item = _gatewayItems.FirstOrDefault(i => i.ColumnIndex == _gatewayCol && i.RowIndex == _gatewayRow);
+        item?.Action?.Invoke();
+    }
+
+    private void UpdateGatewaySelectionUI()
+    {
+        foreach (var item in _gatewayItems)
+        {
+            if (item.RowPanel == null) continue;
+
+            bool isSelected = (item.ColumnIndex == _gatewayCol && item.RowIndex == _gatewayRow);
+            item.RowPanel.FillColor = isSelected ? Color.FromArgb(239, 246, 255) : Color.Transparent;
+            item.RowPanel.BorderColor = isSelected ? Color.FromArgb(191, 219, 254) : Color.Transparent;
+            item.RowPanel.BorderThickness = isSelected ? 1 : 0;
+            item.RowPanel.Tag = isSelected;
+            item.RowPanel.Invalidate();
+        }
     }
 
 
@@ -1485,12 +1815,27 @@ public class MainForm : Form
             return;
         }
 
+        // Single hotkeys for dashboard navigation (Tally style)
+        if (!e.Control && !e.Alt && ActiveControl is not TextBox and not Guna2TextBox)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.G: _navigationService.OpenGroupList(this); e.Handled = true; return;
+                case Keys.L: _navigationService.OpenLedgerList(this); e.Handled = true; return;
+                case Keys.S: _navigationService.OpenStockItemList(this); e.Handled = true; return;
+                case Keys.U: _navigationService.OpenUnitList(this); e.Handled = true; return;
+                case Keys.V: _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()); e.Handled = true; return;
+                case Keys.D: _navigationService.OpenDayBook(this); e.Handled = true; return;
+                case Keys.T: _navigationService.OpenTrialBalance(this); e.Handled = true; return;
+                case Keys.B: _navigationService.OpenBalanceSheet(this); e.Handled = true; return;
+                case Keys.O: _navigationService.OpenOutstandingReport(this); e.Handled = true; return;
+            }
+        }
+
         switch (e.KeyCode)
         {
             case Keys.Escape:
-                var confirm = MessageBox.Show(this, "Do you want to exit MoneyFlow Desktop ERP?", "Quit",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm == DialogResult.Yes) Application.Exit();
+                PromptExitApplication();
                 break;
             case Keys.F1: _navigationService.OpenGlobalSearch(this); break;
             case Keys.F2: _navigationService.OpenFinancialYearList(this); break;
@@ -1504,6 +1849,45 @@ public class MainForm : Form
             case Keys.F10: _navigationService.OpenBackupRestore(this); break;
             case Keys.F11: _navigationService.OpenSettings(this, () => _ = ApplyCurrentSettingsThemeAsync()); break;
         }
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        // Don't intercept when user is typing in a text field
+        if (ActiveControl is TextBox or Guna2TextBox or ComboBox or RichTextBox)
+        {
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        switch (keyData)
+        {
+            case Keys.Down:
+                NavigateGateway(0, 1);
+                return true;
+            case Keys.Up:
+                NavigateGateway(0, -1);
+                return true;
+            case Keys.Right:
+                NavigateGateway(1, 0);
+                return true;
+            case Keys.Left:
+                NavigateGateway(-1, 0);
+                return true;
+            case Keys.Enter:
+                ExecuteSelectedGatewayItem();
+                return true;
+            case Keys.M:
+                JumpToGatewayColumn(0);
+                return true;
+            case Keys.T:
+                JumpToGatewayColumn(1);
+                return true;
+            case Keys.R:
+                JumpToGatewayColumn(2);
+                return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1559,6 +1943,25 @@ public class MainForm : Form
         {
             var screen = Screen.FromControl(this);
             MaximizedBounds = screen.WorkingArea;
+        }
+    }
+
+    private void PromptExitApplication()
+    {
+        string? companyName = _companyContext.CurrentCompany?.CompanyName;
+        string? snapshotPath = null;
+        if (_companyContext.CurrentCompany != null)
+        {
+            string baseDir = !string.IsNullOrWhiteSpace(_companyContext.CurrentCompany.DataDirectory)
+                ? _companyContext.CurrentCompany.DataDirectory
+                : @"C:\MoneyFlow\Data";
+            snapshotPath = Path.Combine(baseDir, "AutoSave");
+        }
+
+        bool confirmed = QuitConfirmationDialog.ShowQuitDialog(this, companyName, snapshotPath);
+        if (confirmed)
+        {
+            Application.Exit();
         }
     }
 
