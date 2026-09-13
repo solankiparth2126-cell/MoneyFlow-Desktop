@@ -847,20 +847,20 @@ public class MainForm : Form
         pnlCompanyBanner = new Guna2Panel
         {
             Dock = DockStyle.Top,
-            Height = 74,
+            Height = 76,
             FillColor = Color.White,
             BorderColor = Color.FromArgb(226, 232, 240),
             BorderThickness = 1,
             BorderRadius = 6,
             Margin = new Padding(0, 0, 0, 10),
-            Padding = new Padding(12, 8, 16, 8)
+            Padding = Padding.Empty
         };
 
         // Left Icon Badge "MF"
         var badgePanel = new Guna2Panel
         {
-            Size = new Size(38, 38),
-            Location = new Point(12, 18),
+            Size = new Size(40, 40),
+            Location = new Point(16, 18),
             FillColor = Color.FromArgb(15, 23, 42),
             BorderRadius = 6
         };
@@ -883,15 +883,16 @@ public class MainForm : Form
             Font = new Font("Segoe UI", 12.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
             AutoSize = true,
-            Location = new Point(60, 12),
-            BackColor = Color.Transparent
+            Location = new Point(68, 14),
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         pnlCompanyBanner.Controls.Add(lblBannerCompName);
 
         var pnlActivePill = new Guna2Panel
         {
             Size = new Size(95, 20),
-            Location = new Point(190, 15),
+            Location = new Point(200, 16),
             FillColor = Color.FromArgb(220, 252, 231),
             BorderRadius = 4
         };
@@ -902,7 +903,8 @@ public class MainForm : Form
             ForeColor = Color.FromArgb(22, 101, 52),
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         pnlActivePill.Controls.Add(lblActivePillText);
         pnlCompanyBanner.Controls.Add(pnlActivePill);
@@ -913,19 +915,21 @@ public class MainForm : Form
             Font = new Font("Segoe UI", 8.5F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
-            Location = new Point(292, 17),
-            BackColor = Color.Transparent
+            Location = new Point(302, 18),
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         pnlCompanyBanner.Controls.Add(lblBannerBooksBeginning);
 
         lblBannerCompSubtitle = new Label
         {
-            Text = "Accounts",
+            Text = "Commercial Accounts • Wholesale & Retail Trading • Base Currency: INR (₹)",
             Font = new Font("Segoe UI", 8F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
-            Location = new Point(60, 40),
-            BackColor = Color.Transparent
+            Location = new Point(68, 44),
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         pnlCompanyBanner.Controls.Add(lblBannerCompSubtitle);
 
@@ -933,9 +937,9 @@ public class MainForm : Form
         var pnlBannerRight = new Panel
         {
             Dock = DockStyle.Right,
-            Width = 360,
+            Width = 400,
             BackColor = Color.Transparent,
-            Padding = new Padding(0, 11, 16, 11)
+            Padding = new Padding(0, 10, 16, 10)
         };
 
         var boxUnified = new Guna2Panel
@@ -955,7 +959,8 @@ public class MainForm : Form
             ForeColor = Color.FromArgb(148, 163, 184),
             Location = new Point(14, 8),
             AutoSize = true,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         lblBannerFY = new Label
         {
@@ -964,8 +969,11 @@ public class MainForm : Form
             ForeColor = Color.FromArgb(15, 23, 42),
             Location = new Point(14, 26),
             AutoSize = true,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false,
+            Cursor = Cursors.Hand
         };
+        lblBannerFY.Click += (s, e) => _navigationService.OpenFinancialYearList(this);
         boxUnified.Controls.Add(lblFYTag);
         boxUnified.Controls.Add(lblBannerFY);
 
@@ -973,8 +981,8 @@ public class MainForm : Form
         var sepFYDate = new Panel
         {
             Width = 1,
-            Height = 34,
-            Location = new Point(135, 9),
+            Height = 36,
+            Location = new Point(140, 10),
             BackColor = Color.FromArgb(226, 232, 240)
         };
         boxUnified.Controls.Add(sepFYDate);
@@ -985,18 +993,21 @@ public class MainForm : Form
             Text = "CURRENT VOUCHER DATE",
             Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(148, 163, 184),
-            Location = new Point(148, 8),
+            Location = new Point(154, 8),
             AutoSize = true,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         lblBannerDate = new Label
         {
             Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)"),
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(13, 148, 136), // #0D9488 Teal
-            Location = new Point(148, 26),
+            Location = new Point(154, 26),
             AutoSize = true,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false,
+            Cursor = Cursors.Hand
         };
         boxUnified.Controls.Add(lblDateTag);
         boxUnified.Controls.Add(lblBannerDate);
@@ -1007,8 +1018,8 @@ public class MainForm : Form
         // Position Active pill dynamically after company name
         lblBannerCompName.SizeChanged += (s, e) =>
         {
-            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 15);
-            lblBannerBooksBeginning.Location = new Point(pnlActivePill.Right + 8, 17);
+            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 16);
+            lblBannerBooksBeginning.Location = new Point(pnlActivePill.Right + 8, 18);
         };
 
         // Spacer below banner
@@ -1389,7 +1400,18 @@ public class MainForm : Form
             if (lblBannerCompSubtitle != null)
                 lblBannerCompSubtitle.Text = $"Commercial Accounts • Wholesale & Retail Trading • Base Currency: {(string.IsNullOrWhiteSpace(company.Currency) ? "INR (₹)" : company.Currency)}";
             if (lblBannerFY != null && fy != null)
-                lblBannerFY.Text = fy.YearName;
+            {
+                string yearStr = fy.YearName;
+                if (fy.StartDate.Year > 1900 && fy.EndDate.Year > 1900)
+                {
+                    yearStr = $"{fy.StartDate.Year} - {fy.EndDate.Year}";
+                }
+                else if (!string.IsNullOrWhiteSpace(yearStr) && yearStr.Contains('-') && !yearStr.Contains(" - "))
+                {
+                    yearStr = yearStr.Replace("-", " - ");
+                }
+                lblBannerFY.Text = yearStr;
+            }
             if (lblBannerDate != null)
                 lblBannerDate.Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)");
 
