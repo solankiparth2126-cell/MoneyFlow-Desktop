@@ -141,13 +141,13 @@ public class TallyLedgerFlyoutPanel : UserControl
         {
             if (e.KeyCode == Keys.Down)
             {
-                if (_lstLedgers.SelectedIndex < _lstLedgers.Items.Count - 1)
+                if (_lstLedgers != null && _lstLedgers.SelectedIndex < _lstLedgers.Items.Count - 1)
                     _lstLedgers.SelectedIndex++;
                 e.Handled = true;
             }
             else if (e.KeyCode == Keys.Up)
             {
-                if (_lstLedgers.SelectedIndex > 0)
+                if (_lstLedgers != null && _lstLedgers.SelectedIndex > 0)
                     _lstLedgers.SelectedIndex--;
                 e.Handled = true;
             }

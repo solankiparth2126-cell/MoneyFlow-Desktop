@@ -40,7 +40,6 @@ public class BankReconciliationForm : Form
     private Button btnSave = null!;
     private Button btnSetToday = null!;
     private Button btnExportCsv = null!;
-    private Button btnClose = null!;
 
     public BankReconciliationForm(
         IBankReconciliationService brsService,

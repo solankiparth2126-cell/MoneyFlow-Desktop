@@ -275,7 +275,7 @@ public class TallyBillAllocationDialog : Form
                 row.Cells["Amount"].Value = Math.Min(_targetAmount, _pendingBills[0].PendingAmount);
                 if (_pendingBills[0].DueDate.HasValue)
                 {
-                    row.Cells["DueDate"].Value = _pendingBills[0].DueDate.Value.ToString("dd-MMM-yyyy");
+                    row.Cells["DueDate"].Value = _pendingBills[0].DueDate!.Value.ToString("dd-MMM-yyyy");
                 }
             }
             else if (type == "On Account")
