@@ -76,6 +76,9 @@ public class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.Property(g => g.Nature)
             .IsRequired();
 
+        builder.Property(g => g.IsPredefined)
+            .HasDefaultValue(false);
+
         builder.HasOne(g => g.Company)
             .WithMany(c => c.Groups)
             .HasForeignKey(g => g.CompanyId)

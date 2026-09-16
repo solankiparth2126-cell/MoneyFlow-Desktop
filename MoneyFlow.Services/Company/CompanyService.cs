@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
@@ -336,82 +337,84 @@ public class CompanyService : ICompanyService
     {
         var groupsMap = new Dictionary<string, MoneyFlow.Core.Entities.Group>(StringComparer.OrdinalIgnoreCase);
 
-        // Primary Groups (Section 13)
-        var primaryGroups = new List<MoneyFlow.Core.Entities.Group>
+        // 1. Seed 15 Primary Groups
+        foreach (var pgDef in PredefinedAccountingGroups.PrimaryGroups)
         {
-            new() { CompanyId = companyId, GroupName = "Capital Account", Nature = GroupNature.Liabilities, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Current Assets", Nature = GroupNature.Assets, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Current Liabilities", Nature = GroupNature.Liabilities, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Fixed Assets", Nature = GroupNature.Assets, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Investments", Nature = GroupNature.Assets, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Loans", Nature = GroupNature.Liabilities, PrimaryGroup = true, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Direct Expenses", Nature = GroupNature.Expenses, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Indirect Expenses", Nature = GroupNature.Expenses, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Direct Income", Nature = GroupNature.Income, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Indirect Income", Nature = GroupNature.Income, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Sales Accounts", Nature = GroupNature.Income, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Purchase Accounts", Nature = GroupNature.Expenses, PrimaryGroup = true, AffectProfitLoss = true },
-            new() { CompanyId = companyId, GroupName = "Duties & Taxes", Nature = GroupNature.Liabilities, PrimaryGroup = true, AffectProfitLoss = false }
-        };
+            var pg = new MoneyFlow.Core.Entities.Group
+            {
+                CompanyId = companyId,
+                GroupName = pgDef.Name,
+                Nature = pgDef.Nature,
+                PrimaryGroup = true,
+                ParentGroupId = null,
+                AffectProfitLoss = pgDef.AffectProfitLoss,
+                IsPredefined = true,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
 
-        foreach (var pg in primaryGroups)
-        {
             await _groupRepo.AddAsync(pg, ct);
-        }
-        await _unitOfWork.SaveChangesAsync(ct);
-
-        foreach (var pg in primaryGroups)
-        {
             groupsMap[pg.GroupName] = pg;
         }
 
-        // Subgroups (Section 13)
-        var currentAssets = groupsMap["Current Assets"];
-        var currentLiabilities = groupsMap["Current Liabilities"];
-
-        var subGroups = new List<MoneyFlow.Core.Entities.Group>
-        {
-            new() { CompanyId = companyId, GroupName = "Bank Accounts", ParentGroupId = currentAssets.GroupId, Nature = GroupNature.Assets, PrimaryGroup = false, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Cash-in-Hand", ParentGroupId = currentAssets.GroupId, Nature = GroupNature.Assets, PrimaryGroup = false, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Sundry Debtors", ParentGroupId = currentAssets.GroupId, Nature = GroupNature.Assets, PrimaryGroup = false, AffectProfitLoss = false },
-            new() { CompanyId = companyId, GroupName = "Sundry Creditors", ParentGroupId = currentLiabilities.GroupId, Nature = GroupNature.Liabilities, PrimaryGroup = false, AffectProfitLoss = false }
-        };
-
-        foreach (var sg in subGroups)
-        {
-            await _groupRepo.AddAsync(sg, ct);
-        }
         await _unitOfWork.SaveChangesAsync(ct);
 
-        foreach (var sg in subGroups)
+        // 2. Seed 13 Sub-Groups
+        foreach (var sgDef in PredefinedAccountingGroups.SubGroups)
         {
+            if (string.IsNullOrEmpty(sgDef.ParentGroupName) || !groupsMap.TryGetValue(sgDef.ParentGroupName, out var parentGroup))
+            {
+                _logger.LogWarning("Parent group '{ParentGroupName}' not found for sub-group '{SubGroupName}'.", sgDef.ParentGroupName, sgDef.Name);
+                continue;
+            }
+
+            var sg = new MoneyFlow.Core.Entities.Group
+            {
+                CompanyId = companyId,
+                GroupName = sgDef.Name,
+                Nature = sgDef.Nature,
+                PrimaryGroup = false,
+                ParentGroupId = parentGroup.GroupId,
+                AffectProfitLoss = sgDef.AffectProfitLoss,
+                IsPredefined = true,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            await _groupRepo.AddAsync(sg, ct);
             groupsMap[sg.GroupName] = sg;
         }
 
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Seeded 28 predefined accounting groups (15 Primary + 13 Sub-Groups) for Company ID {CompanyId}.", companyId);
         return groupsMap;
     }
 
     private async Task SeedDefaultLedgersAsync(int companyId, Dictionary<string, MoneyFlow.Core.Entities.Group> groupsMap, CancellationToken ct)
     {
-        // Default Ledgers (Section 15)
+        // Real predefined / reserved accounting ledgers only (DO NOT create Groups as Ledgers!)
         var defaultLedgers = new List<(string Name, string GroupName)>
         {
-            ("Cash", "Cash-in-Hand"),
+            ("Cash", "Cash-in-hand"),
             ("Profit & Loss A/c", "Capital Account"),
-            ("Capital Account", "Capital Account"),
             ("Sales", "Sales Accounts"),
-            ("Purchase", "Purchase Accounts"),
-            ("Sundry Debtors", "Sundry Debtors"),
-            ("Sundry Creditors", "Sundry Creditors"),
-            ("Direct Expenses", "Direct Expenses"),
-            ("Indirect Expenses", "Indirect Expenses"),
-            ("Direct Income", "Direct Income"),
-            ("Indirect Income", "Indirect Income")
+            ("Purchase", "Purchase Accounts")
         };
 
         foreach (var (name, groupName) in defaultLedgers)
         {
-            if (groupsMap.TryGetValue(groupName, out var group))
+            // Support lookup with fallback for casing / variations
+            MoneyFlow.Core.Entities.Group? group = null;
+            if (!groupsMap.TryGetValue(groupName, out group))
+            {
+                if (groupName.Equals("Cash-in-hand", StringComparison.OrdinalIgnoreCase))
+                {
+                    groupsMap.TryGetValue("Cash-in-Hand", out group);
+                }
+            }
+
+            if (group != null)
             {
                 var ledger = new MoneyFlow.Core.Entities.Ledger
                 {
@@ -425,8 +428,13 @@ public class CompanyService : ICompanyService
                 };
                 await _ledgerRepo.AddAsync(ledger, ct);
             }
+            else
+            {
+                _logger.LogWarning("Cannot seed default ledger '{LedgerName}' because group '{GroupName}' was not found.", name, groupName);
+            }
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        _logger.LogInformation("Seeded canonical default ledgers (Cash, Profit & Loss A/c, Sales, Purchase) for Company ID {CompanyId}.", companyId);
     }
 }

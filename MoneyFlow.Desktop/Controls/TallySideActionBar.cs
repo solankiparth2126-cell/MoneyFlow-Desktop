@@ -20,6 +20,7 @@ public class TallySideActionBar : UserControl
     public event Action? JournalClicked;
     public event Action? SalesClicked;
     public event Action? PurchaseClicked;
+    public event Action? OtherClicked;
     public event Action? ConfigureClicked;
 
     private readonly FlowLayoutPanel _pnlButtons;
@@ -72,7 +73,7 @@ public class TallySideActionBar : UserControl
         AddVoucherButton("F7: Journal", "Journal", () => JournalClicked?.Invoke());
         AddVoucherButton("F8: Sales", "Sales", () => SalesClicked?.Invoke());
         AddVoucherButton("F9: Purchase", "Purchase", () => PurchaseClicked?.Invoke());
-        AddButton("F10: Other", null, false);
+        AddButton("F10: Other", () => OtherClicked?.Invoke(), false);
 
         AddSpacer();
         AddButton("I: Details", null, false);

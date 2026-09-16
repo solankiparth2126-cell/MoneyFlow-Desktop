@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
@@ -432,7 +433,52 @@ public class NavigationService : INavigationService
 
     private static void ShowModal(Form form, IWin32Window? owner)
     {
+        FitFormToScreen(form, owner);
         if (owner != null) form.ShowDialog(owner);
         else form.ShowDialog();
+    }
+
+    private static void FitFormToScreen(Form form, IWin32Window? owner)
+    {
+        try
+        {
+            var screen = owner is Control c ? Screen.FromControl(c) : (Screen.FromControl(form) ?? Screen.PrimaryScreen);
+            if (screen == null) return;
+
+            var workArea = screen.WorkingArea;
+
+            // Full-screen desktop ERP voucher forms open maximized within the usable work area
+            if (form.WindowState == FormWindowState.Maximized || form is BaseVoucherForm)
+            {
+                form.WindowState = FormWindowState.Maximized;
+                return;
+            }
+
+            int maxW = Math.Max(600, workArea.Width - 32);
+            int maxH = Math.Max(400, workArea.Height - 48);
+
+            if (form.Width > maxW || form.Height > maxH)
+            {
+                form.Width = Math.Min(form.Width, maxW);
+                form.Height = Math.Min(form.Height, maxH);
+                form.AutoScroll = true;
+            }
+
+            if (owner is Form ownerForm && ownerForm.WindowState != FormWindowState.Minimized)
+            {
+                form.StartPosition = FormStartPosition.Manual;
+                int targetX = Math.Clamp(ownerForm.Left + (ownerForm.Width - form.Width) / 2, workArea.Left, Math.Max(workArea.Left, workArea.Right - form.Width));
+                int targetY = Math.Clamp(ownerForm.Top + (ownerForm.Height - form.Height) / 2, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - form.Height));
+                form.Location = new Point(targetX, targetY);
+            }
+            else
+            {
+                form.StartPosition = FormStartPosition.CenterScreen;
+            }
+        }
+        catch
+        {
+            // Fallback non-blocking
+        }
     }
 }

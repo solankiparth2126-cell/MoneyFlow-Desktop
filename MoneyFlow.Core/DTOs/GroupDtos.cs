@@ -31,6 +31,7 @@ public class GroupSummaryDto
     public string NatureDisplay => Nature.ToString();
     public bool PrimaryGroup { get; set; }
     public bool AffectProfitLoss { get; set; }
+    public bool IsPredefined { get; set; }
     public int SubGroupsCount { get; set; }
     public int LedgersCount { get; set; }
 }
@@ -41,5 +42,6 @@ public class GroupTreeNodeDto
     public string GroupName { get; set; } = string.Empty;
     public GroupNature Nature { get; set; }
     public int? ParentGroupId { get; set; }
+    public bool IsPredefined { get; set; }
     public List<GroupTreeNodeDto> Children { get; set; } = new List<GroupTreeNodeDto>();
 }

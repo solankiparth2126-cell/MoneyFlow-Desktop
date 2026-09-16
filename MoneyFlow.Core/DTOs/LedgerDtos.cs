@@ -47,6 +47,7 @@ public class LedgerSummaryDto
     public int GroupId { get; set; }
     public string LedgerName { get; set; } = string.Empty;
     public string GroupName { get; set; } = string.Empty;
+    public string HierarchyPath { get; set; } = string.Empty;
     public GroupNature GroupNature { get; set; }
     public decimal OpeningBalance { get; set; }
     public BalanceType OpeningBalanceType { get; set; }
@@ -55,6 +56,7 @@ public class LedgerSummaryDto
             ? "₹0.00"
             : $"₹{OpeningBalance:N2} {(OpeningBalanceType == BalanceType.Debit ? "Dr" : "Cr")}";
     public bool IsActive { get; set; }
+    public string DisplayGroup => string.IsNullOrEmpty(HierarchyPath) ? GroupName : HierarchyPath;
 }
 
 public class LedgerDetailDto

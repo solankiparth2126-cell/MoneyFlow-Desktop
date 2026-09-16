@@ -204,7 +204,7 @@ public class Phase5GroupTests
             CreateDefaultLedgers = true // Creates Cash under Cash-in-Hand
         });
 
-        var cashInHand = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && g.GroupName == "Cash-in-Hand");
+        var cashInHand = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && (g.GroupName == "Cash-in-hand" || g.GroupName == "Cash-in-Hand"));
 
         var act = async () => await grpService.DeleteGroupAsync(cashInHand.GroupId);
 
@@ -231,6 +231,6 @@ public class Phase5GroupTests
         currentAssets.Should().NotBeNull();
         currentAssets!.Children.Should().NotBeEmpty();
         currentAssets.Children.Any(c => c.GroupName == "Bank Accounts").Should().BeTrue();
-        currentAssets.Children.Any(c => c.GroupName == "Cash-in-Hand").Should().BeTrue();
+        currentAssets.Children.Any(c => c.GroupName.Equals("Cash-in-hand", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 }

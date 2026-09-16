@@ -25,6 +25,7 @@ public class LedgerListForm : Form
     private Button _btnDelete = null!;
     private Button _btnClose = null!;
     private Label _lblStatus = null!;
+    private bool _isInitializing;
 
     public LedgerListForm(
         ILedgerService ledgerService,
@@ -134,9 +135,9 @@ public class LedgerListForm : Form
 
         _dgvLedgers.Columns.Add(new DataGridViewTextBoxColumn
         {
-            DataPropertyName = "GroupName",
-            HeaderText = "Under Group",
-            Width = 220
+            DataPropertyName = "DisplayGroup",
+            HeaderText = "Under Group (Hierarchy)",
+            Width = 260
         });
 
         _dgvLedgers.Columns.Add(new DataGridViewTextBoxColumn
@@ -279,19 +280,42 @@ public class LedgerListForm : Form
         try
         {
             var groups = await _groupService.GetGroupsByCompanyAsync(_companyContext.CurrentCompany.CompanyId);
+            var groupMap = groups.ToDictionary(g => g.GroupId);
+            string ResolvePath(GroupSummaryDto g)
+            {
+                var stack = new List<string> { g.GroupName };
+                var cur = g.ParentGroupId;
+                var visited = new HashSet<int> { g.GroupId };
+                while (cur.HasValue && visited.Add(cur.Value) && groupMap.TryGetValue(cur.Value, out var parent))
+                {
+                    stack.Insert(0, parent.GroupName);
+                    cur = parent.ParentGroupId;
+                }
+                return string.Join(" > ", stack);
+            }
+
             var groupFilterItems = new List<dynamic>
             {
                 new { GroupId = (int?)null, DisplayName = "-- All Groups --" }
             };
 
-            foreach (var g in groups)
+            foreach (var g in groups.OrderBy(g => ResolvePath(g)))
             {
-                groupFilterItems.Add(new { GroupId = (int?)g.GroupId, DisplayName = g.GroupName });
+                groupFilterItems.Add(new { GroupId = (int?)g.GroupId, DisplayName = ResolvePath(g) });
             }
 
             _cmbGroupFilter.DisplayMember = "DisplayName";
             _cmbGroupFilter.ValueMember = "GroupId";
-            _cmbGroupFilter.DataSource = groupFilterItems;
+
+            _isInitializing = true;
+            try
+            {
+                _cmbGroupFilter.DataSource = groupFilterItems;
+            }
+            finally
+            {
+                _isInitializing = false;
+            }
 
             await LoadLedgersAsync();
         }
@@ -303,7 +327,7 @@ public class LedgerListForm : Form
 
     private async Task LoadLedgersAsync()
     {
-        if (_companyContext.CurrentCompany == null) return;
+        if (_isInitializing || _companyContext.CurrentCompany == null) return;
 
         try
         {

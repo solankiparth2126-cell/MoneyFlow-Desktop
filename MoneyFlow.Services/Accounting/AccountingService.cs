@@ -577,19 +577,43 @@ public class AccountingService : IAccountingService
         }
     }
 
+    private async Task<List<int>> GetGroupAndAllDescendantIdsAsync(int companyId, IEnumerable<string> groupNames, CancellationToken ct = default)
+    {
+        var allCompanyGroups = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId && g.IsActive)
+            .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
+            .ToListAsync(ct);
+
+        var roots = allCompanyGroups
+            .Where(g => groupNames.Contains(g.GroupName, StringComparer.OrdinalIgnoreCase))
+            .Select(g => g.GroupId)
+            .ToList();
+
+        var result = new HashSet<int>(roots);
+        void Collect(int parentId)
+        {
+            var children = allCompanyGroups.Where(g => g.ParentGroupId == parentId).Select(g => g.GroupId);
+            foreach (var child in children)
+            {
+                if (result.Add(child))
+                {
+                    Collect(child);
+                }
+            }
+        }
+
+        foreach (var root in roots)
+        {
+            Collect(root);
+        }
+
+        return result.ToList();
+    }
+
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashAndBankLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var cashBankGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && (g.GroupName == "Cash-in-Hand" || g.GroupName == "Bank Accounts"))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && cashBankGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = cashBankGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Cash-in-Hand", "Bank Accounts" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -612,17 +636,7 @@ public class AccountingService : IAccountingService
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var targetGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.GroupName == "Cash-in-Hand")
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && targetGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = targetGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Cash-in-Hand" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -679,18 +693,7 @@ public class AccountingService : IAccountingService
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCustomerPartyLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var targetGroupNames = new[] { "Sundry Debtors", "Cash-in-Hand", "Bank Accounts" };
-        var parentGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && targetGroupNames.Contains(g.GroupName))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sundry Debtors", "Cash-in-Hand", "Bank Accounts" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -713,18 +716,7 @@ public class AccountingService : IAccountingService
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetSalesLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var targetGroupNames = new[] { "Sales Accounts", "Direct Income", "Indirect Income" };
-        var parentGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && targetGroupNames.Contains(g.GroupName))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sales Accounts", "Direct Incomes", "Direct Income", "Indirect Incomes", "Indirect Income" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -747,18 +739,7 @@ public class AccountingService : IAccountingService
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetSupplierPartyLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var targetGroupNames = new[] { "Sundry Creditors", "Cash-in-Hand", "Bank Accounts" };
-        var parentGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && targetGroupNames.Contains(g.GroupName))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sundry Creditors", "Cash-in-Hand", "Bank Accounts" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -781,18 +762,7 @@ public class AccountingService : IAccountingService
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetPurchaseLedgersAsync(int companyId, CancellationToken ct = default)
     {
-        var targetGroupNames = new[] { "Purchase Accounts", "Direct Expenses", "Indirect Expenses" };
-        var parentGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && targetGroupNames.Contains(g.GroupName))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var childGroupIds = await _context.Groups
-            .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
-            .Select(g => g.GroupId)
-            .ToListAsync(ct);
-
-        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Purchase Accounts", "Direct Expenses", "Indirect Expenses" }, ct);
 
         return await _context.Ledgers
             .AsNoTracking()
@@ -991,6 +961,32 @@ public class AccountingService : IAccountingService
             })
             .ToDictionaryAsync(x => x.LedgerId, ct);
 
+        var allCompanyGroups = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId)
+            .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
+            .ToListAsync(ct);
+        var groupMap = allCompanyGroups.ToDictionary(g => g.GroupId);
+
+        bool IsDirectOrTradingGroup(int initialGroupId)
+        {
+            int? currentId = initialGroupId;
+            var visited = new HashSet<int>();
+            while (currentId.HasValue && visited.Add(currentId.Value) && groupMap.TryGetValue(currentId.Value, out var g))
+            {
+                if (g.GroupName.Contains("Indirect", StringComparison.OrdinalIgnoreCase))
+                    return false;
+                if (g.GroupName.Contains("Direct", StringComparison.OrdinalIgnoreCase) ||
+                    g.GroupName.Contains("Sales", StringComparison.OrdinalIgnoreCase) ||
+                    g.GroupName.Contains("Purchase", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                currentId = g.ParentGroupId;
+            }
+            return false;
+        }
+
         var statement = new ProfitLossStatementDto
         {
             CompanyId = companyId,
@@ -1008,10 +1004,7 @@ public class AccountingService : IAccountingService
             var credit = entry?.TotalCredit ?? 0m;
 
             bool isIncome = grp.Nature == GroupNature.Income;
-            bool isDirect = !grp.GroupName.Contains("Indirect", StringComparison.OrdinalIgnoreCase) &&
-                            (grp.GroupName.Contains("Direct", StringComparison.OrdinalIgnoreCase) ||
-                             grp.GroupName.Contains("Sales", StringComparison.OrdinalIgnoreCase) ||
-                             grp.GroupName.Contains("Purchase", StringComparison.OrdinalIgnoreCase));
+            bool isDirect = IsDirectOrTradingGroup(grp.GroupId);
 
             decimal netAmount = isIncome ? (credit - debit) : (debit - credit);
 

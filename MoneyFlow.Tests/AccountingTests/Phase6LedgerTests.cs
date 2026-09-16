@@ -173,7 +173,7 @@ public class Phase6LedgerTests
             CreateDefaultLedgers = false
         });
 
-        var cashGroup = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && g.GroupName == "Cash-in-Hand");
+        var cashGroup = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && (g.GroupName == "Cash-in-hand" || g.GroupName == "Cash-in-Hand"));
 
         var dto1 = new LedgerCreateDto
         {
@@ -210,7 +210,7 @@ public class Phase6LedgerTests
         });
 
         var bankGroup = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && g.GroupName == "Bank Accounts");
-        var cashGroup = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && g.GroupName == "Cash-in-Hand");
+        var cashGroup = await context.Groups.FirstAsync(g => g.CompanyId == company.CompanyId && (g.GroupName == "Cash-in-hand" || g.GroupName == "Cash-in-Hand"));
 
         var created = await ledgService.CreateLedgerAsync(company.CompanyId, new LedgerCreateDto
         {

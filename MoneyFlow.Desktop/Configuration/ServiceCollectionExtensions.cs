@@ -71,6 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IInventoryService, InventoryService>();
 
         // Accounting Engine & Operations
+        services.AddScoped<IAccountingHierarchyService, AccountingHierarchyService>();
         services.AddScoped<IAccountingService, AccountingService>();
         services.AddScoped<IBillAllocationService, BillAllocationService>();
         services.AddScoped<IBankReconciliationService, BankReconciliationService>();
@@ -111,6 +112,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<FinancialYearListForm>();
         services.AddTransient<GroupListForm>();
         services.AddTransient<LedgerListForm>();
+        services.AddTransient<AccountingVoucherForm>();
         services.AddTransient<PaymentVoucherForm>();
         services.AddTransient<ReceiptVoucherForm>();
         services.AddTransient<ContraVoucherForm>();

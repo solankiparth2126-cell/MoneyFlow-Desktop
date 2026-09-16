@@ -36,16 +36,20 @@ public class LedgerCreateEditForm : Form
     private Button _btnSave = null!;
     private Button _btnCancel = null!;
 
+    private readonly int? _initialGroupId;
+
     public LedgerCreateEditForm(
         ILedgerService ledgerService,
         IGroupService groupService,
         int companyId,
-        int? ledgerId = null)
+        int? ledgerId = null,
+        int? initialGroupId = null)
     {
         _ledgerService = ledgerService;
         _groupService = groupService;
         _companyId = companyId;
         _ledgerId = ledgerId;
+        _initialGroupId = initialGroupId;
 
         InitializeComponent();
     }
@@ -277,11 +281,27 @@ public class LedgerCreateEditForm : Form
             _cmbGroup.DisplayMember = "DisplayName";
             _cmbGroup.ValueMember = "GroupId";
 
-            var items = groups.Select(g => new
+            var groupMap = groups.ToDictionary(g => g.GroupId);
+            string ResolvePath(GroupSummaryDto g)
             {
-                GroupId = g.GroupId,
-                DisplayName = $"{g.GroupName} ({g.Nature})"
-            }).ToList();
+                var stack = new List<string> { g.GroupName };
+                var cur = g.ParentGroupId;
+                var visited = new HashSet<int> { g.GroupId };
+                while (cur.HasValue && visited.Add(cur.Value) && groupMap.TryGetValue(cur.Value, out var parent))
+                {
+                    stack.Insert(0, parent.GroupName);
+                    cur = parent.ParentGroupId;
+                }
+                return string.Join(" > ", stack);
+            }
+
+            var items = groups
+                .OrderBy(g => ResolvePath(g))
+                .Select(g => new
+                {
+                    GroupId = g.GroupId,
+                    DisplayName = $"{ResolvePath(g)} ({g.Nature})"
+                }).ToList();
 
             _cmbGroup.DataSource = items;
 
@@ -306,6 +326,10 @@ public class LedgerCreateEditForm : Form
                     _numCreditDays.Value = ledger.CreditDays;
                     _chkIsActive.Checked = ledger.IsActive;
                 }
+            }
+            else if (_initialGroupId.HasValue)
+            {
+                _cmbGroup.SelectedValue = _initialGroupId.Value;
             }
         }
         catch (Exception ex)

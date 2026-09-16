@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
@@ -158,6 +159,11 @@ public class LedgerService : ILedgerService
         var ledger = await _ledgerRepo.GetByIdAsync(ledgerId, ct);
         if (ledger == null) return false;
 
+        if (PredefinedAccountingGroups.IsReservedLedger(ledger.LedgerName))
+        {
+            throw new InvalidOperationException($"Cannot delete reserved accounting ledger '{ledger.LedgerName}'.");
+        }
+
         var hasVouchers = await _context.VoucherEntries
             .AnyAsync(ve => ve.LedgerId == ledgerId, ct);
 
@@ -251,6 +257,40 @@ public class LedgerService : ILedgerService
                 IsActive = l.IsActive
             })
             .ToListAsync(ct);
+
+        // Resolve full hierarchy path for each ledger
+        var allGroups = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId)
+            .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
+            .ToListAsync(ct);
+
+        var groupMap = allGroups.ToDictionary(g => g.GroupId);
+        var pathCache = new Dictionary<int, string>();
+
+        string ResolveGroupPath(int gId)
+        {
+            if (pathCache.TryGetValue(gId, out var cached)) return cached;
+
+            var stack = new List<string>();
+            var visited = new HashSet<int>();
+            int? cur = gId;
+
+            while (cur.HasValue && visited.Add(cur.Value) && groupMap.TryGetValue(cur.Value, out var grp))
+            {
+                stack.Insert(0, grp.GroupName);
+                cur = grp.ParentGroupId;
+            }
+
+            var path = string.Join(" > ", stack);
+            pathCache[gId] = path;
+            return path;
+        }
+
+        foreach (var item in list)
+        {
+            item.HierarchyPath = ResolveGroupPath(item.GroupId);
+        }
 
         return list;
     }

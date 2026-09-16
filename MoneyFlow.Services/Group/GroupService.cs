@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
@@ -102,6 +103,18 @@ public class GroupService : IGroupService
             throw new InvalidOperationException($"Another group named '{trimmedName}' already exists in this company.");
         }
 
+        if (group.IsPredefined || PredefinedAccountingGroups.IsPredefinedGroup(group.GroupName))
+        {
+            if (group.PrimaryGroup && dto.ParentGroupId.HasValue)
+            {
+                throw new InvalidOperationException($"Cannot convert predefined primary group '{group.GroupName}' to a sub-group.");
+            }
+            if (!group.PrimaryGroup && !dto.ParentGroupId.HasValue)
+            {
+                throw new InvalidOperationException($"Cannot convert predefined sub-group '{group.GroupName}' to a primary group.");
+            }
+        }
+
         if (dto.ParentGroupId.HasValue)
         {
             if (dto.ParentGroupId.Value == group.GroupId)
@@ -158,7 +171,13 @@ public class GroupService : IGroupService
         bool hasLedgers = await _context.Ledgers.AnyAsync(l => l.GroupId == groupId && l.IsActive, ct);
         if (hasLedgers)
         {
-            throw new InvalidOperationException($"Cannot delete group '{group.GroupName}' because it contains ledgers. Reassign or delete the ledgers first.");
+            throw new InvalidOperationException($"Cannot delete group '{group.GroupName}' because it contains ledgers. This Group contains Ledger accounts.");
+        }
+
+        // Check predefined protection
+        if (group.IsPredefined || PredefinedAccountingGroups.IsPredefinedGroup(group.GroupName))
+        {
+            throw new InvalidOperationException($"Cannot delete predefined accounting group '{group.GroupName}'.");
         }
 
         _groupRepo.Delete(group);
@@ -206,6 +225,7 @@ public class GroupService : IGroupService
             Nature = g.Nature,
             PrimaryGroup = g.PrimaryGroup,
             AffectProfitLoss = g.AffectProfitLoss,
+            IsPredefined = g.IsPredefined,
             SubGroupsCount = g.SubGroups.Count(s => s.IsActive),
             LedgersCount = g.Ledgers.Count(l => l.IsActive)
         }).ToList();
@@ -256,7 +276,8 @@ public class GroupService : IGroupService
             GroupId = current.GroupId,
             GroupName = current.GroupName,
             Nature = current.Nature,
-            ParentGroupId = current.ParentGroupId
+            ParentGroupId = current.ParentGroupId,
+            IsPredefined = current.IsPredefined
         };
 
         var children = allGroups.Where(g => g.ParentGroupId == current.GroupId).ToList();

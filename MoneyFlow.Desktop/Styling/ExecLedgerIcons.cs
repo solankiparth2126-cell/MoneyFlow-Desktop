@@ -167,25 +167,47 @@ public static class ExecLedgerIcons
         return bmp;
     }
 
-    /// <summary>Stylized circular MoneyFlow monogram for title bar badge</summary>
-    public static Bitmap CreateAppLogoIcon(Color color)
+    /// <summary>Purple growth-arrow application logo for title bar and headers</summary>
+    public static Bitmap CreateAppLogoIcon(Color? color = null)
     {
-        var bmp = new Bitmap(18, 18);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        using var pen = new Pen(color, 1.4f);
+        try
+        {
+            string previewPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app_preview.png");
+            if (System.IO.File.Exists(previewPath))
+            {
+                using var src = new Bitmap(previewPath);
+                var bmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                using var g = Graphics.FromImage(bmp);
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.CompositingQuality = CompositingQuality.HighQuality;
+                g.Clear(Color.Transparent);
+                g.DrawImage(src, new Rectangle(0, 0, 20, 20));
+                return bmp;
+            }
 
-        g.DrawEllipse(pen, 1.5f, 1.5f, 15f, 15f);
+            string icoPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
+            if (System.IO.File.Exists(icoPath))
+            {
+                using var icon = new Icon(icoPath, 24, 24);
+                return icon.ToBitmap();
+            }
+        }
+        catch
+        {
+            // Graceful fallback
+        }
 
-        using var mPen = new Pen(color, 1.6f);
-        g.DrawLines(mPen, new[] {
-            new PointF(5f, 12.5f),
-            new PointF(5f, 6f),
-            new PointF(9f, 9.5f),
-            new PointF(13f, 6f),
-            new PointF(13f, 12.5f)
-        });
-        return bmp;
+        // Fallback purple growth arrow drawing
+        var fallbackBmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(fallbackBmp))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var brush = new LinearGradientBrush(new Point(0, 0), new Point(20, 20), Color.FromArgb(168, 85, 247), Color.FromArgb(100, 64, 217));
+            using var pen = new Pen(brush, 2.5f) { EndCap = LineCap.ArrowAnchor };
+            g.DrawBezier(pen, new Point(3, 14), new Point(4, 7), new Point(14, 13), new Point(16, 5));
+        }
+        return fallbackBmp;
     }
 }

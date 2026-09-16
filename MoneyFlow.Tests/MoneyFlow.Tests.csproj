@@ -11,6 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Reference Include="Guna.UI2">
+      <HintPath>..\MoneyFlow.Desktop\lib\Guna.UI2.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="FluentAssertions" Version="8.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.*" />

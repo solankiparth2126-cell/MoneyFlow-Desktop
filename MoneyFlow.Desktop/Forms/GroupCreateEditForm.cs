@@ -24,13 +24,20 @@ public class GroupCreateEditForm : Form
     private Button btnSave = null!;
     private Button btnCancel = null!;
 
+    private readonly int? _initialParentGroupId;
+
     public bool IsSaved { get; private set; }
 
-    public GroupCreateEditForm(IGroupService groupService, int companyId, int? groupIdToEdit = null)
+    public GroupCreateEditForm(
+        IGroupService groupService,
+        int companyId,
+        int? groupIdToEdit = null,
+        int? initialParentGroupId = null)
     {
         _groupService = groupService;
         _companyId = companyId;
         _groupIdToEdit = groupIdToEdit;
+        _initialParentGroupId = initialParentGroupId;
 
         InitializeComponent();
         LoadParentGroupsAndDataAsync();
@@ -192,6 +199,17 @@ public class GroupCreateEditForm : Form
                             break;
                         }
                     }
+                }
+            }
+        }
+        else if (_initialParentGroupId.HasValue)
+        {
+            for (int i = 0; i < cmbParentGroup.Items.Count; i++)
+            {
+                if (cmbParentGroup.Items[i] is ParentGroupItem item && item.GroupId == _initialParentGroupId.Value)
+                {
+                    cmbParentGroup.SelectedIndex = i;
+                    break;
                 }
             }
         }

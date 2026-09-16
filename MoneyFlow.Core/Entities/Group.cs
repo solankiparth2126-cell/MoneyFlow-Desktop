@@ -16,6 +16,7 @@ public class Group
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime? UpdatedAt { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsPredefined { get; set; } = false;
 
     // Navigation properties
     public virtual Company? Company { get; set; }

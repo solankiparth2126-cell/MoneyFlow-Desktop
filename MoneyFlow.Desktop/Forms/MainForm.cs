@@ -83,6 +83,25 @@ public class MainForm : Form
     private Label lblBannerBooksBeginning = null!;
     private Label lblBannerFY = null!;
     private Label lblBannerDate = null!;
+    private Guna2Panel pnlActivePill = null!;
+    private Panel pnlBannerRight = null!;
+    private Guna2Panel boxUnified = null!;
+    private Label lblFYTag = null!;
+    private Panel sepFYDate = null!;
+    private Label lblDateTag = null!;
+    private string _booksBeginningDateStr = "01-Apr-2026";
+
+    // Gateway Header & Navigation Tip
+    private Panel pnlGatewayHeader = null!;
+    private Label lblGwTitle = null!;
+    private Label lblGwSub = null!;
+    private Guna2Panel pnlNavTip = null!;
+
+    // Gateway 3-column cards
+    private TableLayoutPanel cardsGrid = null!;
+    private Guna2Panel cardMasters = null!;
+    private Guna2Panel cardTrans = null!;
+    private Guna2Panel cardReports = null!;
 
     // Main Content Container
     private Panel mainContainer = null!;
@@ -122,6 +141,7 @@ public class MainForm : Form
     private readonly List<GatewayItem> _gatewayItems = new();
     private int _gatewayCol = 0; // 0: Masters, 1: Transactions, 2: Reports
     private int _gatewayRow = 1; // Default to Ledgers Master
+    private string _lastMonitorName = "";
 
     public MainForm(
         ICompanyContext companyContext,
@@ -156,22 +176,24 @@ public class MainForm : Form
     {
         // Form base setup
         Text = "MONEYFLOW DESKTOP ERP";
-        Size = new Size(1366, 820);
-        MinimumSize = new Size(1100, 680);
-        StartPosition = FormStartPosition.CenterScreen;
-        WindowState = FormWindowState.Maximized;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ShowIcon = true;
+        LoadApplicationIcon();
+
+        // Native monitor work area detection & window placement
+        ScreenFittingManager.InitializeWindowPlacement(this, startMaximized: true);
         FormBorderStyle = FormBorderStyle.None;
         KeyPreview = true;
         BackColor = Color.FromArgb(241, 245, 249); // Soft light slate canvas
         Font = ExecLedgerTheme.UIRegular9;
         DoubleBuffered = true;
 
-        // Guna2BorderlessForm for clean borderless management
+        // Guna2BorderlessForm for clean borderless management (disable internal resizing so WM_GETMINMAXINFO & WM_NCHITTEST govern)
         borderlessForm = new Guna2BorderlessForm();
         borderlessForm.ContainerControl = this;
         borderlessForm.AnimateWindow = false;
         borderlessForm.BorderRadius = 0;
-        borderlessForm.ResizeForm = true;
+        borderlessForm.ResizeForm = false;
         borderlessForm.DragForm = false; // We handle drag manually
 
         SuspendLayout();
@@ -185,18 +207,25 @@ public class MainForm : Form
         // 3. Action Toolbar (40px, Pill Buttons + Quick Search + Exit)
         CreateToolbar();
 
-        // 4. Operations Rail (36px Horizontal Fn Button Bar as per reference design)
+        // 4. Operations Rail (34px Horizontal Fn Button Bar as per reference design)
         CreateOperationsRail();
 
         // 5. Main Workspace Layout (Fill)
         CreateGatewayLayout();
 
-        // Add controls in reverse docking order for proper z-order placement
+        // Add controls and enforce strict docking z-order:
+        // Top bars and bottom rail take outer dock edges, mainContainer fills the exact inner canvas.
         Controls.Add(mainContainer);
         Controls.Add(operationsRail);
         Controls.Add(toolbarPanel);
         Controls.Add(menuStrip);
         Controls.Add(titleBar);
+
+        titleBar.BringToFront();
+        menuStrip.BringToFront();
+        toolbarPanel.BringToFront();
+        operationsRail.BringToFront();
+        mainContainer.SendToBack();
 
         // 7. Keyboard Shortcuts
         KeyDown += MainForm_KeyDown;
@@ -204,7 +233,20 @@ public class MainForm : Form
         // 8. Auto-Open Select Company On Startup
         Shown += (s, e) =>
         {
+            ApplyResponsiveLayout();
             _navigationService.OpenCompanyList(this);
+        };
+
+        // Listen for OS display settings changes
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += (s, e) =>
+        {
+            if (IsDisposed) return;
+            BeginInvoke(() =>
+            {
+                var screen = Screen.FromHandle(Handle);
+                if (screen != null) MaximizedBounds = screen.WorkingArea;
+                ApplyResponsiveLayout();
+            });
         };
 
         ResumeLayout(true);
@@ -225,24 +267,16 @@ public class MainForm : Form
             BorderThickness = 0
         };
 
-        // Icon Badge with stylized emerald monogram
-        var iconBadge = new Guna2Panel
-        {
-            Size = new Size(22, 22),
-            Location = new Point(10, 5),
-            FillColor = Color.FromArgb(19, 62, 77), // #133E4D Deep Slate-Teal
-            BorderRadius = 5
-        };
+        // Purple growth-arrow logo directly placed on dark navy title bar (zero white-corner artifacts)
         var picBadge = new PictureBox
         {
-            Image = ExecLedgerIcons.CreateAppLogoIcon(Color.FromArgb(16, 185, 129)),
-            Size = new Size(18, 18),
-            Location = new Point(2, 2),
-            SizeMode = PictureBoxSizeMode.CenterImage,
+            Image = ExecLedgerIcons.CreateAppLogoIcon(),
+            Size = new Size(20, 20),
+            Location = new Point(10, 6),
+            SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Transparent
         };
-        iconBadge.Controls.Add(picBadge);
-        titleBar.Controls.Add(iconBadge);
+        titleBar.Controls.Add(picBadge);
 
         // App Title
         lblTitleText = new Label
@@ -251,7 +285,7 @@ public class MainForm : Form
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(38, 7),
+            Location = new Point(36, 7),
             BackColor = Color.Transparent
         };
         titleBar.Controls.Add(lblTitleText);
@@ -340,14 +374,6 @@ public class MainForm : Form
         titleBar.Controls.Add(btnMaxRestore);
         titleBar.Controls.Add(btnClose);
 
-        // Position from right on resize
-        void PositionRightControls()
-        {
-            btnClose.Location = new Point(titleBar.Width - btnW, 0);
-            btnMaxRestore.Location = new Point(titleBar.Width - btnW * 2, 0);
-            btnMinimize.Location = new Point(titleBar.Width - btnW * 3, 0);
-        }
-
         titleBar.Resize += (s, e) => PositionRightControls();
         PositionRightControls();
 
@@ -356,7 +382,6 @@ public class MainForm : Form
         lblTitleText.MouseDown += TitleBar_MouseDown;
         lblTitleSeparator.MouseDown += TitleBar_MouseDown;
         lblTitleContext.MouseDown += TitleBar_MouseDown;
-        iconBadge.MouseDown += TitleBar_MouseDown;
         picBadge.MouseDown += TitleBar_MouseDown;
 
         titleBar.DoubleClick += (s, e) => btnMaxRestore.PerformClick();
@@ -740,8 +765,6 @@ public class MainForm : Form
             Padding = new Padding(6, 4, 6, 4)
         };
 
-        int ox = 8;
-
         // Compound function keys with rounded colored badges + white text matching Image 2
         var fnKeys = new (string Key, string ActionText, Color BadgeColor, Action Action)[]
         {
@@ -759,9 +782,27 @@ public class MainForm : Form
         foreach (var (key, actionText, badgeColor, action) in fnKeys)
         {
             var btn = CreateRailCompoundKey(key, actionText, badgeColor, action);
-            btn.Location = new Point(ox, 5);
             operationsRail.Controls.Add(btn);
-            ox += btn.Width + 4;
+        }
+
+        operationsRail.Resize += (s, e) => LayoutOperationsRail();
+        LayoutOperationsRail();
+    }
+
+    private void LayoutOperationsRail()
+    {
+        if (operationsRail == null) return;
+        int ox = 8;
+        int railW = operationsRail.ClientSize.Width;
+        int spacing = (railW < 900) ? 2 : 4;
+        foreach (Control btn in operationsRail.Controls)
+        {
+            if (btn is RailButton rb)
+            {
+                rb.RecalculateLayout();
+            }
+            btn.Location = new Point(ox, Math.Max(2, (operationsRail.Height - btn.Height) / 2));
+            ox += btn.Width + spacing;
         }
     }
 
@@ -791,6 +832,15 @@ public class MainForm : Form
             SetStyle(ControlStyles.SupportsTransparentBackColor, true);
             BackColor = Color.FromArgb(27, 54, 93);
 
+            RecalculateLayout();
+
+            MouseEnter += (s, e) => { _isHovered = true; Invalidate(); };
+            MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
+            Click += (s, e) => _onClick();
+        }
+
+        public void RecalculateLayout()
+        {
             using var fontBadge = new Font("Segoe UI", 7F, FontStyle.Bold);
             using var fontText = new Font("Segoe UI", 7.5F, FontStyle.Bold);
 
@@ -799,10 +849,6 @@ public class MainForm : Form
             int totalWidth = 3 + keyWidth + 5 + textWidth + 7;
 
             Size = new Size(totalWidth, 24);
-
-            MouseEnter += (s, e) => { _isHovered = true; Invalidate(); };
-            MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
-            Click += (s, e) => _onClick();
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -878,8 +924,10 @@ public class MainForm : Form
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(241, 245, 249),
             Padding = new Padding(12, 10, 12, 10),
-            AutoScroll = true
+            AutoScroll = true,
+            AutoScrollMinSize = new Size(960, 520)
         };
+        mainContainer.Resize += (s, e) => ApplyResponsiveLayout();
 
         // ── A. FULL-WIDTH COMPANY BANNER CARD ──
         pnlCompanyBanner = new Guna2Panel
@@ -893,6 +941,7 @@ public class MainForm : Form
             Margin = new Padding(0, 0, 0, 10),
             Padding = Padding.Empty
         };
+        pnlCompanyBanner.Resize += (s, e) => LayoutCompanyBanner();
 
         // Left Icon Badge "MF"
         var badgePanel = new Guna2Panel
@@ -923,11 +972,12 @@ public class MainForm : Form
             AutoSize = true,
             Location = new Point(68, 14),
             BackColor = Color.Transparent,
-            UseMnemonic = false
+            UseMnemonic = false,
+            AutoEllipsis = true
         };
         pnlCompanyBanner.Controls.Add(lblBannerCompName);
 
-        var pnlActivePill = new Guna2Panel
+        pnlActivePill = new Guna2Panel
         {
             Size = new Size(95, 20),
             Location = new Point(200, 16),
@@ -972,15 +1022,15 @@ public class MainForm : Form
         pnlCompanyBanner.Controls.Add(lblBannerCompSubtitle);
 
         // Right Side FY and Date Unified Card (matching design reference)
-        var pnlBannerRight = new Panel
+        pnlBannerRight = new Panel
         {
             Dock = DockStyle.Right,
-            Width = 400,
+            Width = 380,
             BackColor = Color.Transparent,
             Padding = new Padding(0, 10, 16, 10)
         };
 
-        var boxUnified = new Guna2Panel
+        boxUnified = new Guna2Panel
         {
             Dock = DockStyle.Fill,
             FillColor = Color.White,
@@ -988,9 +1038,10 @@ public class MainForm : Form
             BorderThickness = 1,
             BorderRadius = 6
         };
+        boxUnified.Resize += (s, e) => LayoutUnifiedDateBox();
 
         // Left Section: Financial Year
-        var lblFYTag = new Label
+        lblFYTag = new Label
         {
             Text = "FINANCIAL YEAR",
             Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
@@ -1016,7 +1067,7 @@ public class MainForm : Form
         boxUnified.Controls.Add(lblBannerFY);
 
         // Middle Divider Line
-        var sepFYDate = new Panel
+        sepFYDate = new Panel
         {
             Width = 1,
             Height = 36,
@@ -1026,7 +1077,7 @@ public class MainForm : Form
         boxUnified.Controls.Add(sepFYDate);
 
         // Right Section: Current Voucher Date
-        var lblDateTag = new Label
+        lblDateTag = new Label
         {
             Text = "CURRENT VOUCHER DATE",
             Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
@@ -1045,20 +1096,14 @@ public class MainForm : Form
             AutoSize = true,
             BackColor = Color.Transparent,
             UseMnemonic = false,
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            AutoEllipsis = true
         };
         boxUnified.Controls.Add(lblDateTag);
         boxUnified.Controls.Add(lblBannerDate);
 
         pnlBannerRight.Controls.Add(boxUnified);
         pnlCompanyBanner.Controls.Add(pnlBannerRight);
-
-        // Position Active pill dynamically after company name
-        lblBannerCompName.SizeChanged += (s, e) =>
-        {
-            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 16);
-            lblBannerBooksBeginning.Location = new Point(pnlActivePill.Right + 8, 18);
-        };
 
         // Spacer below banner
         pnlBannerSpacer = new Panel
@@ -1079,13 +1124,15 @@ public class MainForm : Form
         };
 
         // Gateway Header
-        var pnlGatewayHeader = new Panel
+        pnlGatewayHeader = new Panel
         {
             Dock = DockStyle.Top,
             Height = 44,
             BackColor = Color.Transparent
         };
-        var lblGwTitle = new Label
+        pnlGatewayHeader.Resize += (s, e) => LayoutGatewayHeader();
+
+        lblGwTitle = new Label
         {
             Text = "GATEWAY OF ACCOUNTING",
             Font = new Font("Segoe UI", 11F, FontStyle.Bold),
@@ -1093,7 +1140,7 @@ public class MainForm : Form
             Location = new Point(0, 2),
             AutoSize = true
         };
-        var lblGwSub = new Label
+        lblGwSub = new Label
         {
             Text = "Press highlighted underlined key or click category to open master modules",
             Font = new Font("Segoe UI", 8F),
@@ -1105,7 +1152,7 @@ public class MainForm : Form
         pnlGatewayHeader.Controls.Add(lblGwSub);
 
         // Navigation Tip Pill with key badges (matching Image 1)
-        var pnlNavTip = new Guna2Panel
+        pnlNavTip = new Guna2Panel
         {
             Size = new Size(395, 28),
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
@@ -1198,13 +1245,9 @@ public class MainForm : Form
         flowNav.Controls.Add(lblNavSuffix);
         pnlNavTip.Controls.Add(flowNav);
         pnlGatewayHeader.Controls.Add(pnlNavTip);
-        pnlGatewayHeader.Resize += (s, e) =>
-        {
-            pnlNavTip.Location = new Point(pnlGatewayHeader.Width - pnlNavTip.Width, 6);
-        };
 
         // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Fit to screen)
-        var cardsGrid = new TableLayoutPanel
+        cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
@@ -1216,17 +1259,18 @@ public class MainForm : Form
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        cardsGrid.Resize += (s, e) => UpdateCardRowHeights();
 
         _gatewayItems.Clear();
 
         // ── Card 1: MASTERS [M] ──
-        var cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
+        cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
         AddCardActionRow(cardMasters, 0, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
         AddCardActionRow(cardMasters, 0, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
         cardsGrid.Controls.Add(cardMasters, 0, 0);
 
         // ── Card 2: TRANSACTIONS [T] ──
-        var cardTrans = CreateStructuredCard("TRANSACTIONS", "T", Color.FromArgb(16, 185, 129), 1);
+        cardTrans = CreateStructuredCard("TRANSACTIONS", "T", Color.FromArgb(16, 185, 129), 1);
         AddCardActionRow(cardTrans, 1, "Payment", "F5", () => _navigationService.OpenPaymentVoucher(this), hotkeyChar: 'P', isKeyBadge: true);
         AddCardActionRow(cardTrans, 1, "Receipt", "F6", () => _navigationService.OpenReceiptVoucher(this), hotkeyChar: 'R', isKeyBadge: true);
         AddCardActionRow(cardTrans, 1, "Contra", "F4", () => _navigationService.OpenContraVoucher(this), hotkeyChar: 'C', isKeyBadge: true);
@@ -1236,7 +1280,7 @@ public class MainForm : Form
         cardsGrid.Controls.Add(cardTrans, 1, 0);
 
         // ── Card 3: REPORTS [R] ──
-        var cardReports = CreateStructuredCard("REPORTS", "R", Color.FromArgb(245, 158, 11), 2);
+        cardReports = CreateStructuredCard("REPORTS", "R", Color.FromArgb(245, 158, 11), 2);
         AddCardActionRow(cardReports, 2, "Day Book", "Daily Ledger", () => _navigationService.OpenDayBook(this), hotkeyChar: 'D');
         AddCardActionRow(cardReports, 2, "Ledger Accounts", "Statement", () => _navigationService.OpenLedgerStatement(this), hotkeyChar: 'L');
         AddCardActionRow(cardReports, 2, "Profit & Loss", "P&L Stmt", () => _navigationService.OpenProfitLoss(this), hotkeyChar: 'P');
@@ -1254,6 +1298,10 @@ public class MainForm : Form
         mainContainer.Controls.Add(pnlLeftGateway);
         mainContainer.Controls.Add(pnlBannerSpacer);
         mainContainer.Controls.Add(pnlCompanyBanner);
+
+        LayoutCompanyBanner();
+        LayoutGatewayHeader();
+        UpdateCardRowHeights();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1426,27 +1474,30 @@ public class MainForm : Form
                 : (isSelected ? Color.FromArgb(30, 64, 175) : Color.FromArgb(30, 41, 59));
 
             int startX = 14;
-            int startY = 9;
+            using var sampleFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Regular);
+            int textH = TextRenderer.MeasureText(e.Graphics, "Ag", sampleFont, Size.Empty, TextFormatFlags.NoPadding).Height;
+            int startY = Math.Max(2, (row.Height - textH) / 2);
 
             if (hotkeyChar.HasValue && title.StartsWith(hotkeyChar.Value))
             {
                 string keyStr = hotkeyChar.Value.ToString();
                 string restStr = title.Substring(1);
 
-                using var keyFont = new Font("Segoe UI", 9F, FontStyle.Bold | FontStyle.Underline);
-                using var restFont = new Font("Segoe UI", 9F, FontStyle.Regular);
+                using var keyFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Bold | FontStyle.Underline);
+                using var restFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Regular);
 
-                var keySize = TextRenderer.MeasureText(e.Graphics, keyStr, keyFont, Size.Empty, TextFormatFlags.NoPadding);
-                TextRenderer.DrawText(e.Graphics, keyStr, keyFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding);
-                TextRenderer.DrawText(e.Graphics, restStr, restFont, new Point(startX + keySize.Width, startY), textColor, TextFormatFlags.NoPadding);
+                var keySize = TextRenderer.MeasureText(e.Graphics, keyStr, keyFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                TextRenderer.DrawText(e.Graphics, keyStr, keyFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                TextRenderer.DrawText(e.Graphics, restStr, restFont, new Point(startX + keySize.Width, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
             }
             else
             {
-                using var normFont = new Font("Segoe UI", 9F, FontStyle.Regular);
-                TextRenderer.DrawText(e.Graphics, title, normFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding);
+                using var normFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Regular);
+                TextRenderer.DrawText(e.Graphics, title, normFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
             }
         };
 
+        Control? rightBadgeControl = null;
         if (!string.IsNullOrEmpty(rightTag))
         {
             if (isHighlighted)
@@ -1457,7 +1508,6 @@ public class MainForm : Form
                     Size = new Size(54, 22),
                     FillColor = Color.FromArgb(219, 234, 254),
                     BorderRadius = 4,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
                 var lblPill = new Label
@@ -1473,7 +1523,7 @@ public class MainForm : Form
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
-                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
+                rightBadgeControl = pill;
                 pill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
                 lblPill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
@@ -1485,7 +1535,6 @@ public class MainForm : Form
                     Size = new Size(56, 22),
                     FillColor = Color.FromArgb(254, 243, 199),
                     BorderRadius = 4,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
                 var lblPill = new Label
@@ -1501,7 +1550,7 @@ public class MainForm : Form
                 };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
-                row.Resize += (s, e) => pill.Location = new Point(row.Width - pill.Width - 14, 7);
+                rightBadgeControl = pill;
                 pill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
                 lblPill.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
@@ -1515,7 +1564,6 @@ public class MainForm : Form
                     BorderColor = Color.FromArgb(203, 213, 225),
                     BorderThickness = 1,
                     BorderRadius = 4,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     Cursor = Cursors.Hand
                 };
                 var lblKey = new Label
@@ -1531,7 +1579,7 @@ public class MainForm : Form
                 };
                 keyBox.Controls.Add(lblKey);
                 row.Controls.Add(keyBox);
-                row.Resize += (s, e) => keyBox.Location = new Point(row.Width - keyBox.Width - 14, 7);
+                rightBadgeControl = keyBox;
                 keyBox.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
                 lblKey.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
@@ -1544,15 +1592,26 @@ public class MainForm : Form
                     Font = new Font("Segoe UI", 7.5F),
                     ForeColor = Color.FromArgb(148, 163, 184),
                     AutoSize = true,
-                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     BackColor = Color.Transparent,
                     Cursor = Cursors.Hand,
                     UseMnemonic = false
                 };
                 row.Controls.Add(lblTag);
-                row.Resize += (s, e) => lblTag.Location = new Point(row.Width - lblTag.Width - 14, 9);
+                rightBadgeControl = lblTag;
                 lblTag.Click += (s, e) => { SetGatewaySelection(colIndex, rowIndex); click(); };
             }
+
+            void RepositionBadge()
+            {
+                if (rightBadgeControl != null)
+                {
+                    int by = Math.Max(2, (row.Height - rightBadgeControl.Height) / 2);
+                    rightBadgeControl.Location = new Point(row.Width - rightBadgeControl.Width - 14, by);
+                }
+            }
+
+            row.Resize += (s, e) => RepositionBadge();
+            RepositionBadge();
         }
 
         // Hover Effect
@@ -1648,9 +1707,189 @@ public class MainForm : Form
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════
+    //  RESPONSIVE LAYOUT ENGINE
+    // ═══════════════════════════════════════════════════════════════
 
+    public void ApplyResponsiveLayout()
+    {
+        PositionRightControls();
+        AdaptTierDimensions();
+        LayoutCompanyBanner();
+        LayoutGatewayHeader();
+        UpdateCardRowHeights();
+        LayoutOperationsRail();
+    }
 
+    private void AdaptTierDimensions()
+    {
+        if (mainContainer == null || pnlCompanyBanner == null || pnlBannerSpacer == null || pnlGatewayHeader == null) return;
 
+        var tier = ScreenFittingManager.ClassifyTier(mainContainer.ClientSize.Width, mainContainer.ClientSize.Height);
+
+        switch (tier)
+        {
+            case LayoutTier.Compact:
+                pnlCompanyBanner.Height = 62;
+                pnlBannerSpacer.Height = 6;
+                pnlGatewayHeader.Height = 36;
+                mainContainer.Padding = new Padding(8, 6, 8, 6);
+                mainContainer.AutoScrollMinSize = new Size(800, 360);
+                break;
+
+            case LayoutTier.Standard:
+                pnlCompanyBanner.Height = 72;
+                pnlBannerSpacer.Height = 8;
+                pnlGatewayHeader.Height = 40;
+                mainContainer.Padding = new Padding(12, 8, 12, 8);
+                mainContainer.AutoScrollMinSize = new Size(900, 420);
+                break;
+
+            case LayoutTier.Large:
+            default:
+                pnlCompanyBanner.Height = 78;
+                pnlBannerSpacer.Height = 10;
+                pnlGatewayHeader.Height = 44;
+                mainContainer.Padding = new Padding(16, 10, 16, 10);
+                mainContainer.AutoScrollMinSize = new Size(960, 460);
+                break;
+        }
+    }
+
+    private void PositionRightControls()
+    {
+        if (titleBar == null || btnClose == null || btnMaxRestore == null || btnMinimize == null) return;
+        int btnW = 46;
+        btnClose.Location = new Point(titleBar.Width - btnW, 0);
+        btnMaxRestore.Location = new Point(titleBar.Width - btnW * 2, 0);
+        btnMinimize.Location = new Point(titleBar.Width - btnW * 3, 0);
+
+        if (lblTitleContext != null && lblTitleSeparator != null)
+        {
+            int maxCtxW = Math.Max(20, titleBar.Width - (btnW * 3 + 16) - lblTitleContext.Left);
+            lblTitleContext.MaximumSize = new Size(maxCtxW, 20);
+            lblTitleContext.AutoEllipsis = true;
+        }
+    }
+
+    private void LayoutUnifiedDateBox()
+    {
+        if (boxUnified == null || sepFYDate == null || lblFYTag == null || lblBannerFY == null || lblDateTag == null || lblBannerDate == null) return;
+
+        int boxW = boxUnified.Width;
+        int sepX = Math.Clamp((int)(boxW * 0.38f), 110, 150);
+
+        sepFYDate.Location = new Point(sepX, (boxUnified.Height - sepFYDate.Height) / 2);
+        lblFYTag.Location = new Point(12, 8);
+        lblBannerFY.Location = new Point(12, 26);
+
+        int dateX = sepX + 12;
+        lblDateTag.Location = new Point(dateX, 8);
+        lblBannerDate.Location = new Point(dateX, 26);
+        lblBannerDate.MaximumSize = new Size(Math.Max(50, boxW - dateX - 8), 24);
+        lblBannerDate.AutoEllipsis = true;
+    }
+
+    private void LayoutCompanyBanner()
+    {
+        if (pnlCompanyBanner == null || lblBannerCompName == null || pnlActivePill == null || lblBannerBooksBeginning == null || pnlBannerRight == null) return;
+
+        // Dynamic width for right box based on banner width
+        int bannerW = pnlCompanyBanner.Width;
+        int rightW = Math.Clamp((int)(bannerW * 0.32f), 320, 420);
+        pnlBannerRight.Width = rightW;
+        LayoutUnifiedDateBox();
+
+        int leftAvail = bannerW - rightW - 76;
+        int nameW = TextRenderer.MeasureText(lblBannerCompName.Text, lblBannerCompName.Font).Width;
+        int pillW = pnlActivePill.Width;
+        int booksW = TextRenderer.MeasureText(lblBannerBooksBeginning.Text, lblBannerBooksBeginning.Font).Width;
+
+        // If company name + active pill + books beginning fit on line 1:
+        if (nameW + pillW + booksW + 24 <= leftAvail)
+        {
+            lblBannerCompName.Location = new Point(68, 14);
+            lblBannerCompName.MaximumSize = new Size(Math.Max(100, leftAvail - pillW - booksW - 24), 28);
+            lblBannerCompName.AutoEllipsis = true;
+            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 16);
+            lblBannerBooksBeginning.Text = _booksBeginningDateStr.StartsWith("|")
+                ? _booksBeginningDateStr
+                : $"|   Books Beginning: {_booksBeginningDateStr}";
+            lblBannerBooksBeginning.Location = new Point(pnlActivePill.Right + 8, 18);
+            lblBannerCompSubtitle.Location = new Point(68, 44);
+        }
+        else
+        {
+            // Compact two-line layout: Line 1 has Company Name + Pill, Line 2 has Subtitle + Books Beginning
+            lblBannerCompName.Location = new Point(68, 12);
+            lblBannerCompName.MaximumSize = new Size(Math.Max(100, leftAvail - pillW - 16), 28);
+            lblBannerCompName.AutoEllipsis = true;
+            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 14);
+
+            lblBannerCompSubtitle.Location = new Point(68, 42);
+            lblBannerBooksBeginning.Text = $"|   Books Beginning: {_booksBeginningDateStr}";
+            lblBannerBooksBeginning.Location = new Point(lblBannerCompSubtitle.Right + 8, 43);
+        }
+    }
+
+    private void LayoutGatewayHeader()
+    {
+        if (pnlGatewayHeader == null || pnlNavTip == null || lblGwTitle == null || lblGwSub == null) return;
+
+        int headerW = pnlGatewayHeader.Width;
+        if (headerW >= 860)
+        {
+            lblGwSub.Text = "Press highlighted underlined key or click category to open master modules";
+            lblGwSub.Visible = true;
+            pnlNavTip.Visible = true;
+            pnlNavTip.Location = new Point(headerW - pnlNavTip.Width, 6);
+        }
+        else if (headerW >= 660)
+        {
+            lblGwSub.Text = "Click category or press underlined key to open modules";
+            lblGwSub.Visible = true;
+            pnlNavTip.Visible = true;
+            pnlNavTip.Location = new Point(headerW - pnlNavTip.Width, 6);
+        }
+        else
+        {
+            lblGwSub.Text = "Click category or press key to open";
+            pnlNavTip.Visible = false;
+        }
+    }
+
+    private void UpdateCardRowHeights()
+    {
+        if (cardsGrid == null || mainContainer == null) return;
+
+        var tier = ScreenFittingManager.ClassifyTier(mainContainer.ClientSize.Width, mainContainer.ClientSize.Height);
+        float targetRowH = tier switch
+        {
+            LayoutTier.Compact => 34f,
+            LayoutTier.Large => 38f,
+            _ => 36f
+        };
+
+        var cards = new[] { cardMasters, cardTrans, cardReports };
+        foreach (var card in cards)
+        {
+            if (card?.Tag is TableLayoutPanel tbl)
+            {
+                tbl.SuspendLayout();
+                for (int r = 0; r < tbl.RowStyles.Count; r++)
+                {
+                    tbl.RowStyles[r].SizeType = SizeType.Absolute;
+                    tbl.RowStyles[r].Height = targetRowH + 2;
+                }
+                foreach (Control rowCtrl in tbl.Controls)
+                {
+                    rowCtrl.Height = (int)targetRowH;
+                    rowCtrl.Invalidate();
+                }
+                tbl.ResumeLayout(true);
+            }
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  CONTEXT UPDATES (Company, Financial Year, Status)
@@ -1667,8 +1906,12 @@ public class MainForm : Form
             if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = true;
 
             if (lblBannerCompName != null) lblBannerCompName.Text = company.CompanyName;
-            if (lblBannerBooksBeginning != null && fy != null)
-                lblBannerBooksBeginning.Text = $"|   Books Beginning: {fy.StartDate:dd-MMM-yyyy}";
+            if (fy != null)
+            {
+                _booksBeginningDateStr = fy.StartDate.ToString("dd-MMM-yyyy");
+            }
+            if (lblBannerBooksBeginning != null)
+                lblBannerBooksBeginning.Text = $"|   Books Beginning: {_booksBeginningDateStr}";
             if (lblBannerCompSubtitle != null)
                 lblBannerCompSubtitle.Text = $"Accounts";
             if (lblBannerFY != null && fy != null)
@@ -1699,6 +1942,9 @@ public class MainForm : Form
                 lblTitleContext.Text = $"{company.CompanyName} • FY {(fy != null ? fy.YearName : "2026-27")}";
                 lblTitleContext.Location = new Point(lblTitleSeparator.Right + 8, 7);
             }
+
+            LayoutCompanyBanner();
+            PositionRightControls();
         }
         else
         {
@@ -1709,6 +1955,7 @@ public class MainForm : Form
             if (lblStatusFY != null) lblStatusFY.Text = "FY: Not Selected";
             if (lblTitleSeparator != null) lblTitleSeparator.Visible = false;
             if (lblTitleContext != null) lblTitleContext.Text = "";
+            PositionRightControls();
         }
     }
 
@@ -1819,6 +2066,33 @@ public class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
+        // 1. Enforce taskbar-aware maximized bounds via Win32 MINMAXINFO
+        if (m.Msg == ScreenFittingManager.WM_GETMINMAXINFO)
+        {
+            base.WndProc(ref m);
+            ScreenFittingManager.HandleGetMinMaxInfo(m.HWnd, m.LParam);
+            return;
+        }
+
+        // 2. Dynamic DPI change across monitors (Windows PerMonitorV2)
+        if (m.Msg == ScreenFittingManager.WM_DPICHANGED)
+        {
+            base.WndProc(ref m);
+            ApplyResponsiveLayout();
+            return;
+        }
+
+        // 3. Monitor display resolution / scaling changed in Windows
+        if (m.Msg == ScreenFittingManager.WM_DISPLAYCHANGE)
+        {
+            base.WndProc(ref m);
+            var screen = Screen.FromHandle(Handle);
+            if (screen != null) MaximizedBounds = screen.WorkingArea;
+            ApplyResponsiveLayout();
+            return;
+        }
+
+        // 4. Edge resize areas for borderless window
         if (m.Msg == WM_NCHITTEST)
         {
             base.WndProc(ref m);
@@ -1859,14 +2133,36 @@ public class MainForm : Form
             btnMaxRestore.Text = WindowState == FormWindowState.Maximized ? "❐" : "▢";
     }
 
+    protected override void OnLocationChanged(EventArgs e)
+    {
+        base.OnLocationChanged(e);
+        if (IsHandleCreated)
+        {
+            var screen = Screen.FromHandle(Handle);
+            if (screen != null && screen.DeviceName != _lastMonitorName)
+            {
+                _lastMonitorName = screen.DeviceName;
+                MaximizedBounds = screen.WorkingArea;
+                ApplyResponsiveLayout();
+            }
+        }
+    }
+
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
         if (WindowState == FormWindowState.Maximized)
         {
-            var screen = Screen.FromControl(this);
-            MaximizedBounds = screen.WorkingArea;
+            var screen = (IsHandleCreated ? Screen.FromHandle(Handle) : null) ?? Screen.PrimaryScreen;
+            if (screen != null) MaximizedBounds = screen.WorkingArea;
         }
+        ApplyResponsiveLayout();
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        ApplyResponsiveLayout();
     }
 
     private void PromptExitApplication()
@@ -1885,6 +2181,33 @@ public class MainForm : Form
         if (confirmed)
         {
             Application.Exit();
+        }
+    }
+
+    private void LoadApplicationIcon()
+    {
+        try
+        {
+            string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
+            if (File.Exists(iconPath))
+            {
+                Icon = new Icon(iconPath);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(Application.ExecutablePath) && File.Exists(Application.ExecutablePath))
+            {
+                var extracted = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (extracted != null)
+                {
+                    Icon = extracted;
+                    return;
+                }
+            }
+        }
+        catch
+        {
+            // Graceful fallback
         }
     }
 
