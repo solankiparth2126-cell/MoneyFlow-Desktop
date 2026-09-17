@@ -203,7 +203,8 @@ public class VoucherEntryControl : UserControl
 
                 if (dgvEntries.CurrentCell != null &&
                     e.RowIndex == dgvEntries.CurrentCell.RowIndex &&
-                    e.ColumnIndex == dgvEntries.CurrentCell.ColumnIndex)
+                    e.ColumnIndex == dgvEntries.CurrentCell.ColumnIndex &&
+                    e.Graphics != null)
                 {
                     using var pen = new Pen(ExecLedgerTheme.SystemFocusBlue, 2);
                     var rect = e.CellBounds;

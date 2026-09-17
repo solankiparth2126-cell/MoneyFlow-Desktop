@@ -262,7 +262,8 @@ public class PaymentVoucherView : UserControl, IVoucherView
                 e.Paint(e.CellBounds, DataGridViewPaintParts.All);
                 if (_dgvEntries.CurrentCell != null &&
                     e.RowIndex == _dgvEntries.CurrentCell.RowIndex &&
-                    e.ColumnIndex == _dgvEntries.CurrentCell.ColumnIndex)
+                    e.ColumnIndex == _dgvEntries.CurrentCell.ColumnIndex &&
+                    e.Graphics != null)
                 {
                     using var pen = new Pen(ExecLedgerTheme.SystemFocusBlue, 2);
                     var rect = e.CellBounds;

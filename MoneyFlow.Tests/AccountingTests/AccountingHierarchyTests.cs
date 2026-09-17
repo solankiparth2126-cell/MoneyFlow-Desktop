@@ -120,7 +120,7 @@ public class AccountingHierarchyTests
         });
 
         // Verify database foreign keys
-        var dbLedger = await context.Ledgers.Include(l => l.Group).ThenInclude(g => g!.ParentGroup)
+        var dbLedger = await context.Ledgers.Include(l => l.Group!).ThenInclude(g => g.ParentGroup)
             .FirstOrDefaultAsync(l => l.LedgerId == hdfcLedger.LedgerId);
 
         dbLedger.Should().NotBeNull();
@@ -199,9 +199,13 @@ public class AccountingHierarchyTests
 
         // Verify entries in database reference exact LedgerId
         var dbVoucher = await acctService.GetVoucherByIdAsync(posted.VoucherId);
-        dbVoucher!.VoucherEntries.Should().HaveCount(2);
-        dbVoucher.VoucherEntries.First(e => e.Debit == 5000m).LedgerId.Should().Be(electricity.LedgerId);
-        dbVoucher.VoucherEntries.First(e => e.Credit == 5000m).LedgerId.Should().Be(hdfc.LedgerId);
+        dbVoucher.Should().NotBeNull();
+        if (dbVoucher != null)
+        {
+            dbVoucher.VoucherEntries.Should().HaveCount(2);
+            dbVoucher.VoucherEntries.First(e => e.Debit == 5000m).LedgerId.Should().Be(electricity.LedgerId);
+            dbVoucher.VoucherEntries.First(e => e.Credit == 5000m).LedgerId.Should().Be(hdfc.LedgerId);
+        }
     }
 
     [Fact]
@@ -358,31 +362,37 @@ public class AccountingHierarchyTests
         var receiptType = await acctService.GetVoucherTypeByEnumAsync(VoucherTypeEnum.Receipt);
         var paymentType = await acctService.GetVoucherTypeByEnumAsync(VoucherTypeEnum.Payment);
 
-        // Sales income ₹1,00,000
-        await acctService.SaveVoucherAsync(company.CompanyId, new VoucherCreateDto
-        {
-            FinancialYearId = fy.FinancialYearId,
-            VoucherTypeId = receiptType!.VoucherTypeId,
-            VoucherDate = new DateTime(2026, 4, 10),
-            Entries = new List<VoucherEntryDto>
-            {
-                new() { LedgerId = bank.LedgerId, Debit = 100000m, Credit = 0m },
-                new() { LedgerId = sales.LedgerId, Debit = 0m, Credit = 100000m }
-            }
-        });
+        receiptType.Should().NotBeNull();
+        paymentType.Should().NotBeNull();
 
-        // Salary expense ₹40,000
-        await acctService.SaveVoucherAsync(company.CompanyId, new VoucherCreateDto
+        if (receiptType != null && paymentType != null)
         {
-            FinancialYearId = fy.FinancialYearId,
-            VoucherTypeId = paymentType.VoucherTypeId,
-            VoucherDate = new DateTime(2026, 4, 25),
-            Entries = new List<VoucherEntryDto>
+            // Sales income ₹1,00,000
+            await acctService.SaveVoucherAsync(company.CompanyId, new VoucherCreateDto
             {
-                new() { LedgerId = salary.LedgerId, Debit = 40000m, Credit = 0m },
-                new() { LedgerId = bank.LedgerId, Debit = 0m, Credit = 40000m }
-            }
-        });
+                FinancialYearId = fy.FinancialYearId,
+                VoucherTypeId = receiptType.VoucherTypeId,
+                VoucherDate = new DateTime(2026, 4, 10),
+                Entries = new List<VoucherEntryDto>
+                {
+                    new() { LedgerId = bank.LedgerId, Debit = 100000m, Credit = 0m },
+                    new() { LedgerId = sales.LedgerId, Debit = 0m, Credit = 100000m }
+                }
+            });
+
+            // Salary expense ₹40,000
+            await acctService.SaveVoucherAsync(company.CompanyId, new VoucherCreateDto
+            {
+                FinancialYearId = fy.FinancialYearId,
+                VoucherTypeId = paymentType.VoucherTypeId,
+                VoucherDate = new DateTime(2026, 4, 25),
+                Entries = new List<VoucherEntryDto>
+                {
+                    new() { LedgerId = salary.LedgerId, Debit = 40000m, Credit = 0m },
+                    new() { LedgerId = bank.LedgerId, Debit = 0m, Credit = 40000m }
+                }
+            });
+        }
 
         var pl = await acctService.GetProfitAndLossAsync(company.CompanyId, fy.StartDate, fy.EndDate);
         pl.Should().NotBeNull();
@@ -567,11 +577,17 @@ public class AccountingHierarchyTests
         {
             var matched = subGroups.FirstOrDefault(g => g.GroupName.Equals(sgDef.Name, StringComparison.OrdinalIgnoreCase));
             matched.Should().NotBeNull($"Sub-group '{sgDef.Name}' must exist");
-            matched!.ParentGroupId.Should().NotBeNull();
-            var parent = groupById[matched.ParentGroupId!.Value];
-            parent.GroupName.Should().Be(sgDef.ParentGroupName);
-            matched.Nature.Should().Be(sgDef.Nature);
-            matched.IsPredefined.Should().BeTrue();
+            if (matched != null)
+            {
+                matched.ParentGroupId.Should().NotBeNull();
+                if (matched.ParentGroupId.HasValue)
+                {
+                    var parent = groupById[matched.ParentGroupId.Value];
+                    parent.GroupName.Should().Be(sgDef.ParentGroupName);
+                }
+                matched.Nature.Should().Be(sgDef.Nature);
+                matched.IsPredefined.Should().BeTrue();
+            }
         }
     }
 
@@ -707,6 +723,7 @@ public class AccountingHierarchyTests
         // 3b. "Loans" renamed to "Loans (Liability)"
         var migratedLoans = await context.Groups.FirstOrDefaultAsync(g => g.CompanyId == company.CompanyId && g.GroupName == "Loans (Liability)");
         migratedLoans.Should().NotBeNull();
+        _ = migratedLoans!.GroupId;
 
         // 3c. All 28 groups exist
         var totalGroups = await context.Groups.Where(g => g.CompanyId == company.CompanyId).CountAsync();
