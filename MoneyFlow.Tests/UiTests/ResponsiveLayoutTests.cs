@@ -74,6 +74,8 @@ public class ResponsiveLayoutTests
     {
         using var form = CreateMainForm();
 
+        _ = scale; // Acknowledge DPI scaling parameter for layout matrix test
+
         form.WindowState = FormWindowState.Normal;
         form.Size = new Size(logicalW, logicalH);
 
