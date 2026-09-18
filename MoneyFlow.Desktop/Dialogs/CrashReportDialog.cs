@@ -35,6 +35,13 @@ public class CrashReportDialog : Form
         BackColor = Color.FromArgb(248, 250, 252);
         Font = ExecLedgerTheme.UIRegular9;
 
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            Icon = appIcon;
+            ShowIcon = true;
+        }
+
         // Header Panel
         var headerPanel = new Panel
         {

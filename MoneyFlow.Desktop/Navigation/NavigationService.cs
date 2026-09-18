@@ -252,6 +252,12 @@ public class NavigationService : INavigationService
         ShowModal(form, owner);
     }
 
+    public void OpenStartupConfiguration(IWin32Window? owner = null)
+    {
+        using var form = _formFactory.Create<StartupConfigurationForm>();
+        ShowModal(form, owner);
+    }
+
 
 
     // --- Dynamic Routing ---

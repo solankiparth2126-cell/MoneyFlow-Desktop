@@ -167,47 +167,111 @@ public static class ExecLedgerIcons
         return bmp;
     }
 
-    /// <summary>Purple growth-arrow application logo for title bar and headers</summary>
-    public static Bitmap CreateAppLogoIcon(Color? color = null)
+    private static Icon? _cachedAppIcon;
+    private static readonly System.Collections.Generic.Dictionary<int, Bitmap> _cachedLogos = new();
+
+    /// <summary>Resolves the canonical app.ico icon from Resources in the whole project</summary>
+    public static Icon? GetAppIcon()
     {
+        if (_cachedAppIcon != null) return _cachedAppIcon;
+
         try
         {
-            string previewPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app_preview.png");
-            if (System.IO.File.Exists(previewPath))
+            string[] candidatePaths = {
+                System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico"),
+                System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Resources", "app.ico"),
+                System.IO.Path.Combine(System.Environment.CurrentDirectory, "Resources", "app.ico")
+            };
+
+            foreach (var path in candidatePaths)
             {
-                using var src = new Bitmap(previewPath);
-                var bmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                if (System.IO.File.Exists(path))
+                {
+                    _cachedAppIcon = new Icon(path);
+                    return _cachedAppIcon;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(System.Windows.Forms.Application.ExecutablePath) && System.IO.File.Exists(System.Windows.Forms.Application.ExecutablePath))
+            {
+                _cachedAppIcon = Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath);
+                if (_cachedAppIcon != null) return _cachedAppIcon;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>Returns the official MoneyFlow application logo at desired resolution from Resources/app_preview.png or Resources/app.ico</summary>
+    public static Image GetAppLogo(int width = 24, int height = 24)
+    {
+        int key = (width << 16) | (height & 0xFFFF);
+        if (_cachedLogos.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        try
+        {
+            string[] candidatePaths = {
+                System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app_preview.png"),
+                System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "Resources", "app_preview.png"),
+                System.IO.Path.Combine(System.Environment.CurrentDirectory, "Resources", "app_preview.png")
+            };
+
+            foreach (var path in candidatePaths)
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    using var src = new Bitmap(path);
+                    var bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                    using var g = Graphics.FromImage(bmp);
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    g.CompositingQuality = CompositingQuality.HighQuality;
+                    g.Clear(Color.Transparent);
+                    g.DrawImage(src, new Rectangle(0, 0, width, height));
+                    _cachedLogos[key] = bmp;
+                    return bmp;
+                }
+            }
+
+            var icon = GetAppIcon();
+            if (icon != null)
+            {
+                using var iconBmp = icon.ToBitmap();
+                var bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                 using var g = Graphics.FromImage(bmp);
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.CompositingQuality = CompositingQuality.HighQuality;
                 g.Clear(Color.Transparent);
-                g.DrawImage(src, new Rectangle(0, 0, 20, 20));
+                g.DrawImage(iconBmp, new Rectangle(0, 0, width, height));
+                _cachedLogos[key] = bmp;
                 return bmp;
             }
-
-            string icoPath = System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
-            if (System.IO.File.Exists(icoPath))
-            {
-                using var icon = new Icon(icoPath, 24, 24);
-                return icon.ToBitmap();
-            }
         }
-        catch
-        {
-            // Graceful fallback
-        }
+        catch { }
 
-        // Fallback purple growth arrow drawing
-        var fallbackBmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        // Fallback drawing if resources missing
+        var fallbackBmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(fallbackBmp))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var brush = new LinearGradientBrush(new Point(0, 0), new Point(20, 20), Color.FromArgb(168, 85, 247), Color.FromArgb(100, 64, 217));
-            using var pen = new Pen(brush, 2.5f) { EndCap = LineCap.ArrowAnchor };
-            g.DrawBezier(pen, new Point(3, 14), new Point(4, 7), new Point(14, 13), new Point(16, 5));
+            using var brush = new LinearGradientBrush(new Point(0, 0), new Point(width, height), Color.FromArgb(168, 85, 247), Color.FromArgb(100, 64, 217));
+            using var pen = new Pen(brush, Math.Max(2f, width / 8f)) { EndCap = LineCap.ArrowAnchor };
+            g.DrawBezier(pen, new Point(width * 3 / 20, height * 14 / 20), new Point(width * 4 / 20, height * 7 / 20), new Point(width * 14 / 20, height * 13 / 20), new Point(width * 16 / 20, height * 5 / 20));
         }
+        _cachedLogos[key] = fallbackBmp;
         return fallbackBmp;
+    }
+
+    /// <summary>Purple growth-arrow application logo for title bar and headers</summary>
+    public static Bitmap CreateAppLogoIcon(Color? color = null)
+    {
+        return (Bitmap)GetAppLogo(20, 20);
     }
 }

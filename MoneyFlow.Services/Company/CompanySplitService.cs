@@ -119,18 +119,6 @@ public class CompanySplitService : ICompanySplitService
             await _context.Companies.AddAsync(newCompany, ct);
             await _unitOfWork.SaveChangesAsync(ct);
 
-            // Write metadata file
-            var meta = new
-            {
-                CompanyNumber = newCompanyNumber,
-                CompanyName = newName,
-                ParentCompanyId = sourceCompany.CompanyId,
-                SplitFromDate = splitDate,
-                CreatedAt = DateTime.Now
-            };
-            File.WriteAllText(Path.Combine(targetDir, "company.json"),
-                System.Text.Json.JsonSerializer.Serialize(meta, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
-
             // 3. Duplicate Units
             var unitMap = new Dictionary<int, int>();
             foreach (var u in sourceCompany.Units)

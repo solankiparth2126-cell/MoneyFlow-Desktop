@@ -11,6 +11,7 @@ using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
+using MoneyFlow.Data.Storage;
 
 namespace MoneyFlow.Desktop.Forms;
 
@@ -91,11 +92,10 @@ public class MainForm : Form
     private Label lblDateTag = null!;
     private string _booksBeginningDateStr = "01-Apr-2026";
 
-    // Gateway Header & Navigation Tip
+    // Gateway Header
     private Panel pnlGatewayHeader = null!;
     private Label lblGwTitle = null!;
     private Label lblGwSub = null!;
-    private Guna2Panel pnlNavTip = null!;
 
     // Gateway 3-column cards
     private TableLayoutPanel cardsGrid = null!;
@@ -142,19 +142,22 @@ public class MainForm : Form
     private int _gatewayCol = 0; // 0: Masters, 1: Transactions, 2: Reports
     private int _gatewayRow = 1; // Default to Ledgers Master
     private string _lastMonitorName = "";
+    private readonly SystemConfiguration? _systemConfig;
 
     public MainForm(
         ICompanyContext companyContext,
         IUserContext userContext,
         INavigationService navigationService,
         ISettingsService settingsService,
-        IBackupRestoreService? backupRestoreService = null)
+        IBackupRestoreService? backupRestoreService = null,
+        SystemConfiguration? systemConfig = null)
     {
         _companyContext = companyContext ?? throw new ArgumentNullException(nameof(companyContext));
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _backupRestoreService = backupRestoreService;
+        _systemConfig = systemConfig;
 
         sessionStartTime = DateTime.Now;
 
@@ -225,7 +228,7 @@ public class MainForm : Form
         menuStrip.BringToFront();
         toolbarPanel.BringToFront();
         operationsRail.BringToFront();
-        mainContainer.SendToBack();
+        mainContainer.BringToFront();
 
         // 7. Keyboard Shortcuts
         KeyDown += MainForm_KeyDown;
@@ -290,29 +293,28 @@ public class MainForm : Form
         };
         titleBar.Controls.Add(lblTitleText);
 
-        // Separator "|"
+        // Separator "|" (hidden — company name removed from main title bar per design)
         lblTitleSeparator = new Label
         {
             Text = "|",
-            ForeColor = Color.FromArgb(71, 85, 105), // #475569
+            ForeColor = Color.FromArgb(71, 85, 105),
             Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            AutoSize = true,
+            Visible = false,
             Location = new Point(lblTitleText.Right + 8, 7),
             BackColor = Color.Transparent
         };
-        titleBar.Controls.Add(lblTitleSeparator);
 
-        // Company context text (e.g. "ABC TRADERS • FY 2026-27")
+        // Company context text (hidden — company name removed from main title bar per design)
         lblTitleContext = new Label
         {
-            Text = "",
-            ForeColor = Color.FromArgb(148, 163, 184), // #94A3B8 Slate Gray
+            Text = string.Empty,
+            ForeColor = Color.FromArgb(148, 163, 184),
             Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
             AutoSize = true,
+            Visible = false,
             Location = new Point(lblTitleSeparator.Right + 8, 7),
             BackColor = Color.Transparent
         };
-        titleBar.Controls.Add(lblTitleContext);
 
         // Window Control Buttons
         int btnW = 46;
@@ -370,8 +372,8 @@ public class MainForm : Form
         };
         btnMinimize.Click += (s, e) => WindowState = FormWindowState.Minimized;
 
+        // Only minimize and close buttons displayed per user request
         titleBar.Controls.Add(btnMinimize);
-        titleBar.Controls.Add(btnMaxRestore);
         titleBar.Controls.Add(btnClose);
 
         titleBar.Resize += (s, e) => PositionRightControls();
@@ -380,12 +382,7 @@ public class MainForm : Form
         // Title bar drag handlers
         titleBar.MouseDown += TitleBar_MouseDown;
         lblTitleText.MouseDown += TitleBar_MouseDown;
-        lblTitleSeparator.MouseDown += TitleBar_MouseDown;
-        lblTitleContext.MouseDown += TitleBar_MouseDown;
         picBadge.MouseDown += TitleBar_MouseDown;
-
-        titleBar.DoubleClick += (s, e) => btnMaxRestore.PerformClick();
-        lblTitleText.DoubleClick += (s, e) => btnMaxRestore.PerformClick();
     }
 
     private void TitleBar_MouseDown(object? sender, MouseEventArgs e)
@@ -421,6 +418,7 @@ public class MainForm : Form
         AddMenuItem(menuCompany, "Create Company\tAlt+C", (s, e) => _navigationService.OpenCreateCompany(this));
         AddMenuItem(menuCompany, "Alter Company\tAlt+A", (s, e) => _navigationService.OpenAlterCompany(this));
         AddMenuItem(menuCompany, "Change Financial Year\tF2", (s, e) => _navigationService.OpenFinancialYearList(this));
+        AddMenuItem(menuCompany, "Configure ERP Environment...\tF12", (s, e) => _navigationService.OpenStartupConfiguration(this));
         AddMenuItem(menuCompany, "Close Active Company", (s, e) => _navigationService.CloseActiveCompany(this));
         menuCompany.DropDownItems.Add(new ToolStripSeparator());
         AddMenuItem(menuCompany, "E&xit\tEsc", (s, e) => PromptExitApplication());
@@ -537,7 +535,11 @@ public class MainForm : Form
             "Day Book", null,
             () => _navigationService.OpenDayBook(this)));
 
-
+        // 4. Trial Balance
+        flowLeft.Controls.Add(CreateToolbarActionItem(
+            ExecLedgerIcons.CreateTrialBalanceIcon(Color.FromArgb(234, 88, 12)),
+            "Trial Balance", null,
+            () => _navigationService.OpenBalanceSheet(this)));
 
         // 5. P & L
         flowLeft.Controls.Add(CreateToolbarActionItem(
@@ -551,7 +553,45 @@ public class MainForm : Form
             "Balance Sheet", null,
             () => _navigationService.OpenBalanceSheet(this)));
 
+        // 7. Inline Quick Search Bar on the right
+        var pnlQuickSearch = new Guna2Panel
+        {
+            Height = 28,
+            Width = 240,
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(203, 213, 225),
+            BorderThickness = 1,
+            BorderRadius = 4,
+            Cursor = Cursors.Hand,
+            Margin = new Padding(8, 1, 3, 1)
+        };
+        var picSearch = new PictureBox
+        {
+            Image = ExecLedgerIcons.CreateSearchIcon(Color.FromArgb(148, 163, 184)),
+            Size = new Size(16, 16),
+            SizeMode = PictureBoxSizeMode.CenterImage,
+            Location = new Point(8, 6),
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        var txtSearchPlaceholder = new Label
+        {
+            Text = "Jump to ledger / voucher (Ctrl+F)",
+            Font = new Font("Segoe UI", 8.25F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(148, 163, 184),
+            AutoSize = true,
+            Location = new Point(28, 6),
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
+        };
+        pnlQuickSearch.Controls.Add(picSearch);
+        pnlQuickSearch.Controls.Add(txtSearchPlaceholder);
+        Action openSearch = () => _navigationService.OpenGlobalSearch(this);
+        pnlQuickSearch.Click += (s, e) => openSearch();
+        picSearch.Click += (s, e) => openSearch();
+        txtSearchPlaceholder.Click += (s, e) => openSearch();
 
+        flowLeft.Controls.Add(pnlQuickSearch);
 
         toolbarPanel.Controls.Add(flowLeft);
     }
@@ -943,7 +983,7 @@ public class MainForm : Form
         };
         pnlCompanyBanner.Resize += (s, e) => LayoutCompanyBanner();
 
-        // Left Icon Badge "MF"
+        // Left Icon Badge with official MoneyFlow Logo from Resources
         var badgePanel = new Guna2Panel
         {
             Size = new Size(40, 40),
@@ -951,22 +991,21 @@ public class MainForm : Form
             FillColor = Color.FromArgb(15, 23, 42),
             BorderRadius = 6
         };
-        var lblBadge = new Label
+        var picCompanyLogo = new PictureBox
         {
-            Text = "MF",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-            ForeColor = Color.White,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
+            Image = ExecLedgerIcons.GetAppLogo(28, 28),
+            Size = new Size(28, 28),
+            Location = new Point(6, 6),
+            SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Transparent
         };
-        badgePanel.Controls.Add(lblBadge);
+        badgePanel.Controls.Add(picCompanyLogo);
         pnlCompanyBanner.Controls.Add(badgePanel);
 
         // Company Name + Active Pill + Books Beginning
         lblBannerCompName = new Label
         {
-            Text = "ABC TRADERS",
+            Text = string.Empty,
             Font = new Font("Segoe UI", 12.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
             AutoSize = true,
@@ -1011,7 +1050,7 @@ public class MainForm : Form
 
         lblBannerCompSubtitle = new Label
         {
-            Text = "Accounts",
+            Text = "Accounts • Wholesale & Retail Trading • Base Currency: INR (₹)",
             Font = new Font("Segoe UI", 8F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
@@ -1089,7 +1128,7 @@ public class MainForm : Form
         };
         lblBannerDate = new Label
         {
-            Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)"),
+            Text = "10-Sep-2026 (Thursday)",
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(13, 148, 136), // #0D9488 Teal
             Location = new Point(154, 26),
@@ -1111,24 +1150,18 @@ public class MainForm : Form
             Dock = DockStyle.Top,
             Height = 10,
             BackColor = Color.Transparent,
-            Visible = _companyContext.IsCompanyOpen && _companyContext.CurrentCompany != null
+            Visible = true
         };
-        pnlCompanyBanner.Visible = pnlBannerSpacer.Visible;
+        pnlCompanyBanner.Visible = true;
 
         // ── B. GATEWAY OF ACCOUNTING (3 Structured Cards) ──
-        var pnlLeftGateway = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
-            Margin = new Padding(0)
-        };
-
         // Gateway Header
         pnlGatewayHeader = new Panel
         {
             Dock = DockStyle.Top,
             Height = 44,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            Padding = new Padding(2, 0, 0, 0)
         };
         pnlGatewayHeader.Resize += (s, e) => LayoutGatewayHeader();
 
@@ -1137,7 +1170,7 @@ public class MainForm : Form
             Text = "GATEWAY OF ACCOUNTING",
             Font = new Font("Segoe UI", 11F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
-            Location = new Point(0, 2),
+            Location = new Point(2, 2),
             AutoSize = true
         };
         lblGwSub = new Label
@@ -1145,115 +1178,20 @@ public class MainForm : Form
             Text = "Press highlighted underlined key or click category to open master modules",
             Font = new Font("Segoe UI", 8F),
             ForeColor = Color.FromArgb(100, 116, 139),
-            Location = new Point(0, 22),
+            Location = new Point(2, 24),
             AutoSize = true
         };
         pnlGatewayHeader.Controls.Add(lblGwTitle);
         pnlGatewayHeader.Controls.Add(lblGwSub);
 
-        // Navigation Tip Pill with key badges (matching Image 1)
-        pnlNavTip = new Guna2Panel
-        {
-            Size = new Size(395, 28),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            FillColor = Color.FromArgb(239, 246, 255),
-            BorderColor = Color.FromArgb(191, 219, 254),
-            BorderThickness = 1,
-            BorderRadius = 4
-        };
-
-        var flowNav = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            WrapContents = false,
-            AutoSize = false,
-            BackColor = Color.Transparent,
-            Padding = new Padding(8, 3, 8, 3)
-        };
-
-        var lblNavPrefix = new Label
-        {
-            Text = "Navigation Tip: Use",
-            Font = new Font("Segoe UI", 7.5F),
-            ForeColor = Color.FromArgb(29, 78, 216),
-            AutoSize = true,
-            Margin = new Padding(0, 3, 2, 0)
-        };
-
-        var badgeArrow = new Guna2Panel
-        {
-            Size = new Size(72, 20),
-            FillColor = Color.White,
-            BorderColor = Color.FromArgb(191, 219, 254),
-            BorderThickness = 1,
-            BorderRadius = 3,
-            Margin = new Padding(2, 0, 2, 0)
-        };
-        var lblArrow = new Label
-        {
-            Text = "Arrow Keys",
-            Font = new Font("Segoe UI", 7F),
-            ForeColor = Color.FromArgb(51, 65, 85),
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = Color.Transparent
-        };
-        badgeArrow.Controls.Add(lblArrow);
-
-        var lblNavPlus = new Label
-        {
-            Text = "+",
-            Font = new Font("Segoe UI", 7.5F),
-            ForeColor = Color.FromArgb(29, 78, 216),
-            AutoSize = true,
-            Margin = new Padding(2, 3, 2, 0)
-        };
-
-        var badgeEnter = new Guna2Panel
-        {
-            Size = new Size(38, 20),
-            FillColor = Color.White,
-            BorderColor = Color.FromArgb(191, 219, 254),
-            BorderThickness = 1,
-            BorderRadius = 3,
-            Margin = new Padding(2, 0, 2, 0)
-        };
-        var lblEnter = new Label
-        {
-            Text = "Enter",
-            Font = new Font("Segoe UI", 7F),
-            ForeColor = Color.FromArgb(51, 65, 85),
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = Color.Transparent
-        };
-        badgeEnter.Controls.Add(lblEnter);
-
-        var lblNavSuffix = new Label
-        {
-            Text = "or single hotkeys.",
-            Font = new Font("Segoe UI", 7.5F),
-            ForeColor = Color.FromArgb(29, 78, 216),
-            AutoSize = true,
-            Margin = new Padding(2, 3, 0, 0)
-        };
-
-        flowNav.Controls.Add(lblNavPrefix);
-        flowNav.Controls.Add(badgeArrow);
-        flowNav.Controls.Add(lblNavPlus);
-        flowNav.Controls.Add(badgeEnter);
-        flowNav.Controls.Add(lblNavSuffix);
-        pnlNavTip.Controls.Add(flowNav);
-        pnlGatewayHeader.Controls.Add(pnlNavTip);
-
-        // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Fit to screen)
+        // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Stretches to 100% available client height)
         cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 3,
             RowCount = 1,
             BackColor = Color.Transparent,
-            Padding = new Padding(0, 4, 0, 0)
+            Padding = new Padding(0, 4, 0, 4)
         };
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
         cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
@@ -1290,14 +1228,17 @@ public class MainForm : Form
 
         UpdateGatewaySelectionUI();
 
-        // Add cardsGrid and header to gateway panel
-        pnlLeftGateway.Controls.Add(cardsGrid);
-        pnlLeftGateway.Controls.Add(pnlGatewayHeader);
-
-        // Add to main container
-        mainContainer.Controls.Add(pnlLeftGateway);
+        // Add directly to main container and establish top-to-bottom docking order
+        mainContainer.Controls.Clear();
+        mainContainer.Controls.Add(cardsGrid);
+        mainContainer.Controls.Add(pnlGatewayHeader);
         mainContainer.Controls.Add(pnlBannerSpacer);
         mainContainer.Controls.Add(pnlCompanyBanner);
+
+        pnlCompanyBanner.SendToBack();
+        pnlBannerSpacer.SendToBack();
+        pnlGatewayHeader.SendToBack();
+        cardsGrid.BringToFront();
 
         LayoutCompanyBanner();
         LayoutGatewayHeader();
@@ -1478,17 +1419,32 @@ public class MainForm : Form
             int textH = TextRenderer.MeasureText(e.Graphics, "Ag", sampleFont, Size.Empty, TextFormatFlags.NoPadding).Height;
             int startY = Math.Max(2, (row.Height - textH) / 2);
 
-            if (hotkeyChar.HasValue && title.StartsWith(hotkeyChar.Value))
+            int keyIndex = hotkeyChar.HasValue ? title.IndexOf(hotkeyChar.Value.ToString(), StringComparison.OrdinalIgnoreCase) : -1;
+            if (keyIndex >= 0)
             {
-                string keyStr = hotkeyChar.Value.ToString();
-                string restStr = title.Substring(1);
+                string preStr = title.Substring(0, keyIndex);
+                string keyStr = title.Substring(keyIndex, 1);
+                string postStr = title.Substring(keyIndex + 1);
 
+                using var normFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Regular);
                 using var keyFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Bold | FontStyle.Underline);
-                using var restFont = new Font(ExecLedgerTheme.UiFontFamily, 9F, FontStyle.Regular);
+
+                int curX = startX;
+                if (!string.IsNullOrEmpty(preStr))
+                {
+                    var preSize = TextRenderer.MeasureText(e.Graphics, preStr, normFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                    TextRenderer.DrawText(e.Graphics, preStr, normFont, new Point(curX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                    curX += preSize.Width;
+                }
 
                 var keySize = TextRenderer.MeasureText(e.Graphics, keyStr, keyFont, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
-                TextRenderer.DrawText(e.Graphics, keyStr, keyFont, new Point(startX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
-                TextRenderer.DrawText(e.Graphics, restStr, restFont, new Point(startX + keySize.Width, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                TextRenderer.DrawText(e.Graphics, keyStr, keyFont, new Point(curX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                curX += keySize.Width;
+
+                if (!string.IsNullOrEmpty(postStr))
+                {
+                    TextRenderer.DrawText(e.Graphics, postStr, normFont, new Point(curX, startY), textColor, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);
+                }
             }
             else
             {
@@ -1503,13 +1459,6 @@ public class MainForm : Form
             if (isHighlighted)
             {
                 // Soft blue pill (e.g. Primary)
-                var pill = new Guna2Panel
-                {
-                    Size = new Size(54, 22),
-                    FillColor = Color.FromArgb(219, 234, 254),
-                    BorderRadius = 4,
-                    Cursor = Cursors.Hand
-                };
                 var lblPill = new Label
                 {
                     Text = rightTag,
@@ -1521,6 +1470,14 @@ public class MainForm : Form
                     Cursor = Cursors.Hand,
                     UseMnemonic = false
                 };
+                int pillW = Math.Max(54, TextRenderer.MeasureText(rightTag, lblPill.Font).Width + 14);
+                var pill = new Guna2Panel
+                {
+                    Size = new Size(pillW, 22),
+                    FillColor = Color.FromArgb(219, 234, 254),
+                    BorderRadius = 4,
+                    Cursor = Cursors.Hand
+                };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
                 rightBadgeControl = pill;
@@ -1530,13 +1487,6 @@ public class MainForm : Form
             else if (isGoldBadge)
             {
                 // Gold pill (e.g. Auditing)
-                var pill = new Guna2Panel
-                {
-                    Size = new Size(56, 22),
-                    FillColor = Color.FromArgb(254, 243, 199),
-                    BorderRadius = 4,
-                    Cursor = Cursors.Hand
-                };
                 var lblPill = new Label
                 {
                     Text = rightTag,
@@ -1548,6 +1498,14 @@ public class MainForm : Form
                     Cursor = Cursors.Hand,
                     UseMnemonic = false
                 };
+                int pillW = Math.Max(56, TextRenderer.MeasureText(rightTag, lblPill.Font).Width + 14);
+                var pill = new Guna2Panel
+                {
+                    Size = new Size(pillW, 22),
+                    FillColor = Color.FromArgb(254, 243, 199),
+                    BorderRadius = 4,
+                    Cursor = Cursors.Hand
+                };
                 pill.Controls.Add(lblPill);
                 row.Controls.Add(pill);
                 rightBadgeControl = pill;
@@ -1556,16 +1514,7 @@ public class MainForm : Form
             }
             else if (isKeyBadge)
             {
-                // Key badge (e.g. F5, F6, F4, etc.)
-                var keyBox = new Guna2Panel
-                {
-                    Size = new Size(32, 22),
-                    FillColor = Color.FromArgb(248, 250, 252),
-                    BorderColor = Color.FromArgb(203, 213, 225),
-                    BorderThickness = 1,
-                    BorderRadius = 4,
-                    Cursor = Cursors.Hand
-                };
+                // Key badge (e.g. F5, F6, Ctrl+F9, etc.)
                 var lblKey = new Label
                 {
                     Text = rightTag,
@@ -1576,6 +1525,16 @@ public class MainForm : Form
                     BackColor = Color.Transparent,
                     Cursor = Cursors.Hand,
                     UseMnemonic = false
+                };
+                int badgeW = Math.Max(32, TextRenderer.MeasureText(rightTag, lblKey.Font).Width + 12);
+                var keyBox = new Guna2Panel
+                {
+                    Size = new Size(badgeW, 22),
+                    FillColor = Color.FromArgb(248, 250, 252),
+                    BorderColor = Color.FromArgb(203, 213, 225),
+                    BorderThickness = 1,
+                    BorderRadius = 4,
+                    Cursor = Cursors.Hand
                 };
                 keyBox.Controls.Add(lblKey);
                 row.Controls.Add(keyBox);
@@ -1591,7 +1550,8 @@ public class MainForm : Form
                     Text = rightTag,
                     Font = new Font("Segoe UI", 7.5F),
                     ForeColor = Color.FromArgb(148, 163, 184),
-                    AutoSize = true,
+                    Size = new Size(95, 20),
+                    TextAlign = ContentAlignment.MiddleRight,
                     BackColor = Color.Transparent,
                     Cursor = Cursors.Hand,
                     UseMnemonic = false
@@ -1730,45 +1690,38 @@ public class MainForm : Form
         switch (tier)
         {
             case LayoutTier.Compact:
-                pnlCompanyBanner.Height = 62;
-                pnlBannerSpacer.Height = 6;
-                pnlGatewayHeader.Height = 36;
-                mainContainer.Padding = new Padding(8, 6, 8, 6);
-                mainContainer.AutoScrollMinSize = new Size(800, 360);
+                pnlCompanyBanner.Height = 68;
+                pnlBannerSpacer.Height = 8;
+                pnlGatewayHeader.Height = 38;
+                mainContainer.Padding = new Padding(12, 8, 12, 8);
                 break;
 
             case LayoutTier.Standard:
-                pnlCompanyBanner.Height = 72;
-                pnlBannerSpacer.Height = 8;
-                pnlGatewayHeader.Height = 40;
-                mainContainer.Padding = new Padding(12, 8, 12, 8);
-                mainContainer.AutoScrollMinSize = new Size(900, 420);
+                pnlCompanyBanner.Height = 74;
+                pnlBannerSpacer.Height = 10;
+                pnlGatewayHeader.Height = 42;
+                mainContainer.Padding = new Padding(14, 8, 14, 8);
                 break;
 
             case LayoutTier.Large:
             default:
-                pnlCompanyBanner.Height = 78;
-                pnlBannerSpacer.Height = 10;
+                pnlCompanyBanner.Height = 76;
+                pnlBannerSpacer.Height = 12;
                 pnlGatewayHeader.Height = 44;
                 mainContainer.Padding = new Padding(16, 10, 16, 10);
-                mainContainer.AutoScrollMinSize = new Size(960, 460);
                 break;
         }
     }
 
     private void PositionRightControls()
     {
-        if (titleBar == null || btnClose == null || btnMaxRestore == null || btnMinimize == null) return;
+        if (titleBar == null || btnClose == null || btnMinimize == null) return;
         int btnW = 46;
         btnClose.Location = new Point(titleBar.Width - btnW, 0);
-        btnMaxRestore.Location = new Point(titleBar.Width - btnW * 2, 0);
-        btnMinimize.Location = new Point(titleBar.Width - btnW * 3, 0);
-
-        if (lblTitleContext != null && lblTitleSeparator != null)
+        btnMinimize.Location = new Point(titleBar.Width - btnW * 2, 0);
+        if (btnMaxRestore != null)
         {
-            int maxCtxW = Math.Max(20, titleBar.Width - (btnW * 3 + 16) - lblTitleContext.Left);
-            lblTitleContext.MaximumSize = new Size(maxCtxW, 20);
-            lblTitleContext.AutoEllipsis = true;
+            btnMaxRestore.Visible = false;
         }
     }
 
@@ -1834,28 +1787,9 @@ public class MainForm : Form
 
     private void LayoutGatewayHeader()
     {
-        if (pnlGatewayHeader == null || pnlNavTip == null || lblGwTitle == null || lblGwSub == null) return;
-
-        int headerW = pnlGatewayHeader.Width;
-        if (headerW >= 860)
-        {
-            lblGwSub.Text = "Press highlighted underlined key or click category to open master modules";
-            lblGwSub.Visible = true;
-            pnlNavTip.Visible = true;
-            pnlNavTip.Location = new Point(headerW - pnlNavTip.Width, 6);
-        }
-        else if (headerW >= 660)
-        {
-            lblGwSub.Text = "Click category or press underlined key to open modules";
-            lblGwSub.Visible = true;
-            pnlNavTip.Visible = true;
-            pnlNavTip.Location = new Point(headerW - pnlNavTip.Width, 6);
-        }
-        else
-        {
-            lblGwSub.Text = "Click category or press key to open";
-            pnlNavTip.Visible = false;
-        }
+        if (pnlGatewayHeader == null || lblGwTitle == null || lblGwSub == null) return;
+        lblGwSub.Text = "Press highlighted underlined key or click category to open master modules";
+        lblGwSub.Visible = true;
     }
 
     private void UpdateCardRowHeights()
@@ -1897,13 +1831,13 @@ public class MainForm : Form
 
     private void UpdateCompanyContextUI()
     {
+        if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = true;
+        if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = true;
+
         if (_companyContext.IsCompanyOpen && _companyContext.CurrentCompany != null)
         {
             var company = _companyContext.CurrentCompany;
             var fy = _companyContext.CurrentFinancialYear;
-
-            if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = true;
-            if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = true;
 
             if (lblBannerCompName != null) lblBannerCompName.Text = company.CompanyName;
             if (fy != null)
@@ -1913,7 +1847,11 @@ public class MainForm : Form
             if (lblBannerBooksBeginning != null)
                 lblBannerBooksBeginning.Text = $"|   Books Beginning: {_booksBeginningDateStr}";
             if (lblBannerCompSubtitle != null)
-                lblBannerCompSubtitle.Text = $"Accounts";
+            {
+                string curr = !string.IsNullOrWhiteSpace(company.Currency) ? company.Currency : "INR (₹)";
+                string stateStr = !string.IsNullOrWhiteSpace(company.State) ? $" • State: {company.State}" : "";
+                lblBannerCompSubtitle.Text = $"Accounts{stateStr} • Base Currency: {curr}";
+            }
             if (lblBannerFY != null && fy != null)
             {
                 string yearStr = fy.YearName;
@@ -1931,16 +1869,18 @@ public class MainForm : Form
                 lblBannerDate.Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)");
 
             if (lblStatusCompany != null) lblStatusCompany.Text = $"● Company: {company.CompanyName}";
-            if (lblStatusFY != null) lblStatusFY.Text = fy != null ? $"FY: {fy.YearName}" : "FY: Not set";
-            if (lblTitleSeparator != null && lblTitleText != null)
+            if (lblStatusFY != null) lblStatusFY.Text = fy != null ? $"FY: {fy.YearName}" : "FY: 2026-27";
+
+            // Company name permanently removed from main title bar per design
+            if (lblTitleSeparator != null)
             {
-                lblTitleSeparator.Visible = true;
-                lblTitleSeparator.Location = new Point(lblTitleText.Right + 8, 7);
+                lblTitleSeparator.Visible = false;
+                lblTitleSeparator.Text = string.Empty;
             }
-            if (lblTitleContext != null && lblTitleSeparator != null)
+            if (lblTitleContext != null)
             {
-                lblTitleContext.Text = $"{company.CompanyName} • FY {(fy != null ? fy.YearName : "2026-27")}";
-                lblTitleContext.Location = new Point(lblTitleSeparator.Right + 8, 7);
+                lblTitleContext.Visible = false;
+                lblTitleContext.Text = string.Empty;
             }
 
             LayoutCompanyBanner();
@@ -1948,13 +1888,25 @@ public class MainForm : Form
         }
         else
         {
-            if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = false;
-            if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = false;
+            if (lblBannerCompName != null) lblBannerCompName.Text = "No Company Selected";
+            if (lblBannerBooksBeginning != null) lblBannerBooksBeginning.Text = string.Empty;
+            if (lblBannerCompSubtitle != null) lblBannerCompSubtitle.Text = "Accounts";
+            if (lblBannerFY != null) lblBannerFY.Text = "--";
+            if (lblBannerDate != null) lblBannerDate.Text = DateTime.Today.ToString("dd-MMM-yyyy (dddd)");
 
-            if (lblStatusCompany != null) lblStatusCompany.Text = "● Company: [None Selected]";
-            if (lblStatusFY != null) lblStatusFY.Text = "FY: Not Selected";
-            if (lblTitleSeparator != null) lblTitleSeparator.Visible = false;
-            if (lblTitleContext != null) lblTitleContext.Text = "";
+            if (lblStatusCompany != null) lblStatusCompany.Text = "● No Company Selected";
+            if (lblStatusFY != null) lblStatusFY.Text = string.Empty;
+            if (lblTitleSeparator != null)
+            {
+                lblTitleSeparator.Visible = false;
+                lblTitleSeparator.Text = string.Empty;
+            }
+            if (lblTitleContext != null)
+            {
+                lblTitleContext.Visible = false;
+                lblTitleContext.Text = string.Empty;
+            }
+            LayoutCompanyBanner();
             PositionRightControls();
         }
     }
@@ -1991,6 +1943,13 @@ public class MainForm : Form
             return;
         }
 
+        if (e.Control && e.KeyCode == Keys.F9)
+        {
+            _navigationService.OpenJournalVoucher(this);
+            e.Handled = true;
+            return;
+        }
+
         // Single hotkeys for dashboard navigation (Tally style)
         if (!e.Control && !e.Alt && ActiveControl is not TextBox and not Guna2TextBox)
         {
@@ -1999,7 +1958,9 @@ public class MainForm : Form
                 case Keys.G: _navigationService.OpenGroupList(this); e.Handled = true; return;
                 case Keys.L: _navigationService.OpenLedgerList(this); e.Handled = true; return;
                 case Keys.D: _navigationService.OpenDayBook(this); e.Handled = true; return;
+                case Keys.P: _navigationService.OpenProfitLoss(this); e.Handled = true; return;
                 case Keys.B: _navigationService.OpenBalanceSheet(this); e.Handled = true; return;
+                case Keys.C: _navigationService.OpenCashBankBook(this); e.Handled = true; return;
             }
         }
 
@@ -2165,6 +2126,10 @@ public class MainForm : Form
         ApplyResponsiveLayout();
     }
 
+    private bool _isExiting = false;
+
+
+
     private void PromptExitApplication()
     {
         string? companyName = _companyContext.CurrentCompany?.CompanyName;
@@ -2173,13 +2138,14 @@ public class MainForm : Form
         {
             string baseDir = !string.IsNullOrWhiteSpace(_companyContext.CurrentCompany.DataDirectory)
                 ? _companyContext.CurrentCompany.DataDirectory
-                : @"C:\MoneyFlow\Data";
+                : (_systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath());
             snapshotPath = Path.Combine(baseDir, "AutoSave");
         }
 
         bool confirmed = QuitConfirmationDialog.ShowQuitDialog(this, companyName, snapshotPath);
         if (confirmed)
         {
+            _isExiting = true;
             Application.Exit();
         }
     }
@@ -2188,21 +2154,10 @@ public class MainForm : Form
     {
         try
         {
-            string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "app.ico");
-            if (File.Exists(iconPath))
+            var appIcon = ExecLedgerIcons.GetAppIcon();
+            if (appIcon != null)
             {
-                Icon = new Icon(iconPath);
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(Application.ExecutablePath) && File.Exists(Application.ExecutablePath))
-            {
-                var extracted = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-                if (extracted != null)
-                {
-                    Icon = extracted;
-                    return;
-                }
+                Icon = appIcon;
             }
         }
         catch
@@ -2212,14 +2167,49 @@ public class MainForm : Form
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  FORM CLOSING (auto-backup & timer cleanup)
+    //  FORM CLOSING (quit confirmation, auto-backup & timer cleanup)
     // ═══════════════════════════════════════════════════════════════
 
     protected override async void OnFormClosing(FormClosingEventArgs e)
     {
+        if (_isExiting || Disposing || IsDisposed)
+        {
+            sessionTimer?.Stop();
+            sessionTimer?.Dispose();
+            base.OnFormClosing(e);
+            return;
+        }
+
+        if (e.CloseReason == CloseReason.ApplicationExitCall ||
+            e.CloseReason == CloseReason.WindowsShutDown ||
+            e.CloseReason == CloseReason.TaskManagerClosing)
+        {
+            sessionTimer?.Stop();
+            sessionTimer?.Dispose();
+            base.OnFormClosing(e);
+            return;
+        }
+
+        string? companyName = _companyContext.CurrentCompany?.CompanyName;
+        string? snapshotPath = null;
+        if (_companyContext.CurrentCompany != null)
+        {
+            string baseDir = !string.IsNullOrWhiteSpace(_companyContext.CurrentCompany.DataDirectory)
+                ? _companyContext.CurrentCompany.DataDirectory
+                : (_systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath());
+            snapshotPath = Path.Combine(baseDir, "AutoSave");
+        }
+
+        bool confirmed = QuitConfirmationDialog.ShowQuitDialog(this, companyName, snapshotPath);
+        if (!confirmed)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        _isExiting = true;
         sessionTimer?.Stop();
         sessionTimer?.Dispose();
-
         base.OnFormClosing(e);
 
         if (_companyContext.CurrentCompany != null && _companyContext.CurrentCompany.AutoBackupOnExit && _backupRestoreService != null)
@@ -2227,7 +2217,9 @@ public class MainForm : Form
             try
             {
                 var comp = _companyContext.CurrentCompany;
-                string baseDir = !string.IsNullOrWhiteSpace(comp.DataDirectory) ? comp.DataDirectory : @"C:\MoneyFlow\Data";
+                string baseDir = !string.IsNullOrWhiteSpace(comp.DataDirectory) 
+                    ? comp.DataDirectory 
+                    : (_systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath());
                 string companyFolder = Path.Combine(baseDir, comp.CompanyNumber ?? comp.CompanyId.ToString("D5"));
                 string backupDir = Path.Combine(companyFolder, "Backups");
                 if (!Directory.Exists(backupDir))

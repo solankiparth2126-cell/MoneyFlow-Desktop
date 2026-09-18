@@ -208,7 +208,7 @@ public class VoucherEntryControl : UserControl
                     using var pen = new Pen(ExecLedgerTheme.SystemFocusBlue, 2);
                     var rect = e.CellBounds;
                     rect.Inflate(-1, -1);
-                    e.Graphics.DrawRectangle(pen, rect);
+                    e.Graphics?.DrawRectangle(pen, rect);
                 }
 
                 e.Handled = true;
