@@ -43,7 +43,13 @@ public interface INavigationService
     void OpenUserManagement(IWin32Window? owner = null);
     void OpenStartupConfiguration(IWin32Window? owner = null);
 
-    // Dynamic Routing
+    // Dynamic Routing & Workspace Host
+    void RegisterHost(INavigationHost host);
+    void UnregisterHost(INavigationHost host);
+    void NavigateToGateway();
+    bool NavigateBack();
+    string CurrentModuleKey { get; }
+    event Action<string>? ActiveModuleChanged;
     void HandleGatewaySelection(string selectedItem, IWin32Window? owner = null);
     void HandleSearchResultNavigation(GlobalSearchResultDto result, IWin32Window? owner = null);
 }

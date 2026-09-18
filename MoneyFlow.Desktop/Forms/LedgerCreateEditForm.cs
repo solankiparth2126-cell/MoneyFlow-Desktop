@@ -8,10 +8,12 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Controls.Lookup;
+using MoneyFlow.Desktop.Navigation;
 
 namespace MoneyFlow.Desktop.Forms;
 
-public class LedgerCreateEditForm : Form
+public partial class LedgerCreateEditForm : Form
 {
     private readonly ILedgerService _ledgerService;
     private readonly IGroupService _groupService;
@@ -19,9 +21,9 @@ public class LedgerCreateEditForm : Form
     private readonly int? _ledgerId;
 
     private TextBox _txtName = null!;
-    private ComboBox _cmbGroup = null!;
+    private MoneyFlowTextLookup _cmbGroup = null!;
     private NumericUpDown _numOpeningBalance = null!;
-    private ComboBox _cmbBalanceType = null!;
+    private MoneyFlowTextLookup _cmbBalanceType = null!;
     private TextBox _txtAddress = null!;
     private ComboBox _txtState = null!;
     private TextBox _txtPhone = null!;
@@ -96,12 +98,12 @@ public class LedgerCreateEditForm : Form
 
         // 2. Under Group
         mainPanel.Controls.Add(new Label { Text = "Under Group *:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-        _cmbGroup = new ComboBox
+        _cmbGroup = new MoneyFlowTextLookup
         {
             Width = 380,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = ExecLedgerTheme.UIRegular10
+            Height = 28
         };
+        _cmbGroup.CreateRequested += OnCreateGroupRequested;
         mainPanel.Controls.Add(_cmbGroup, 1, 2);
 
         // 3. Opening Balance
@@ -115,15 +117,19 @@ public class LedgerCreateEditForm : Form
             ThousandsSeparator = true,
             Font = ExecLedgerTheme.UIRegular10
         };
-        _cmbBalanceType = new ComboBox
+        _cmbBalanceType = new MoneyFlowTextLookup
         {
-            Width = 120,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = ExecLedgerTheme.UIRegular10
+            Width = 130,
+            Height = 28
         };
-        _cmbBalanceType.Items.Add("Debit (Dr)");
-        _cmbBalanceType.Items.Add("Credit (Cr)");
-        _cmbBalanceType.SelectedIndex = 0;
+        var balProvider = new EnumLookupProvider<BalanceType>(b => b == BalanceType.Debit ? "Debit (Dr)" : "Credit (Cr)");
+        _cmbBalanceType.SetProvider(balProvider, new LookupConfig
+        {
+            Title = "BALANCE TYPE",
+            Placeholder = "Dr / Cr",
+            AllowClear = false
+        });
+        _cmbBalanceType.SelectedValue = BalanceType.Debit;
         pnlBalance.Controls.Add(_numOpeningBalance);
         pnlBalance.Controls.Add(_cmbBalanceType);
         mainPanel.Controls.Add(pnlBalance, 1, 3);
@@ -244,9 +250,19 @@ public class LedgerCreateEditForm : Form
         _btnCancel = new Button
         {
             Text = "Cancel (Esc)",
-            DialogResult = DialogResult.Cancel,
             Size = new Size(110, 32),
             Font = ExecLedgerTheme.UIRegular9
+        };
+        _btnCancel.Click += (s, e) =>
+        {
+            MoneyFlowEscController.HandleEsc(
+                ActiveControl,
+                this,
+                closeAction: () =>
+                {
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                });
         };
 
         _btnSave = new Button
@@ -268,9 +284,25 @@ public class LedgerCreateEditForm : Form
         Controls.Add(buttonPanel);
 
         AcceptButton = _btnSave;
-        CancelButton = _btnCancel;
 
         Load += async (s, e) => await OnFormLoadAsync();
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Escape)
+        {
+            return MoneyFlowEscController.HandleEsc(
+                ActiveControl,
+                this,
+                closeAction: () =>
+                {
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                });
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private async Task OnFormLoadAsync()
@@ -278,9 +310,6 @@ public class LedgerCreateEditForm : Form
         try
         {
             var groups = await _groupService.GetGroupsByCompanyAsync(_companyId);
-            _cmbGroup.DisplayMember = "DisplayName";
-            _cmbGroup.ValueMember = "GroupId";
-
             var groupMap = groups.ToDictionary(g => g.GroupId);
             string ResolvePath(GroupSummaryDto g)
             {
@@ -295,15 +324,26 @@ public class LedgerCreateEditForm : Form
                 return string.Join(" > ", stack);
             }
 
-            var items = groups
+            var groupItems = groups
                 .OrderBy(g => ResolvePath(g))
-                .Select(g => new
+                .Select(g => new LookupItem
                 {
-                    GroupId = g.GroupId,
-                    DisplayName = $"{ResolvePath(g)} ({g.Nature})"
+                    Id = g.GroupId,
+                    Name = g.GroupName,
+                    Subtitle = ResolvePath(g),
+                    Code = g.Nature.ToString(),
+                    RawData = g
                 }).ToList();
 
-            _cmbGroup.DataSource = items;
+            var groupProvider = new ListLookupProvider<LookupItem>(groupItems, x => x.Id, x => x.Name, x => x.Code, x => x.Subtitle);
+            _cmbGroup.SetProvider(groupProvider, new LookupConfig
+            {
+                Title = "LIST OF LEDGER GROUPS",
+                Placeholder = "Select Under Group...",
+                AllowCreate = true,
+                CreateButtonText = "New Group",
+                AllowClear = false
+            });
 
             if (_ledgerId.HasValue)
             {
@@ -313,7 +353,7 @@ public class LedgerCreateEditForm : Form
                     _txtName.Text = ledger.LedgerName;
                     _cmbGroup.SelectedValue = ledger.GroupId;
                     _numOpeningBalance.Value = ledger.OpeningBalance;
-                    _cmbBalanceType.SelectedIndex = ledger.OpeningBalanceType == BalanceType.Debit ? 0 : 1;
+                    _cmbBalanceType.SelectedValue = ledger.OpeningBalanceType;
                     _txtAddress.Text = ledger.Address;
                     _txtState.Text = ledger.State;
                     _txtPhone.Text = ledger.Phone;
@@ -348,15 +388,16 @@ public class LedgerCreateEditForm : Form
             return;
         }
 
-        if (_cmbGroup.SelectedValue == null)
+        var groupId = (int?)_cmbGroup.SelectedValue ?? 0;
+        if (groupId <= 0)
         {
-            MessageBox.Show("Please select a group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Please select an under group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _cmbGroup.Focus();
             return;
         }
 
-        var groupId = (int)_cmbGroup.SelectedValue;
-        var balanceType = _cmbBalanceType.SelectedIndex == 0 ? BalanceType.Debit : BalanceType.Credit;
+        var openingBal = _numOpeningBalance.Value;
+        var balanceType = (BalanceType)(_cmbBalanceType.SelectedValue ?? BalanceType.Debit);
 
         try
         {
@@ -419,6 +460,15 @@ public class LedgerCreateEditForm : Form
         finally
         {
             _btnSave.Enabled = true;
+        }
+    }
+
+    private void OnCreateGroupRequested()
+    {
+        using var groupForm = new GroupCreateEditForm(_groupService, _companyId);
+        if (groupForm.ShowDialog(this) == DialogResult.OK)
+        {
+            _ = OnFormLoadAsync();
         }
     }
 }

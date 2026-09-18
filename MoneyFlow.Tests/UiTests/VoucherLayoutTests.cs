@@ -31,6 +31,7 @@ public class VoucherLayoutTests
         services.AddLogging();
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase("VoucherLayoutTestDb_" + Guid.NewGuid().ToString()));
+        services.AddStorageServices(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MF_VoucherTests_" + Guid.NewGuid().ToString("N")));
         services.AddDataRepositories();
         services.AddDomainServices();
         services.AddNavigationServices();
