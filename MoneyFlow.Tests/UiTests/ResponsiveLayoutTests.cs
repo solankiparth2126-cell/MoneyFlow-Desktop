@@ -11,6 +11,7 @@ using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
 using MoneyFlow.Desktop.Configuration;
+using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
@@ -140,6 +141,30 @@ public class ResponsiveLayoutTests
     }
 
     [Fact]
+    public void Gateway_CardsGrid_StretchesToFillAvailableHeight_WithoutFixedClamp()
+    {
+        using var form = CreateMainForm();
+        form.Size = new Size(1920, 1080);
+        form.ApplyResponsiveLayout();
+
+        var cardsGrid = form.GetType().GetField("cardsGrid", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as TableLayoutPanel;
+        cardsGrid.Should().NotBeNull();
+        cardsGrid!.Dock.Should().Be(DockStyle.Fill);
+
+        var cardMasters = form.GetType().GetField("cardMasters", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Control;
+        var cardTrans = form.GetType().GetField("cardTrans", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Control;
+        var cardReports = form.GetType().GetField("cardReports", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Control;
+
+        cardMasters.Should().NotBeNull();
+        cardTrans.Should().NotBeNull();
+        cardReports.Should().NotBeNull();
+
+        cardMasters!.Dock.Should().Be(DockStyle.Fill);
+        cardTrans!.Dock.Should().Be(DockStyle.Fill);
+        cardReports!.Dock.Should().Be(DockStyle.Fill);
+    }
+
+    [Fact]
     public void FitFormToScreen_ClampsOversizedDialog_ToScreenWorkingArea()
     {
         // Dialog designed at 1250x780 (like ProfitLossForm)
@@ -162,4 +187,135 @@ public class ResponsiveLayoutTests
         testDialog.Width.Should().BeLessThanOrEqualTo(screen.WorkingArea.Width);
         testDialog.Height.Should().BeLessThanOrEqualTo(screen.WorkingArea.Height);
     }
+
+    [Fact]
+    public void CompanyListForm_InitializesWithReferenceStructure_AndNoTechnicalClutter()
+    {
+        var services = new ServiceCollection();
+        var configValues = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=MoneyFlowTestDB;Trusted_Connection=True;"
+        };
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(configValues)
+            .Build();
+
+        services.AddLogging();
+        services.AddDatabaseServices(configuration);
+        services.AddDataRepositories();
+        services.AddDomainServices();
+        services.AddNavigationServices();
+        services.AddDesktopForms();
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseInMemoryDatabase("CompanyListTestDb_" + Guid.NewGuid().ToString()));
+
+        var provider = services.BuildServiceProvider();
+        using var form = provider.GetRequiredService<CompanyListForm>();
+
+        // 1. Basic Form Properties
+        form.Text.Should().Be("Select Company");
+        form.Width.Should().BeGreaterThanOrEqualTo(980);
+        form.Height.Should().BeGreaterThanOrEqualTo(540);
+
+        // 2. Verify all controls in the visual hierarchy are present
+        string allText = GetAllFormTextRecursive(form);
+
+        allText.Should().Contain("Select Company");
+        allText.Should().Contain("DATA PATH");
+        allText.Should().Contain("NAME OF COMPANY");
+        allText.Should().Contain("QUICK ACTION DIRECTORY");
+        allText.Should().Contain("ALT MENU");
+        allText.Should().Contain("Create Company");
+        allText.Should().Contain("Select Path");
+        allText.Should().NotContain("Select Remote Company");
+        allText.Should().NotContain("Select from Drive");
+        allText.Should().Contain("Cancel");
+        allText.Should().NotContain("Open Company");
+        allText.Should().NotContain("Entities Loaded");
+        allText.Should().NotContain("Active Books");
+
+        // Verify exact layout hierarchy in Left Directory Card (Header at 0, followed by Create Company and Select Path)
+        var pnlLeftField = form.GetType().GetField("pnlLeftCard", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Control;
+        pnlLeftField.Should().NotBeNull();
+        pnlLeftField!.Controls.OfType<Control>().First(c => c.Top == 0).Controls.OfType<Label>().Any(l => l.Text.Contains("QUICK ACTION DIRECTORY")).Should().BeTrue();
+        pnlLeftField.Controls.OfType<Control>().First(c => c.Top == 44).Controls.OfType<Label>().Any(l => l.Text.Contains("Create Company")).Should().BeTrue();
+        pnlLeftField.Controls.OfType<Control>().First(c => c.Top == 88).Controls.OfType<Label>().Any(l => l.Text.Contains("Select Path")).Should().BeTrue();
+
+
+
+
+
+
+        // 3. Verify absolute removal of technical/security panels
+        allText.Should().NotContain("Security Engine");
+        allText.Should().NotContain("SQL / ENCRYPT");
+        allText.Should().NotContain("LAN 1000 Mbps");
+        allText.Should().NotContain("Directory Connection");
+        allText.Should().NotContain("Schema Rev");
+        allText.Should().NotContain("PORT: 9805");
+        allText.Should().NotContain("Auto-sync with Cloud Vault");
+    }
+
+    [Fact]
+    public void QuitConfirmationDialog_HasProperElements_AndKeyShortcuts()
+    {
+        using var dlg = new QuitConfirmationDialog();
+        dlg.Text.Should().Be("Quit — MoneyFlow Desktop ERP");
+
+        string allText = GetAllFormTextRecursive(dlg);
+        allText.Should().Contain("Are you sure you want to exit the application?");
+        allText.Should().Contain("Press Y or Enter to exit, N or Esc to cancel.");
+        allText.Should().Contain("Yes");
+        allText.Should().Contain("No");
+    }
+
+    [Fact]
+    public void CompanyListForm_WhenCompanyIsOpen_ClosesDirectlyWithoutQuitDialog()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder().Build();
+        services.AddLogging();
+        services.AddDatabaseServices(configuration);
+        services.AddDataRepositories();
+        services.AddDomainServices();
+        services.AddNavigationServices();
+        services.AddDesktopForms();
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseInMemoryDatabase("CompanyListCloseTestDb_" + Guid.NewGuid().ToString()));
+
+        var provider = services.BuildServiceProvider();
+        var compContext = provider.GetRequiredService<ICompanyContext>();
+        compContext.SetActiveCompany(new Company
+        {
+            CompanyId = 1,
+            CompanyName = "Active Company",
+            IsActive = true
+        }, new FinancialYear
+        {
+            FinancialYearId = 1,
+            CompanyId = 1,
+            YearName = "2026-27"
+        });
+
+        using var form = provider.GetRequiredService<CompanyListForm>();
+
+        var e = new FormClosingEventArgs(CloseReason.UserClosing, false);
+        var onClosingMethod = typeof(CompanyListForm).GetMethod("OnFormClosing", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        onClosingMethod.Should().NotBeNull();
+        onClosingMethod!.Invoke(form, new object[] { e });
+
+        e.Cancel.Should().BeFalse();
+    }
+
+    private static string GetAllFormTextRecursive(Control root)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append(' ').Append(root.Text);
+        foreach (Control child in root.Controls)
+        {
+            sb.Append(' ').Append(GetAllFormTextRecursive(child));
+        }
+        return sb.ToString();
+    }
 }
+

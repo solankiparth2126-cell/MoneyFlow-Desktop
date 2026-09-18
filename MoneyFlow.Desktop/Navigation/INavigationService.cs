@@ -41,6 +41,7 @@ public interface INavigationService
     void OpenImportExport(IWin32Window? owner = null);
     void OpenBackupRestore(IWin32Window? owner = null);
     void OpenUserManagement(IWin32Window? owner = null);
+    void OpenStartupConfiguration(IWin32Window? owner = null);
 
     // Dynamic Routing
     void HandleGatewaySelection(string selectedItem, IWin32Window? owner = null);

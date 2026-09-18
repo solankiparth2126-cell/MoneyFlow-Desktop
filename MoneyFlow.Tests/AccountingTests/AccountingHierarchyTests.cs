@@ -375,7 +375,7 @@ public class AccountingHierarchyTests
         await acctService.SaveVoucherAsync(company.CompanyId, new VoucherCreateDto
         {
             FinancialYearId = fy.FinancialYearId,
-            VoucherTypeId = paymentType.VoucherTypeId,
+            VoucherTypeId = paymentType!.VoucherTypeId,
             VoucherDate = new DateTime(2026, 4, 25),
             Entries = new List<VoucherEntryDto>
             {

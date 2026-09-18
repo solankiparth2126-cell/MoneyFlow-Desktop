@@ -38,6 +38,13 @@ public class CompanyPasswordPromptDialog : Form
         this.BackColor = Color.FromArgb(245, 247, 250);
         this.Font = ExecLedgerTheme.UIRegular9;
 
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            this.Icon = appIcon;
+            this.ShowIcon = true;
+        }
+
         var headerPanel = new Panel
         {
             Dock = DockStyle.Top,

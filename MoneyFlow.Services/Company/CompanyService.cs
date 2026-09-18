@@ -9,6 +9,10 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
+using System.IO;
+using System.Text.Json;
+using MoneyFlow.Data.Storage;
+using SecurityMode = MoneyFlow.Data.Encryption.SecurityMode;
 using Group = MoneyFlow.Core.Entities.Group;
 using FinancialYear = MoneyFlow.Core.Entities.FinancialYear;
 using Ledger = MoneyFlow.Core.Entities.Ledger;
@@ -24,6 +28,10 @@ public class CompanyService : ICompanyService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICompanyContext _companyContext;
     private readonly ILogger<CompanyService> _logger;
+    private readonly CompanySession? _companySession;
+    private readonly SystemConfiguration? _systemConfig;
+    private readonly StorageEngine? _storageEngine;
+    private readonly CompanyManager? _companyManager;
 
     public CompanyService(
         ICompanyRepository companyRepo,
@@ -32,7 +40,11 @@ public class CompanyService : ICompanyService
         ILedgerRepository ledgerRepo,
         IUnitOfWork unitOfWork,
         ICompanyContext companyContext,
-        ILogger<CompanyService> logger)
+        ILogger<CompanyService> logger,
+        CompanySession? companySession = null,
+        SystemConfiguration? systemConfig = null,
+        StorageEngine? storageEngine = null,
+        CompanyManager? companyManager = null)
     {
         _companyRepo = companyRepo;
         _financialYearRepo = financialYearRepo;
@@ -41,6 +53,10 @@ public class CompanyService : ICompanyService
         _unitOfWork = unitOfWork;
         _companyContext = companyContext;
         _logger = logger;
+        _companySession = companySession;
+        _systemConfig = systemConfig;
+        _storageEngine = storageEngine;
+        _companyManager = companyManager;
     }
 
     public async Task<Core.Entities.Company> CreateCompanyAsync(CompanyCreateDto dto, CancellationToken ct = default)
@@ -74,13 +90,18 @@ public class CompanyService : ICompanyService
                 ? (maxNum + 1).ToString("D6")
                 : dto.CompanyNumber.Trim();
 
-            string baseDir = string.IsNullOrWhiteSpace(dto.DataDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "MoneyFlow", "Data")
-                : dto.DataDirectory.Trim();
+            string configuredBasePath = _systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath();
+            string defaultCompaniesDir = Path.Combine(configuredBasePath, "Companies");
+
+            string baseDir = !string.IsNullOrWhiteSpace(dto.DataDirectory)
+                ? dto.DataDirectory.Trim()
+                : defaultCompaniesDir;
 
             string targetCompanyDir = baseDir.EndsWith(assignedCompanyNumber, StringComparison.OrdinalIgnoreCase)
                 ? baseDir
                 : Path.Combine(baseDir, assignedCompanyNumber);
+
+            string targetDataFile = Path.Combine(targetCompanyDir, "company.data");
 
             // Ensure isolated company folder on disk
             try
@@ -90,17 +111,23 @@ public class CompanyService : ICompanyService
                 Directory.CreateDirectory(Path.Combine(targetCompanyDir, "Exports"));
                 Directory.CreateDirectory(Path.Combine(targetCompanyDir, "Reports"));
 
-                var meta = new
+                if (_companyManager != null)
                 {
-                    CompanyNumber = assignedCompanyNumber,
-                    CompanyName = trimmedName,
-                    CreatedAt = DateTime.Now,
-                    FinancialYearFrom = dto.FinancialYearFrom,
-                    Currency = dto.Currency,
-                    DataDirectory = targetCompanyDir
-                };
-                string metaJson = System.Text.Json.JsonSerializer.Serialize(meta, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(Path.Combine(targetCompanyDir, "company.json"), metaJson);
+                    try
+                    {
+                        _companyManager.RegisterCompany(new CompanyRegistration
+                        {
+                            CompanyId = assignedCompanyNumber,
+                            DisplayName = trimmedName,
+                            FolderName = assignedCompanyNumber,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                    catch (Exception exReg)
+                    {
+                        _logger.LogWarning(exReg, "Failed registering company in manifest: {Msg}", exReg.Message);
+                    }
+                }
             }
             catch (Exception exDir)
             {
@@ -126,7 +153,7 @@ public class CompanyService : ICompanyService
                 Phone = dto.Phone?.Trim() ?? string.Empty,
                 FinancialYearFrom = dto.FinancialYearFrom.Date,
                 BooksBeginningFrom = dto.BooksBeginningFrom.Date,
-                Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "₹" : dto.Currency.Trim(),
+                Currency = string.IsNullOrWhiteSpace(dto.Currency) ? (_systemConfig?.CurrencySymbol ?? "₹") : dto.Currency.Trim(),
                 CompanyNumber = assignedCompanyNumber,
                 DataDirectory = targetCompanyDir,
                 PasswordHash = pwdHash,
@@ -135,6 +162,11 @@ public class CompanyService : ICompanyService
                 CreatedAt = DateTime.Now,
                 IsActive = true
             };
+
+            if (_companySession != null)
+            {
+                _companySession.SetTargetFilePath(targetDataFile, assignedCompanyNumber);
+            }
 
             await _companyRepo.AddAsync(company, ct);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -167,6 +199,50 @@ public class CompanyService : ICompanyService
             }
 
             await tx.CommitAsync(ct);
+
+            // 5. Guarantee atomic company.data file write to target directory
+            try
+            {
+                Directory.CreateDirectory(targetCompanyDir);
+
+                if (_companySession != null)
+                {
+                    _companySession.SetTargetFilePath(targetDataFile, assignedCompanyNumber);
+                    if (_companySession.DataStore != null)
+                    {
+                        _companySession.DataStore.CompanyInfo = company;
+                        if (!_companySession.DataStore.FinancialYears.Any(f => f.FinancialYearId == financialYear.FinancialYearId))
+                        {
+                            _companySession.DataStore.FinancialYears.Add(financialYear);
+                        }
+                    }
+                    _companySession.Save();
+                }
+
+                if (!File.Exists(targetDataFile))
+                {
+                    var store = _companySession?.DataStore ?? new CompanyDataStore();
+                    store.CompanyInfo = company;
+                    if (!store.FinancialYears.Any(f => f.FinancialYearId == financialYear.FinancialYearId))
+                    {
+                        store.FinancialYears.Add(financialYear);
+                    }
+                    var engine = _storageEngine ?? new StorageEngine();
+                    engine.CreateCompanyFile(targetDataFile, store, assignedCompanyNumber, dto.VaultPassword ?? dto.Password);
+                }
+            }
+            catch (Exception exSave)
+            {
+                _logger.LogWarning(exSave, "Explicit disk flush to {File}: {Msg}", targetDataFile, exSave.Message);
+            }
+
+
+            if (_systemConfig != null)
+            {
+                _systemConfig.LastCompanyId = company.CompanyNumber;
+                _systemConfig.LastCompanyDisplayName = company.CompanyName;
+                try { _systemConfig.SaveAtomic(_systemConfig.CompanyDataPath); } catch { }
+            }
 
             _logger.LogInformation("Company {CompanyName} (No: {CompanyNumber}, ID: {CompanyId}) created successfully at {DataDir}.",
                 company.CompanyName, company.CompanyNumber, company.CompanyId, company.DataDirectory);
@@ -246,24 +322,205 @@ public class CompanyService : ICompanyService
 
     public async Task<IReadOnlyList<CompanySummaryDto>> GetAllCompaniesAsync(CancellationToken ct = default)
     {
-        var companies = await _companyRepo.GetAllAsync(ct);
-        return companies
-            .OrderBy(c => c.CompanyName)
-            .Select(c => new CompanySummaryDto
+        var result = new List<CompanySummaryDto>();
+        var seenCompanyNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Discover all companies from the configured Companies directory on disk
+        string basePath = _systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath();
+        string companiesDir = Path.Combine(basePath, "Companies");
+
+        if (Directory.Exists(companiesDir))
+        {
+            foreach (var dir in Directory.GetDirectories(companiesDir))
             {
-                CompanyId = c.CompanyId,
-                CompanyName = c.CompanyName,
-                State = c.State,
-                FinancialYearFrom = c.FinancialYearFrom,
-                BooksBeginningFrom = c.BooksBeginningFrom,
-                Currency = c.Currency,
-                CompanyNumber = string.IsNullOrWhiteSpace(c.CompanyNumber) ? $"01{c.CompanyId:D4}" : c.CompanyNumber,
-                DataDirectory = c.DataDirectory ?? string.Empty,
-                IsPasswordProtected = c.IsPasswordProtected,
-                AutoBackupOnExit = c.AutoBackupOnExit,
-                IsActive = c.IsActive
-            })
-            .ToList();
+                var folderName = Path.GetFileName(dir);
+                var dataFilePath = Path.Combine(dir, "company.data");
+
+                if (!File.Exists(dataFilePath))
+                {
+                    string recoveredName = folderName;
+                    if (_systemConfig?.LastCompanyId == folderName && !string.IsNullOrWhiteSpace(_systemConfig.LastCompanyDisplayName))
+                    {
+                        recoveredName = _systemConfig.LastCompanyDisplayName;
+                    }
+                    else
+                    {
+                        var reg = _companyManager?.GetRegistration(folderName);
+                        if (reg != null && !string.IsNullOrWhiteSpace(reg.DisplayName))
+                        {
+                            recoveredName = reg.DisplayName;
+                        }
+                    }
+
+                    if (recoveredName != folderName || Directory.GetDirectories(dir).Any(d => d.EndsWith("Backups") || d.EndsWith("Reports")))
+                    {
+                        try
+                        {
+                            var initialStore = new CompanyDataStore();
+                            initialStore.CompanyInfo = new Core.Entities.Company
+                            {
+                                CompanyName = recoveredName,
+                                CompanyNumber = folderName,
+                                DataDirectory = dir,
+                                FinancialYearFrom = new DateTime(DateTime.Today.Year, 4, 1),
+                                BooksBeginningFrom = new DateTime(DateTime.Today.Year, 4, 1),
+                                Currency = _systemConfig?.CurrencySymbol ?? "₹",
+                                IsActive = true,
+                                CreatedAt = DateTime.Now
+                            };
+                            int fyStart = initialStore.CompanyInfo.FinancialYearFrom.Year;
+                            initialStore.FinancialYears.Add(new Core.Entities.FinancialYear
+                            {
+                                FinancialYearId = 1,
+                                YearName = $"{fyStart}-{(fyStart + 1) % 100:D2}",
+                                StartDate = initialStore.CompanyInfo.FinancialYearFrom,
+                                EndDate = initialStore.CompanyInfo.FinancialYearFrom.AddYears(1).AddDays(-1),
+                                IsClosed = false
+                            });
+                            var engine = _storageEngine ?? new StorageEngine();
+                            engine.CreateCompanyFile(dataFilePath, initialStore, folderName, null);
+                        }
+                        catch { }
+                    }
+
+                    if (!File.Exists(dataFilePath))
+                        continue;
+                }
+
+
+                string companyName = folderName;
+                string companyNumber = folderName;
+                DateTime fyFrom = new DateTime(DateTime.Today.Year, 4, 1);
+                string currency = _systemConfig?.CurrencySymbol ?? "₹";
+                bool isPassword = false;
+
+                if (_storageEngine != null)
+                {
+                    try
+                    {
+                        var (fileHeader, secHeader) = _storageEngine.ReadHeaders(dataFilePath);
+                        if (!string.IsNullOrWhiteSpace(fileHeader.CompanyId))
+                        {
+                            companyNumber = fileHeader.CompanyId;
+                        }
+
+                        isPassword = secHeader.SecurityMode == SecurityMode.PasswordProtected;
+
+                        // Check manifest registration first
+                        var reg = _companyManager?.GetRegistration(fileHeader.CompanyId);
+                        if (reg != null && !string.IsNullOrWhiteSpace(reg.DisplayName))
+                        {
+                            companyName = reg.DisplayName;
+                        }
+
+                        // If not password-protected, load data payload directly from company.data
+                        if (!isPassword)
+                        {
+                            try
+                            {
+                                var (store, _, _) = _storageEngine.LoadCompany(dataFilePath, null);
+                                if (!string.IsNullOrWhiteSpace(store.CompanyInfo?.CompanyName))
+                                {
+                                    companyName = store.CompanyInfo.CompanyName;
+                                }
+                                if (store.CompanyInfo?.FinancialYearFrom != default && store.CompanyInfo?.FinancialYearFrom.Year > 1900)
+                                {
+                                    fyFrom = store.CompanyInfo.FinancialYearFrom;
+                                }
+                                if (!string.IsNullOrWhiteSpace(store.CompanyInfo?.Currency))
+                                {
+                                    currency = store.CompanyInfo.Currency;
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (companyName == folderName || string.IsNullOrWhiteSpace(companyName))
+                {
+                    if (_systemConfig?.LastCompanyId == folderName && !string.IsNullOrWhiteSpace(_systemConfig.LastCompanyDisplayName))
+                    {
+                        companyName = _systemConfig.LastCompanyDisplayName;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var diskCfg = SystemConfiguration.Load(basePath);
+                            if (diskCfg?.LastCompanyId == folderName && !string.IsNullOrWhiteSpace(diskCfg.LastCompanyDisplayName))
+                            {
+                                companyName = diskCfg.LastCompanyDisplayName;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                int compId = 0;
+                if (int.TryParse(companyNumber, out int parsedNum)) compId = parsedNum;
+                else if (int.TryParse(folderName, out int parsedFolder)) compId = parsedFolder;
+
+                if (string.IsNullOrWhiteSpace(companyName) || companyName == "010000")
+                    continue;
+
+
+                seenCompanyNumbers.Add(companyNumber);
+                result.Add(new CompanySummaryDto
+                {
+                    CompanyId = compId,
+                    CompanyName = companyName,
+                    CompanyNumber = companyNumber,
+                    FinancialYearFrom = fyFrom,
+                    BooksBeginningFrom = fyFrom,
+                    Currency = currency,
+                    DataDirectory = dir,
+                    IsPasswordProtected = isPassword,
+                    IsActive = true
+                });
+            }
+        }
+
+        // 2. Also query active in-memory repository (filter out uninitialized ghost entries)
+        try
+        {
+            var repoCompanies = await _companyRepo.GetAllAsync(ct);
+            if (repoCompanies != null)
+            {
+                foreach (var c in repoCompanies)
+                {
+                    if (c.CompanyId <= 0 || string.IsNullOrWhiteSpace(c.CompanyName) || c.CompanyName == "010000")
+                        continue;
+
+                    string compNum = string.IsNullOrWhiteSpace(c.CompanyNumber) ? $"01{c.CompanyId:D4}" : c.CompanyNumber;
+                    if (!seenCompanyNumbers.Contains(compNum))
+                    {
+                        seenCompanyNumbers.Add(compNum);
+                        result.Add(new CompanySummaryDto
+                        {
+                            CompanyId = c.CompanyId,
+                            CompanyName = c.CompanyName,
+                            State = c.State,
+                            FinancialYearFrom = c.FinancialYearFrom,
+                            BooksBeginningFrom = c.BooksBeginningFrom,
+                            Currency = c.Currency,
+                            CompanyNumber = compNum,
+                            DataDirectory = c.DataDirectory ?? string.Empty,
+                            IsPasswordProtected = c.IsPasswordProtected,
+                            AutoBackupOnExit = c.AutoBackupOnExit,
+                            IsActive = c.IsActive
+                        });
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Unable to load companies from repository.");
+        }
+
+        return result.OrderBy(c => c.CompanyName).ToList();
     }
 
     public async Task<bool> VerifyCompanyPasswordAsync(int companyId, string password, CancellationToken ct = default)
@@ -315,16 +572,94 @@ public class CompanyService : ICompanyService
 
     public async Task<bool> OpenCompanyAsync(int companyId, CancellationToken ct = default)
     {
+        // Try finding from active session first
         var company = await _companyRepo.GetByIdAsync(companyId, ct);
+
+        // If not in active session or empty, find from disk
+        if (company == null || company.CompanyId <= 0 || string.IsNullOrWhiteSpace(company.CompanyName))
+        {
+            var all = await GetAllCompaniesAsync(ct);
+            var match = all.FirstOrDefault(c => c.CompanyId == companyId);
+            if (match != null)
+            {
+                string dataFile = Path.Combine(match.DataDirectory, "company.data");
+                if (File.Exists(dataFile) && _companySession != null)
+                {
+                    try
+                    {
+                        _companySession.Open(dataFile, null);
+                        company = _companySession.DataStore?.CompanyInfo;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "Failed opening company file at {Path}", dataFile);
+                    }
+                }
+
+                if (company == null)
+                {
+                    company = new Core.Entities.Company
+                    {
+                        CompanyId = match.CompanyId,
+                        CompanyName = match.CompanyName,
+                        CompanyNumber = match.CompanyNumber,
+                        DataDirectory = match.DataDirectory,
+                        Currency = match.Currency,
+                        FinancialYearFrom = match.FinancialYearFrom,
+                        BooksBeginningFrom = match.BooksBeginningFrom,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                }
+
+                if (!File.Exists(dataFile) && _storageEngine != null && _companySession != null)
+                {
+                    try
+                    {
+                        var initialStore = new CompanyDataStore();
+                        initialStore.CompanyInfo = company;
+                        _storageEngine.CreateCompanyFile(dataFile, initialStore, match.CompanyNumber, null);
+                        _companySession.Open(dataFile, null);
+                    }
+                    catch (Exception exInit)
+                    {
+                        _logger?.LogWarning(exInit, "Failed creating initial company file at {Path}", dataFile);
+                    }
+                }
+            }
+        }
+
         if (company == null || !company.IsActive)
         {
             return false;
         }
 
-        var currentFY = await _financialYearRepo.GetCurrentFYAsync(companyId, DateTime.Today, ct)
-            ?? (await _financialYearRepo.GetByCompanyIdAsync(companyId, ct)).FirstOrDefault();
+        var currentFY = await _financialYearRepo.GetCurrentFYAsync(company.CompanyId, DateTime.Today, ct)
+            ?? (await _financialYearRepo.GetByCompanyIdAsync(company.CompanyId, ct)).FirstOrDefault();
+
+        if (currentFY == null)
+        {
+            currentFY = new Core.Entities.FinancialYear
+            {
+                FinancialYearId = 1,
+                CompanyId = company.CompanyId,
+                YearName = $"{company.FinancialYearFrom:yyyy}-{(company.FinancialYearFrom.AddYears(1).Year % 100):D2}",
+                StartDate = company.FinancialYearFrom,
+                EndDate = company.FinancialYearFrom.AddYears(1).AddDays(-1),
+                IsClosed = false,
+                CreatedAt = DateTime.UtcNow
+            };
+        }
 
         _companyContext.SetActiveCompany(company, currentFY);
+
+        if (_systemConfig != null)
+        {
+            _systemConfig.LastCompanyId = company.CompanyNumber;
+            _systemConfig.LastCompanyDisplayName = company.CompanyName;
+            try { _systemConfig.SaveAtomic(_systemConfig.CompanyDataPath); } catch { }
+        }
+
         return true;
     }
 

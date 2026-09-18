@@ -6,12 +6,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Data.Storage;
 using MoneyFlow.Desktop.Configuration;
 using MoneyFlow.Desktop.Diagnostics;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
-using MoneyFlow.Services;
+using MoneyFlow.Services.Startup;
 using Serilog;
 
 namespace MoneyFlow.Desktop;
@@ -58,7 +58,29 @@ static class Program
 
         try
         {
-            // 3. Build Configuration with Environment-Specific Fallbacks
+            // 3. First-Time Installation Detection & Setup Flow
+            string? effectiveStoragePath = null;
+            if (SystemEnvironmentManager.IsFirstTimeSetup(out var existingStoragePath, out var loadedConfig))
+            {
+                Log.Information("First-time installation detected. Launching Application Startup / Initial Setup wizard.");
+                using var startupForm = new StartupConfigurationForm();
+                var dialogResult = startupForm.ShowDialog();
+                if (dialogResult != DialogResult.OK)
+                {
+                    Log.Information("Initial setup was cancelled or exited by the user. Exiting application.");
+                    return;
+                }
+
+                effectiveStoragePath = startupForm.Config.CompanyDataPath;
+                Log.Information("Initial environment configured successfully. Root storage path: {Path}", effectiveStoragePath);
+            }
+            else
+            {
+                effectiveStoragePath = existingStoragePath;
+                Log.Information("Existing installation detected. Using storage path: {Path}", effectiveStoragePath);
+            }
+
+            // 4. Build Configuration with Environment-Specific Fallbacks
             var env = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
             var builder = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
@@ -68,7 +90,7 @@ static class Program
 
             var configuration = builder.Build();
 
-            // 4. Setup Dependency Injection with Modular Extensions
+            // 5. Setup Dependency Injection — File-Based Storage (No SQL Server)
             var host = Host.CreateDefaultBuilder()
                 .UseDefaultServiceProvider((_, options) =>
                 {
@@ -83,7 +105,7 @@ static class Program
                         loggingBuilder.AddSerilog(Log.Logger, dispose: true);
                     });
 
-                    services.AddDatabaseServices(configuration);
+                    services.AddStorageServices(configuration, effectiveStoragePath);
                     services.AddDataRepositories();
                     services.AddDomainServices();
                     services.AddNavigationServices();
@@ -93,43 +115,20 @@ static class Program
 
             using var scope = host.Services.CreateScope();
             var services = scope.ServiceProvider;
-            var dbSetup = services.GetRequiredService<IDatabaseSetupService>();
 
-            // 5. First-Run Database Probe
-            bool isDbReady = false;
-            try
-            {
-                var initTask = dbSetup.InitializeDatabaseAsync();
-                initTask.Wait(10000); // 10-second probe for first-run / cold-start
+            // 6. Initialize file-based storage (create directories, no SQL)
+            var initService = services.GetRequiredService<ApplicationInitializationService>();
+            initService.Initialize();
+            Log.Information("File-based storage initialized successfully. No SQL Server required.");
 
-                if (initTask.IsCompleted && initTask.Result.IsSuccess)
-                {
-                    isDbReady = true;
-                    Log.Information("Database initialization verified successfully.");
-                }
-                else
-                {
-                    Log.Warning("Database check timed out or reported failure. Prompting user configuration.");
-                }
-            }
-            catch (Exception ex)
+            // 7. Display Executive Ledger Splash Screen
+            Log.Information("Displaying Executive Ledger Splash Screen.");
+            using (var splash = services.GetRequiredService<SplashScreenForm>())
             {
-                Log.Warning(ex, "Failed initial database probe.");
-                isDbReady = false;
+                splash.ShowDialog();
             }
 
-            if (!isDbReady)
-            {
-                using var connDialog = new DatabaseConnectionDialog(dbSetup);
-                var dialogResult = connDialog.ShowDialog();
-                if (dialogResult != DialogResult.OK)
-                {
-                    Log.Information("User cancelled database connection dialog. Terminating application.");
-                    return;
-                }
-            }
-
-            // 6. Launch Gateway Form
+            // 8. Launch Gateway Form
             Log.Information("Launching Main Gateway form.");
             var mainForm = services.GetRequiredService<MainForm>();
             Application.Run(mainForm);

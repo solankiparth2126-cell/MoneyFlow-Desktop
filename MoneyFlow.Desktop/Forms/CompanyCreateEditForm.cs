@@ -4,12 +4,14 @@ using System.Windows.Forms;
 using MoneyFlow.Desktop.Styling;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Data.Storage;
 
 namespace MoneyFlow.Desktop.Forms;
 
 public class CompanyCreateEditForm : Form
 {
     private readonly ICompanyService _companyService;
+    private readonly SystemConfiguration? _systemConfig;
     private readonly int? _companyIdToEdit;
 
     // UI Controls
@@ -90,16 +92,24 @@ public class CompanyCreateEditForm : Form
     };
 
     public bool IsSaved { get; private set; }
+    private readonly string? _initialDataPath;
 
-    public CompanyCreateEditForm(ICompanyService companyService, int? companyIdToEdit = null)
+    public CompanyCreateEditForm(ICompanyService companyService, SystemConfiguration? systemConfig = null, int? companyIdToEdit = null, string? initialDataPath = null)
     {
         _companyService = companyService;
+        _systemConfig = systemConfig;
         _companyIdToEdit = companyIdToEdit;
+        _initialDataPath = initialDataPath;
         InitializeComponent();
         if (_companyIdToEdit.HasValue)
         {
             LoadCompanyDataAsync(_companyIdToEdit.Value);
         }
+    }
+
+    public CompanyCreateEditForm(ICompanyService companyService, int? companyIdToEdit)
+        : this(companyService, null, companyIdToEdit)
+    {
     }
 
     private void InitializeComponent()
@@ -114,6 +124,13 @@ public class CompanyCreateEditForm : Form
         this.BackColor = Color.FromArgb(245, 247, 250);
         this.Font = ExecLedgerTheme.UIRegular9;
 
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            this.Icon = appIcon;
+            this.ShowIcon = true;
+        }
+
         // Header Panel
         var headerPanel = new Panel
         {
@@ -121,12 +138,22 @@ public class CompanyCreateEditForm : Form
             Height = 60,
             BackColor = Color.FromArgb(24, 43, 73)
         };
+        var picLogo = new PictureBox
+        {
+            Image = ExecLedgerIcons.GetAppLogo(28, 28),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(28, 28),
+            Location = new Point(18, 16),
+            BackColor = Color.Transparent
+        };
+        headerPanel.Controls.Add(picLogo);
+
         var lblTitle = new Label
         {
             Text = isEdit ? "Alter Company" : "Company Creation",
             Font = ExecLedgerTheme.UIBold12,
             ForeColor = Color.White,
-            Location = new Point(20, 16),
+            Location = new Point(54, 18),
             AutoSize = true
         };
         headerPanel.Controls.Add(lblTitle);
@@ -144,13 +171,18 @@ public class CompanyCreateEditForm : Form
         int y = 28;
         int spacing = 32;
 
+        string defaultBasePath = _systemConfig?.CompanyDataPath ?? SystemEnvironmentManager.GetDefaultCompanyDataPath();
+        string initialDataPath = !string.IsNullOrWhiteSpace(_initialDataPath)
+            ? _initialDataPath
+            : Path.Combine(defaultBasePath, "Companies");
+
         // Company Data Path (Tally Style)
         AddLabel(grp, "Company Data Path *:", 20, y);
         txtDataPath = new TextBox
         {
             Location = new Point(180, y - 3),
             Width = 275,
-            Text = @"C:\MoneyFlow\Data"
+            Text = initialDataPath
         };
         grp.Controls.Add(txtDataPath);
 
@@ -169,6 +201,10 @@ public class CompanyCreateEditForm : Form
             if (System.IO.Directory.Exists(txtDataPath.Text))
             {
                 fbd.SelectedPath = txtDataPath.Text;
+            }
+            else if (System.IO.Directory.Exists(initialDataPath))
+            {
+                fbd.SelectedPath = initialDataPath;
             }
             if (fbd.ShowDialog(this) == DialogResult.OK)
             {
@@ -204,7 +240,7 @@ public class CompanyCreateEditForm : Form
 
         y += spacing;
         AddLabel(grp, "Country:", 20, y);
-        cmbCountry = AddComboBox(grp, 180, y, 370, Countries, "India");
+        cmbCountry = AddComboBox(grp, 180, y, 370, Countries, _systemConfig?.Country ?? "India");
         cmbCountry.SelectedIndexChanged += (s, e) =>
         {
             if (cmbCountry.Text.Trim().Equals("India", StringComparison.OrdinalIgnoreCase))
@@ -255,7 +291,7 @@ public class CompanyCreateEditForm : Form
         y += spacing;
         AddLabel(grp, "Base Currency:", 20, y);
         txtCurrency = AddTextBox(grp, 180, y, 100);
-        txtCurrency.Text = "₹";
+        txtCurrency.Text = _systemConfig?.CurrencySymbol ?? "₹";
 
         // Tally Vault Password
         y += spacing;

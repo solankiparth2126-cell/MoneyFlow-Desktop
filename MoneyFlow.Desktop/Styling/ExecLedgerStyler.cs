@@ -21,6 +21,12 @@ public static class ExecLedgerStyler
         form.BackColor = ExecLedgerTheme.ApplicationCanvas;
         form.Font = ExecLedgerTheme.UIRegular9;
         form.ForeColor = ExecLedgerTheme.PrimaryText;
+        var icon = ExecLedgerIcons.GetAppIcon();
+        if (icon != null)
+        {
+            form.Icon = icon;
+            form.ShowIcon = true;
+        }
     }
 
     /// <summary>Apply styling to a child form (voucher entry, report, master list, etc.).</summary>
@@ -36,9 +42,8 @@ public static class ExecLedgerStyler
     /// <summary>Apply dialog styling (fixed size, no maximize).</summary>
     public static void ApplyDialog(Form dialog, string title, int width, int height)
     {
+        ApplyFormBase(dialog);
         dialog.BackColor = ExecLedgerTheme.WorkSurface;
-        dialog.Font = ExecLedgerTheme.UIRegular9;
-        dialog.ForeColor = ExecLedgerTheme.PrimaryText;
         dialog.Text = title;
         dialog.Size = new Size(width, height);
         dialog.StartPosition = FormStartPosition.CenterParent;

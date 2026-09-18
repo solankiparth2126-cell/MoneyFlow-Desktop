@@ -41,6 +41,13 @@ public class LoginForm : Form
         BackColor = Color.FromArgb(244, 246, 249);
         KeyPreview = true;
 
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            Icon = appIcon;
+            ShowIcon = true;
+        }
+
         var pnlHeader = new Panel
         {
             Dock = DockStyle.Top,
@@ -49,13 +56,23 @@ public class LoginForm : Form
             Padding = new Padding(15, 12, 15, 10)
         };
 
+        var picLogo = new PictureBox
+        {
+            Image = ExecLedgerIcons.GetAppLogo(24, 24),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(24, 24),
+            Location = new Point(14, 13),
+            BackColor = Color.Transparent
+        };
+        pnlHeader.Controls.Add(picLogo);
+
         var lblHeader = new Label
         {
             Text = "MONEYFLOW USER LOGIN",
             ForeColor = Color.White,
             Font = ExecLedgerTheme.UIBold11,
             AutoSize = true,
-            Location = new Point(15, 14)
+            Location = new Point(46, 14)
         };
         pnlHeader.Controls.Add(lblHeader);
 

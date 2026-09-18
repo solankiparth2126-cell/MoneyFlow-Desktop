@@ -76,6 +76,13 @@ public class UserManagementForm : Form
         BackColor = Color.FromArgb(244, 246, 249);
         KeyPreview = true;
 
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            Icon = appIcon;
+            ShowIcon = true;
+        }
+
         // Header Strip
         var pnlHeader = new Panel
         {
@@ -85,13 +92,23 @@ public class UserManagementForm : Form
             Padding = new Padding(15, 12, 15, 10)
         };
 
+        var picLogo = new PictureBox
+        {
+            Image = ExecLedgerIcons.GetAppLogo(26, 26),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(26, 26),
+            Location = new Point(14, 14),
+            BackColor = Color.Transparent
+        };
+        pnlHeader.Controls.Add(picLogo);
+
         var lblTitle = new Label
         {
             Text = "USER MANAGEMENT & SECURITY PERMISSIONS",
             ForeColor = Color.White,
             Font = ExecLedgerTheme.UIBold12,
             AutoSize = true,
-            Location = new Point(15, 14)
+            Location = new Point(48, 16)
         };
 
         var btnClose = new Button

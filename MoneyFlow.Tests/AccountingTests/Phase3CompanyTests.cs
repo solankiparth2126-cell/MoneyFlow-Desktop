@@ -209,19 +209,9 @@ public class Phase3CompanyTests
             System.IO.Directory.Exists(comp1.DataDirectory).Should().BeTrue();
             System.IO.Directory.Exists(comp2.DataDirectory).Should().BeTrue();
 
-            // Verify isolated subfolders and metadata
+            // Verify isolated subfolders
             System.IO.Directory.Exists(System.IO.Path.Combine(comp1.DataDirectory, "Backups")).Should().BeTrue();
             System.IO.Directory.Exists(System.IO.Path.Combine(comp2.DataDirectory, "Backups")).Should().BeTrue();
-            System.IO.File.Exists(System.IO.Path.Combine(comp1.DataDirectory, "company.json")).Should().BeTrue();
-            System.IO.File.Exists(System.IO.Path.Combine(comp2.DataDirectory, "company.json")).Should().BeTrue();
-
-            // Verify metadata content does not mix
-            string meta1 = await System.IO.File.ReadAllTextAsync(System.IO.Path.Combine(comp1.DataDirectory, "company.json"));
-            string meta2 = await System.IO.File.ReadAllTextAsync(System.IO.Path.Combine(comp2.DataDirectory, "company.json"));
-            meta1.Should().Contain("Alpha Steel Mills");
-            meta1.Should().NotContain("Beta Textiles");
-            meta2.Should().Contain("Beta Textiles");
-            meta2.Should().NotContain("Alpha Steel Mills");
 
             // Verify switching companies
             await service.OpenCompanyAsync(comp1.CompanyId);

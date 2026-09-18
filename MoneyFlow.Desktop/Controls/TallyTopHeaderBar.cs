@@ -36,18 +36,36 @@ public class TallyTopHeaderBar : UserControl
         mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
         mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 36));
 
+        var leftBox = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+            BackColor = Color.Transparent
+        };
+
+        var picLogo = new PictureBox
+        {
+            Image = ExecLedgerIcons.GetAppLogo(16, 16),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(16, 16),
+            Location = new Point(8, 8),
+            BackColor = Color.Transparent
+        };
+        leftBox.Controls.Add(picLogo);
+
         // Subtitle (left side)
         _lblSubtitle = new Label
         {
             Text = "Accounting Voucher",
             ForeColor = ExecLedgerTheme.WhiteText,
             Font = ExecLedgerTheme.UIBold9,
-            Anchor = AnchorStyles.Left,
+            Location = new Point(28, 7),
             AutoSize = true,
-            Margin = new Padding(10, 0, 0, 0),
             BackColor = Color.Transparent,
             Cursor = Cursors.Default
         };
+        leftBox.Controls.Add(_lblSubtitle);
 
         // Company name (center)
         _lblCompanyName = new Label
@@ -79,7 +97,7 @@ public class TallyTopHeaderBar : UserControl
         };
         btnClose.Click += (s, e) => CloseRequested?.Invoke();
 
-        mainLayout.Controls.Add(_lblSubtitle, 0, 0);
+        mainLayout.Controls.Add(leftBox, 0, 0);
         mainLayout.Controls.Add(_lblCompanyName, 1, 0);
         mainLayout.Controls.Add(btnClose, 2, 0);
 

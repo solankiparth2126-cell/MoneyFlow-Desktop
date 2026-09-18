@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Dialogs;
 
@@ -40,8 +41,13 @@ public class QuitConfirmationDialog : Form
         }
     }
 
+    private readonly string? _companyName;
+    private readonly string? _snapshotPath;
+
     public QuitConfirmationDialog(string? companyName = null, string? snapshotPath = null)
     {
+        _companyName = companyName;
+        _snapshotPath = snapshotPath;
         InitializeComponent();
     }
 
@@ -61,6 +67,13 @@ public class QuitConfirmationDialog : Form
         BackColor = Color.FromArgb(11, 39, 66); // Outer border tint
         KeyPreview = true;
         DoubleBuffered = true;
+
+        var appIcon = ExecLedgerIcons.GetAppIcon();
+        if (appIcon != null)
+        {
+            Icon = appIcon;
+            ShowIcon = true;
+        }
 
         // Elevation Drop Shadow
         _ = new Guna2ShadowForm
@@ -102,25 +115,24 @@ public class QuitConfirmationDialog : Form
         }
         pnlHeader.MouseDown += DragHeader;
 
-        // Question Icon Badge on Title Bar
+        // Logo Icon Badge on Title Bar
         var iconBadge = new Guna2Panel
         {
             Size = new Size(20, 20),
             Location = new Point(12, 8),
-            FillColor = Color.FromArgb(2, 132, 199),
+            FillColor = Color.FromArgb(15, 53, 92),
             BorderRadius = 3
         };
-        var lblHdrQ = new Label
+        var picBadge = new PictureBox
         {
-            Text = "?",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.White,
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleCenter,
+            Image = ExecLedgerIcons.GetAppLogo(16, 16),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Size = new Size(16, 16),
+            Location = new Point(2, 2),
             BackColor = Color.Transparent
         };
-        lblHdrQ.MouseDown += DragHeader;
-        iconBadge.Controls.Add(lblHdrQ);
+        picBadge.MouseDown += DragHeader;
+        iconBadge.Controls.Add(picBadge);
         pnlHeader.Controls.Add(iconBadge);
 
         var lblTitle = new Label
@@ -191,16 +203,19 @@ public class QuitConfirmationDialog : Form
         // Simple Message Text
         var lblMessage = new Label
         {
-            Text = "Do you want to exit MoneyFlow Desktop ERP?",
+            Text = "Are you sure you want to exit the application?",
             Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
             Location = new Point(86, 26),
             AutoSize = true,
             BackColor = Color.Transparent
         };
+        var subText = !string.IsNullOrWhiteSpace(_companyName)
+            ? $"Active: {_companyName} • Press Y or Enter to exit, N or Esc to cancel."
+            : "Press Y or Enter to exit, N or Esc to cancel.";
         var lblSubMessage = new Label
         {
-            Text = "Press Y or Enter to exit, N or Esc to cancel.",
+            Text = subText,
             Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
             ForeColor = Color.FromArgb(100, 116, 139),
             Location = new Point(88, 54),

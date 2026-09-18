@@ -5,24 +5,24 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace MoneyFlow.Services.ImportExport;
 
 public class ImportExportService : IImportExportService
 {
-    private readonly AppDbContext _context;
+    private readonly AppDataContext _context;
     private readonly IUnitOfWork _uow;
     private readonly ILogger<ImportExportService> _logger;
 
     public ImportExportService(
-        AppDbContext context,
+        AppDataContext context,
         IUnitOfWork uow,
         ILogger<ImportExportService> logger)
     {
@@ -123,12 +123,12 @@ public class ImportExportService : IImportExportService
         int descIdx = FindColumnIndex(header, "Description", "Narration", "Note");
 
         var existingGroups = await _context.Groups
-            .AsNoTracking()
+            
             .Where(g => g.CompanyId == companyId && g.IsActive)
             .ToDictionaryAsync(g => g.GroupName.ToLowerInvariant(), g => g, ct);
 
         var existingLedgers = await _context.Ledgers
-            .AsNoTracking()
+            
             .Where(l => l.CompanyId == companyId)
             .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
@@ -257,12 +257,12 @@ public class ImportExportService : IImportExportService
         int descIdx = FindColumnIndex(header, "Description", "Narration", "Note");
 
         var existingUnits = await _context.Units
-            .AsNoTracking()
+            
             .Where(u => u.CompanyId == companyId && u.IsActive)
             .ToDictionaryAsync(u => u.UnitName.ToLowerInvariant(), u => u, ct);
 
         var existingItems = await _context.StockItems
-            .AsNoTracking()
+            
             .Where(s => s.CompanyId == companyId)
             .ToDictionaryAsync(s => s.ItemName.ToLowerInvariant(), s => s, ct);
 
@@ -388,17 +388,17 @@ public class ImportExportService : IImportExportService
         int narrIdx = FindColumnIndex(header, "Narration", "Remarks");
 
         var existingLedgers = await _context.Ledgers
-            .AsNoTracking()
+            
             .Where(l => l.CompanyId == companyId && l.IsActive)
             .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
         var existingVouchers = await _context.Vouchers
-            .AsNoTracking()
+            
             .Where(v => v.CompanyId == companyId && !v.IsDeleted)
             .ToDictionaryAsync(v => v.VoucherNumber.ToLowerInvariant(), v => v, ct);
 
         var voucherTypes = await _context.VoucherTypes
-            .AsNoTracking()
+            
             .ToDictionaryAsync(t => t.Name.ToLowerInvariant(), t => t, ct);
 
         var processedNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -541,12 +541,6 @@ public class ImportExportService : IImportExportService
             return result;
         }
 
-        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
-        if (_context.Database.IsRelational())
-        {
-            transaction = await _context.Database.BeginTransactionAsync(ct);
-        }
-
         try
         {
             switch (entityType)
@@ -565,27 +559,15 @@ public class ImportExportService : IImportExportService
             }
 
             await _uow.SaveChangesAsync(ct);
-            if (transaction != null)
-            {
-                await transaction.CommitAsync(ct);
-            }
             result.Success = true;
             result.Messages.Add($"Import completed successfully. Total processed: {result.TotalProcessed} (Inserted: {result.InsertedCount}, Updated: {result.UpdatedCount}, Skipped: {result.SkippedCount}).");
         }
         catch (Exception ex)
         {
-            if (transaction != null)
-            {
-                await transaction.RollbackAsync(ct);
-            }
             _logger.LogError(ex, "Failed executing import for company {CompanyId}", companyId);
             result.Success = false;
             result.ErrorCount++;
-            result.Messages.Add($"Import transaction aborted and rolled back: {ex.Message}");
-        }
-        finally
-        {
-            transaction?.Dispose();
+            result.Messages.Add($"Import aborted: {ex.Message}");
         }
 
         return result;
@@ -648,7 +630,7 @@ public class ImportExportService : IImportExportService
                     IsActive = true,
                     CreatedAt = DateTime.Now
                 };
-                _context.Ledgers.Add(newLedger);
+                _context.Add(newLedger);
                 result.InsertedCount++;
             }
         }
@@ -713,7 +695,7 @@ public class ImportExportService : IImportExportService
                     IsActive = true,
                     CreatedAt = DateTime.Now
                 };
-                _context.StockItems.Add(newItem);
+                _context.Add(newItem);
                 result.InsertedCount++;
             }
         }
@@ -734,7 +716,7 @@ public class ImportExportService : IImportExportService
             .ToDictionaryAsync(t => t.Name.ToLowerInvariant(), t => t, ct);
 
         var existingVouchers = await _context.Vouchers
-            .Include(v => v.VoucherEntries)
+            
             .Where(v => v.CompanyId == companyId && !v.IsDeleted)
             .ToDictionaryAsync(v => v.VoucherNumber.ToLowerInvariant(), v => v, ct);
 
@@ -772,7 +754,7 @@ public class ImportExportService : IImportExportService
                     existing.ReferenceNumber = refNo;
                     existing.Narration = narr;
 
-                    _context.VoucherEntries.RemoveRange(existing.VoucherEntries);
+                    _context.RemoveRange(existing.VoucherEntries);
                     existing.VoucherEntries.Add(new VoucherEntry { VoucherId = existing.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
                     existing.VoucherEntries.Add(new VoucherEntry { VoucherId = existing.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
                     result.UpdatedCount++;
@@ -791,11 +773,11 @@ public class ImportExportService : IImportExportService
                     IsDeleted = false,
                     CreatedAt = DateTime.Now
                 };
-                _context.Vouchers.Add(voucher);
+                _context.Add(voucher);
                 await _context.SaveChangesAsync(ct);
 
-                _context.VoucherEntries.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
-                _context.VoucherEntries.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
+                _context.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
+                _context.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
                 result.InsertedCount++;
             }
         }
@@ -807,11 +789,11 @@ public class ImportExportService : IImportExportService
         {
             case ImportEntityType.Ledgers:
                 var ledgers = await _context.Ledgers
-                    .AsNoTracking()
-                    .Include(l => l.Group)
+                    
+                    
                     .Where(l => l.CompanyId == companyId && l.IsActive)
                     .OrderBy(l => l.LedgerName)
-                    .ToListAsync(ct);
+                    .ToListAsync();
 
                 if (options.Format == ExportFormat.Json)
                 {
@@ -844,12 +826,12 @@ public class ImportExportService : IImportExportService
                 }
 
             case ImportEntityType.StockItems:
-                var items = await _context.StockItems
-                    .AsNoTracking()
-                    .Include(s => s.Unit)
+                var items = _context.StockItems
+                    
+                    
                     .Where(s => s.CompanyId == companyId && s.IsActive)
                     .OrderBy(s => s.ItemName)
-                    .ToListAsync(ct);
+                    .ToList();
 
                 if (options.Format == ExportFormat.Json)
                 {
@@ -885,10 +867,10 @@ public class ImportExportService : IImportExportService
 
             case ImportEntityType.Vouchers:
                 var query = _context.Vouchers
-                    .AsNoTracking()
-                    .Include(v => v.VoucherType)
-                    .Include(v => v.VoucherEntries)
-                        .ThenInclude(e => e.Ledger)
+                    
+                    
+                    
+                        
                     .Where(v => v.CompanyId == companyId && !v.IsDeleted);
 
                 if (options.FromDate.HasValue) query = query.Where(v => v.VoucherDate >= options.FromDate.Value);
@@ -897,7 +879,7 @@ public class ImportExportService : IImportExportService
                 var vouchers = await query
                     .OrderBy(v => v.VoucherDate)
                     .ThenBy(v => v.VoucherId)
-                    .ToListAsync(ct);
+                    .ToListAsync();
 
                 if (options.Format == ExportFormat.Json)
                 {
