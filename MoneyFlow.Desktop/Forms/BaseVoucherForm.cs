@@ -188,13 +188,24 @@ public abstract class BaseVoucherForm : Form
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        // Ensure form maximizes strictly inside the monitor's usable work area
-        var screen = Screen.FromHandle(Handle);
-        if (screen != null)
+        if (TopLevel)
         {
-            MaximizedBounds = screen.WorkingArea;
+            // Ensure form maximizes strictly inside the monitor's usable work area
+            var screen = Screen.FromHandle(Handle);
+            if (screen != null)
+            {
+                MaximizedBounds = screen.WorkingArea;
+            }
+            WindowState = FormWindowState.Maximized;
         }
-        WindowState = FormWindowState.Maximized;
+        else
+        {
+            // When hosted inside DynamicContentPanel, suppress duplicate company header
+            if (TopHeaderBar != null)
+            {
+                TopHeaderBar.Visible = false;
+            }
+        }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

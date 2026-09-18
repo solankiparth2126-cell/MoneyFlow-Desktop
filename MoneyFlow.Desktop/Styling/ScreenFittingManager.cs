@@ -180,8 +180,8 @@ public static class ScreenFittingManager
         var workArea = screen.WorkingArea;
 
         // Set safe minimum size that will never push controls off screen on 720p at 125%
-        int safeMinW = Math.Min(880, workArea.Width - 20);
-        int safeMinH = Math.Min(480, workArea.Height - 20);
+        int safeMinW = Math.Max(100, Math.Min(880, workArea.Width - 20));
+        int safeMinH = Math.Max(100, Math.Min(480, workArea.Height - 20));
         form.MinimumSize = new Size(safeMinW, safeMinH);
 
         if (startMaximized)

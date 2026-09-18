@@ -9,6 +9,9 @@ using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 
+using MoneyFlow.Desktop.Controls.Lookup;
+using MoneyFlow.Desktop.Navigation;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class LedgerListForm : Form
@@ -19,7 +22,7 @@ public class LedgerListForm : Form
 
     private Guna2DataGridView _dgvLedgers = null!;
     private TextBox _txtSearch = null!;
-    private ComboBox _cmbGroupFilter = null!;
+    private MoneyFlowTextLookup _cmbGroupFilter = null!;
     private Button _btnCreate = null!;
     private Button _btnAlter = null!;
     private Button _btnDelete = null!;
@@ -88,13 +91,15 @@ public class LedgerListForm : Form
             Anchor = AnchorStyles.Left,
             Margin = new Padding(20, 7, 5, 0)
         };
-        _cmbGroupFilter = new ComboBox
+        _cmbGroupFilter = new MoneyFlowTextLookup
         {
-            Width = 220,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Font = ExecLedgerTheme.UIRegular10
+            Width = 240,
+            Height = 28
         };
-        _cmbGroupFilter.SelectedIndexChanged += async (s, e) => await LoadLedgersAsync();
+        _cmbGroupFilter.SelectedValueChanged += async (s, e) =>
+        {
+            if (!_isInitializing) await LoadLedgersAsync();
+        };
 
         topPanel.Controls.Add(lblSearch);
         topPanel.Controls.Add(_txtSearch);
@@ -261,11 +266,27 @@ public class LedgerListForm : Form
             else if (e.KeyCode == Keys.Escape)
             {
                 e.Handled = true;
-                Close();
+                MoneyFlowEscController.HandleEsc(
+                    ActiveControl,
+                    this,
+                    closeAction: () => Close());
             }
         };
 
         Load += async (s, e) => await OnFormLoadAsync();
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Escape)
+        {
+            return MoneyFlowEscController.HandleEsc(
+                ActiveControl,
+                this,
+                closeAction: () => Close());
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private async Task OnFormLoadAsync()
@@ -294,23 +315,35 @@ public class LedgerListForm : Form
                 return string.Join(" > ", stack);
             }
 
-            var groupFilterItems = new List<dynamic>
+            var groupItems = new List<LookupItem>
             {
-                new { GroupId = (int?)null, DisplayName = "-- All Groups --" }
+                new LookupItem { Id = null, Name = "-- All Groups --", IsSentinel = true }
             };
 
             foreach (var g in groups.OrderBy(g => ResolvePath(g)))
             {
-                groupFilterItems.Add(new { GroupId = (int?)g.GroupId, DisplayName = ResolvePath(g) });
+                groupItems.Add(new LookupItem
+                {
+                    Id = g.GroupId,
+                    Name = g.GroupName,
+                    Subtitle = ResolvePath(g),
+                    Code = g.Nature.ToString(),
+                    RawData = g
+                });
             }
 
-            _cmbGroupFilter.DisplayMember = "DisplayName";
-            _cmbGroupFilter.ValueMember = "GroupId";
+            var groupProvider = new ListLookupProvider<LookupItem>(groupItems, x => x.Id, x => x.Name, x => x.Code, x => x.Subtitle);
+            _cmbGroupFilter.SetProvider(groupProvider, new LookupConfig
+            {
+                Title = "FILTER BY GROUP",
+                Placeholder = "-- All Groups --",
+                AllowClear = false
+            });
 
             _isInitializing = true;
             try
             {
-                _cmbGroupFilter.DataSource = groupFilterItems;
+                _cmbGroupFilter.SelectedValue = null;
             }
             finally
             {
@@ -331,11 +364,7 @@ public class LedgerListForm : Form
 
         try
         {
-            int? selectedGroupId = null;
-            if (_cmbGroupFilter.SelectedValue != null && _cmbGroupFilter.SelectedValue is int gid)
-            {
-                selectedGroupId = gid;
-            }
+            int? selectedGroupId = _cmbGroupFilter.SelectedValue as int?;
 
             var ledgers = await _ledgerService.GetLedgersByCompanyAsync(
                 _companyContext.CurrentCompany.CompanyId,

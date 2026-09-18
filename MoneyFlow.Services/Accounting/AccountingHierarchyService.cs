@@ -169,7 +169,7 @@ public class AccountingHierarchyService : IAccountingHierarchyService
             .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
             .ToListAsync(ct);
 
-        var map = allGroups.ToDictionary(g => g.GroupId);
+        var map = allGroups.DistinctBy(g => g.GroupId).ToDictionary(g => g.GroupId);
         var parts = new List<string>();
         var visited = new HashSet<int>();
         int? current = groupId;

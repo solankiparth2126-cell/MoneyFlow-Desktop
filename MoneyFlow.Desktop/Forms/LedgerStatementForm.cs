@@ -13,6 +13,8 @@ using MoneyFlow.Core.Interfaces;
 using Guna.UI2.WinForms;
 using MoneyFlow.Desktop.Styling;
 
+using MoneyFlow.Desktop.Controls.Lookup;
+
 namespace MoneyFlow.Desktop.Forms;
 
 public class LedgerStatementForm : Form
@@ -25,7 +27,7 @@ public class LedgerStatementForm : Form
     private LedgerStatementDto? _currentStatement;
 
     // UI Controls
-    private ComboBox _cmbLedger = null!;
+    private MoneyFlowTextLookup _cmbLedger = null!;
     private DateTimePicker _dtpFromDate = null!;
     private DateTimePicker _dtpToDate = null!;
     private Button _btnRefresh = null!;
@@ -90,8 +92,8 @@ public class LedgerStatementForm : Form
         pnlFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110)); // Refresh Button
 
         pnlFilters.Controls.Add(new Label { Text = "Ledger (F4):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 0, 0);
-        _cmbLedger = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-        _cmbLedger.SelectedIndexChanged += async (s, e) => await LoadStatementDataAsync();
+        _cmbLedger = new MoneyFlowTextLookup { Dock = DockStyle.Fill };
+        _cmbLedger.SelectedValueChanged += async (s, e) => await LoadStatementDataAsync();
         pnlFilters.Controls.Add(_cmbLedger, 1, 0);
 
         pnlFilters.Controls.Add(new Label { Text = "From (F2):", AutoSize = true, Anchor = AnchorStyles.Left, Font = ExecLedgerTheme.UIBold9 }, 2, 0);
@@ -311,21 +313,33 @@ public class LedgerStatementForm : Form
 
         _allLedgers = await _ledgerService.GetLedgersByCompanyAsync(company.CompanyId);
 
-        _cmbLedger.DataSource = null;
-        _cmbLedger.DisplayMember = "LedgerName";
-        _cmbLedger.ValueMember = "LedgerId";
-        _cmbLedger.DataSource = _allLedgers.OrderBy(l => l.LedgerName).ToList();
+        var provider = new LedgerLookupProvider(ct => Task.FromResult(_allLedgers));
+        _cmbLedger.SetProvider(provider, new LookupConfig
+        {
+            Title = "LIST OF LEDGERS",
+            Placeholder = "Select Ledger (Enter / F4)...",
+            DescriptionColumnHeader = "Ledger Name",
+            CodeColumnHeader = "Opening Balance",
+            AllowClear = false
+        });
 
         if (_allLedgers.Count > 0)
         {
-            _cmbLedger.SelectedIndex = 0;
+            _cmbLedger.SelectedValue = _allLedgers[0].LedgerId;
         }
     }
 
     private async Task LoadStatementDataAsync()
     {
         var company = _companyContext.CurrentCompany;
-        if (company == null || _cmbLedger.SelectedItem is not LedgerSummaryDto selectedLedger) return;
+        if (company == null) return;
+
+        var selectedLedger = _cmbLedger.SelectedItem?.RawData as LedgerSummaryDto;
+        if (selectedLedger == null && _cmbLedger.SelectedValue != null)
+        {
+            selectedLedger = _allLedgers.FirstOrDefault(l => l.LedgerId == (int)_cmbLedger.SelectedValue);
+        }
+        if (selectedLedger == null) return;
 
         try
         {
@@ -475,7 +489,7 @@ public class LedgerStatementForm : Form
         else if (e.KeyCode == Keys.F4)
         {
             _cmbLedger.Focus();
-            _cmbLedger.DroppedDown = true;
+            _ = _cmbLedger.OpenLookupAsync();
             e.Handled = true;
         }
         else if (e.KeyCode == Keys.Enter && _dgvStatement.Focused)

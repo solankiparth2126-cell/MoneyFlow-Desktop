@@ -22,7 +22,7 @@ namespace MoneyFlow.Desktop.Forms;
 /// 70/30 Split (6 Structured Gateway Cards + 3 Quick Widgets),
 /// Horizontal Colored Operations Rail, and Status Bar.
 /// </summary>
-public class MainForm : Form
+public class MainForm : Form, INavigationHost
 {
     // ═══════════════════════════════════════════════════════════════
     //  WIN32 INTEROP for Windows 11 Snap Layouts
@@ -68,8 +68,6 @@ public class MainForm : Form
     private Guna2Button btnMaxRestore = null!;
     private Guna2Button btnClose = null!;
 
-    // Menu
-    private MenuStrip menuStrip = null!;
 
     // Toolbar
     private Guna2Panel toolbarPanel = null!;
@@ -103,8 +101,33 @@ public class MainForm : Form
     private Guna2Panel cardTrans = null!;
     private Guna2Panel cardReports = null!;
 
-    // Main Content Container
-    private Panel mainContainer = null!;
+    // Dynamic Footer Action State (for Gateway)
+    private List<FooterActionItem> _currentFooterActions = new();
+    public IReadOnlyList<FooterActionItem> CurrentFooterActions => _currentFooterActions.AsReadOnly();
+
+    // Central Dynamic Workspace Panel & Gateway Subviews
+    private Panel mainContainer = null!; // Dynamic Content Panel
+    private Panel pnlGatewayWorkspace = null!;
+
+    // Dynamic Module State
+    private Form? _activeChildForm;
+    private string _currentModuleKey = "Gateway";
+    private Func<Form>? _lastFailedFactory;
+    private string? _lastFailedModuleKey;
+    private string? _lastFailedModuleTitle;
+
+    // Loading & Error Overlays
+    private Panel pnlLoadingOverlay = null!;
+    private Label lblLoadingText = null!;
+    private Guna2ProgressBar progressLoading = null!;
+
+    private Panel pnlErrorOverlay = null!;
+    private Label lblErrorTitle = null!;
+    private Label lblErrorMessage = null!;
+    private Guna2Button btnRetry = null!;
+    private Guna2Button btnErrorBack = null!;
+
+    private readonly Dictionary<string, Guna2Panel> _toolbarActionPanels = new(StringComparer.OrdinalIgnoreCase);
 
     // Bottom Colored Operations Rail
     private Guna2Panel operationsRail = null!;
@@ -163,6 +186,8 @@ public class MainForm : Form
 
         InitializeComponent();
 
+        _navigationService.RegisterHost(this);
+
         _companyContext.OnCompanyChanged += UpdateCompanyContextUI;
         _userContext.OnUserChanged += UpdateUserContextUI;
         UpdateCompanyContextUI();
@@ -204,30 +229,22 @@ public class MainForm : Form
         // 1. Custom Title Bar (32px, Dark Navy)
         CreateTitleBar();
 
-        // 2. Menu Bar (26px, Clean White)
-        CreateMenuBar();
-
-        // 3. Action Toolbar (40px, Pill Buttons + Quick Search + Exit)
+        // 2. Action Toolbar (40px, Pill Buttons + Quick Search + Exit)
         CreateToolbar();
 
-        // 4. Operations Rail (34px Horizontal Fn Button Bar as per reference design)
+        // 3. Operations Rail (34px Horizontal Fn Button Bar as per reference design)
         CreateOperationsRail();
 
         // 5. Main Workspace Layout (Fill)
         CreateGatewayLayout();
 
         // Add controls and enforce strict docking z-order:
-        // Top bars and bottom rail take outer dock edges, mainContainer fills the exact inner canvas.
+        // TitleBar takes top dock edge.
+        // mainContainer (dynamicContentPanel) fills the entire space below the title bar.
         Controls.Add(mainContainer);
-        Controls.Add(operationsRail);
-        Controls.Add(toolbarPanel);
-        Controls.Add(menuStrip);
         Controls.Add(titleBar);
 
         titleBar.BringToFront();
-        menuStrip.BringToFront();
-        toolbarPanel.BringToFront();
-        operationsRail.BringToFront();
         mainContainer.BringToFront();
 
         // 7. Keyboard Shortcuts
@@ -394,97 +411,6 @@ public class MainForm : Form
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    //  2. MENU BAR (26px)
-    // ═══════════════════════════════════════════════════════════════
-
-    private void CreateMenuBar()
-    {
-        menuStrip = new MenuStrip
-        {
-            Dock = DockStyle.Top,
-            Padding = new Padding(8, 0, 0, 0),
-            BackColor = Color.White
-        };
-        ExecLedgerStyler.StyleMenuStrip(menuStrip);
-
-        var menuFile = new ToolStripMenuItem("&File");
-        AddMenuItem(menuFile, "Close Company", (s, e) => _navigationService.CloseActiveCompany(this));
-        menuFile.DropDownItems.Add(new ToolStripSeparator());
-        AddMenuItem(menuFile, "E&xit\tEsc", (s, e) => PromptExitApplication());
-
-        var menuCompany = new ToolStripMenuItem("&Company");
-        AddMenuItem(menuCompany, "Select Company\tF3", (s, e) => _navigationService.OpenCompanyList(this));
-        AddMenuItem(menuCompany, "Create Company\tAlt+C", (s, e) => _navigationService.OpenCreateCompany(this));
-        AddMenuItem(menuCompany, "Alter Company\tAlt+A", (s, e) => _navigationService.OpenAlterCompany(this));
-        AddMenuItem(menuCompany, "Change Financial Year\tF2", (s, e) => _navigationService.OpenFinancialYearList(this));
-        AddMenuItem(menuCompany, "Configure ERP Environment...\tF12", (s, e) => _navigationService.OpenStartupConfiguration(this));
-        AddMenuItem(menuCompany, "Close Active Company", (s, e) => _navigationService.CloseActiveCompany(this));
-        menuCompany.DropDownItems.Add(new ToolStripSeparator());
-        AddMenuItem(menuCompany, "E&xit\tEsc", (s, e) => PromptExitApplication());
-
-        var menuMasters = new ToolStripMenuItem("&Masters");
-        AddMenuItem(menuMasters, "&Groups (Chart of Accounts)", (s, e) => _navigationService.OpenGroupList(this));
-        AddMenuItem(menuMasters, "&Ledgers", (s, e) => _navigationService.OpenLedgerList(this));
-
-        var menuTransactions = new ToolStripMenuItem("&Transactions");
-        AddMenuItem(menuTransactions, "&Contra\tF4", (s, e) => _navigationService.OpenContraVoucher(this));
-        AddMenuItem(menuTransactions, "&Payment\tF5", (s, e) => _navigationService.OpenPaymentVoucher(this));
-        AddMenuItem(menuTransactions, "&Receipt\tF6", (s, e) => _navigationService.OpenReceiptVoucher(this));
-        AddMenuItem(menuTransactions, "&Journal\tF7", (s, e) => _navigationService.OpenJournalVoucher(this));
-        AddMenuItem(menuTransactions, "&Sales Voucher\tF8", (s, e) => _navigationService.OpenSalesVoucher(this));
-        AddMenuItem(menuTransactions, "&Purchase Voucher\tF9", (s, e) => _navigationService.OpenPurchaseVoucher(this));
-
-        var menuReports = new ToolStripMenuItem("&Reports");
-        AddMenuItem(menuReports, "&Day Book", (s, e) => _navigationService.OpenDayBook(this));
-        AddMenuItem(menuReports, "&Ledger Statement", (s, e) => _navigationService.OpenLedgerStatement(this));
-        menuReports.DropDownItems.Add(new ToolStripSeparator());
-        AddMenuItem(menuReports, "&Profit && Loss", (s, e) => _navigationService.OpenProfitLoss(this));
-        AddMenuItem(menuReports, "&Balance Sheet", (s, e) => _navigationService.OpenBalanceSheet(this));
-        menuReports.DropDownItems.Add(new ToolStripSeparator());
-        AddMenuItem(menuReports, "&Cash / Bank Book", (s, e) => _navigationService.OpenCashBankBook(this));
-
-        var menuUtilities = new ToolStripMenuItem("&Utilities");
-        AddMenuItem(menuUtilities, "&Global Search\tCtrl+F", (s, e) => _navigationService.OpenGlobalSearch(this));
-        AddMenuItem(menuUtilities, "&Import / Export Data...", (s, e) => _navigationService.OpenImportExport(this));
-        menuUtilities.DropDownItems.Add(new ToolStripSeparator());
-        AddMenuItem(menuUtilities, "&Backup && Restore\tF10", (s, e) => _navigationService.OpenBackupRestore(this));
-
-        var menuHelp = new ToolStripMenuItem("&Help");
-        AddMenuItem(menuHelp, "Keyboard Accelerators Reference\tF1", (s, e) => _navigationService.OpenGlobalSearch(this));
-        AddMenuItem(menuHelp, "About MoneyFlow ERP", (s, e) => MessageBox.Show(this, "MoneyFlow Desktop ERP\nVersion 2.0.0", "About MoneyFlow", MessageBoxButtons.OK, MessageBoxIcon.Information));
-
-        menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuCompany, menuMasters, menuTransactions, menuReports, menuUtilities, menuHelp });
-        ExecLedgerStyler.StyleMenuStrip(menuStrip);
-        MainMenuStrip = menuStrip;
-    }
-
-    private static ToolStripMenuItem AddMenuItem(ToolStripDropDownItem parent, string textWithShortcut, EventHandler onClick)
-    {
-        string text = textWithShortcut;
-        string? shortcut = null;
-
-        int tabIdx = textWithShortcut.IndexOf('\t');
-        if (tabIdx >= 0)
-        {
-            text = textWithShortcut.Substring(0, tabIdx);
-            shortcut = textWithShortcut.Substring(tabIdx + 1);
-        }
-
-        var item = new ToolStripMenuItem(text, null, onClick)
-        {
-            Padding = new Padding(14, 7, 22, 7),
-            Font = new Font(ExecLedgerTheme.UiFontFamily, 9.25F, FontStyle.Regular)
-        };
-        if (!string.IsNullOrEmpty(shortcut))
-        {
-            item.ShortcutKeyDisplayString = shortcut;
-            item.ShowShortcutKeys = true;
-        }
-
-        parent.DropDownItems.Add(item);
-        return item;
-    }
 
     // ═══════════════════════════════════════════════════════════════
     //  3. ACTION TOOLBAR (40px with Pill Buttons, Search, Exit)
@@ -530,28 +456,36 @@ public class MainForm : Form
         flowLeft.Controls.Add(CreateToolbarSeparator());
 
         // 3. Day Book
-        flowLeft.Controls.Add(CreateToolbarActionItem(
+        var itemDayBook = CreateToolbarActionItem(
             ExecLedgerIcons.CreateDayBookIcon(Color.FromArgb(124, 58, 237)),
             "Day Book", null,
-            () => _navigationService.OpenDayBook(this)));
+            () => _navigationService.OpenDayBook(this));
+        flowLeft.Controls.Add(itemDayBook);
+        if (itemDayBook is Guna2Panel gpDayBook) _toolbarActionPanels["DayBook"] = gpDayBook;
 
         // 4. Trial Balance
-        flowLeft.Controls.Add(CreateToolbarActionItem(
+        var itemTrial = CreateToolbarActionItem(
             ExecLedgerIcons.CreateTrialBalanceIcon(Color.FromArgb(234, 88, 12)),
             "Trial Balance", null,
-            () => _navigationService.OpenBalanceSheet(this)));
+            () => _navigationService.OpenBalanceSheet(this));
+        flowLeft.Controls.Add(itemTrial);
+        if (itemTrial is Guna2Panel gpTrial) _toolbarActionPanels["TrialBalance"] = gpTrial;
 
         // 5. P & L
-        flowLeft.Controls.Add(CreateToolbarActionItem(
+        var itemPL = CreateToolbarActionItem(
             ExecLedgerIcons.CreateProfitLossIcon(Color.FromArgb(147, 51, 234)),
             "P & L", null,
-            () => _navigationService.OpenProfitLoss(this)));
+            () => _navigationService.OpenProfitLoss(this));
+        flowLeft.Controls.Add(itemPL);
+        if (itemPL is Guna2Panel gpPL) _toolbarActionPanels["ProfitLoss"] = gpPL;
 
         // 6. Balance Sheet
-        flowLeft.Controls.Add(CreateToolbarActionItem(
+        var itemBS = CreateToolbarActionItem(
             ExecLedgerIcons.CreateBalanceSheetIcon(Color.FromArgb(13, 148, 136)),
             "Balance Sheet", null,
-            () => _navigationService.OpenBalanceSheet(this)));
+            () => _navigationService.OpenBalanceSheet(this));
+        flowLeft.Controls.Add(itemBS);
+        if (itemBS is Guna2Panel gpBS) _toolbarActionPanels["BalanceSheet"] = gpBS;
 
         // 7. Inline Quick Search Bar on the right
         var pnlQuickSearch = new Guna2Panel
@@ -805,28 +739,57 @@ public class MainForm : Form
             Padding = new Padding(6, 4, 6, 4)
         };
 
-        // Compound function keys with rounded colored badges + white text matching Image 2
-        var fnKeys = new (string Key, string ActionText, Color BadgeColor, Action Action)[]
-        {
-            ("F1", "Help", Color.FromArgb(217, 119, 6), () => _navigationService.OpenGlobalSearch(this)),
-            ("F2", "Date", Color.FromArgb(37, 99, 235), () => _navigationService.OpenFinancialYearList(this)),
-            ("F3", "Company", Color.FromArgb(37, 99, 235), () => _navigationService.OpenCompanyList(this)),
-            ("F4", "Contra", Color.FromArgb(5, 150, 105), () => _navigationService.OpenContraVoucher(this)),
-            ("F5", "Payment", Color.FromArgb(5, 150, 105), () => _navigationService.OpenPaymentVoucher(this)),
-            ("F6", "Receipt", Color.FromArgb(13, 148, 136), () => _navigationService.OpenReceiptVoucher(this)),
-            ("F7", "Journal", Color.FromArgb(13, 148, 136), () => _navigationService.OpenJournalVoucher(this)),
-            ("F8", "Sales", Color.FromArgb(13, 148, 136), () => _navigationService.OpenSalesVoucher(this)),
-            ("F9", "Purchase", Color.FromArgb(13, 148, 136), () => _navigationService.OpenPurchaseVoucher(this)),
-        };
+        operationsRail.Resize += (s, e) => LayoutOperationsRail();
+        UpdateDynamicFooter("Gateway", null);
+    }
 
-        foreach (var (key, actionText, badgeColor, action) in fnKeys)
+    private void UpdateDynamicFooter(string moduleKey, Form? activeForm)
+    {
+        if (operationsRail == null) return;
+
+        operationsRail.SuspendLayout();
+        operationsRail.Controls.Clear();
+
+        List<FooterActionItem> actions;
+        if (activeForm is IFooterActionProvider provider)
         {
-            var btn = CreateRailCompoundKey(key, actionText, badgeColor, action);
+            actions = provider.GetFooterActions().ToList();
+        }
+        else
+        {
+            actions = GetDefaultFooterActions(moduleKey);
+        }
+
+        _currentFooterActions = actions;
+
+        foreach (var item in actions)
+        {
+            var btn = new RailButton(item.KeyText, item.ActionText, item.BadgeColor, item.Action)
+            {
+                IsActive = item.IsActive
+            };
             operationsRail.Controls.Add(btn);
         }
 
-        operationsRail.Resize += (s, e) => LayoutOperationsRail();
+        operationsRail.ResumeLayout(true);
         LayoutOperationsRail();
+    }
+
+    private List<FooterActionItem> GetDefaultFooterActions(string moduleKey)
+    {
+        var list = new List<FooterActionItem>
+        {
+            new("F1", "Help", Color.FromArgb(217, 119, 6), () => _navigationService.OpenGlobalSearch(this)),
+            new("F2", "Date", Color.FromArgb(37, 99, 235), () => _navigationService.OpenFinancialYearList(this)),
+            new("F3", "Company", Color.FromArgb(37, 99, 235), () => _navigationService.OpenCompanyList(this)),
+            new("F4", "Contra", Color.FromArgb(5, 150, 105), () => _navigationService.OpenContraVoucher(this)),
+            new("F5", "Payment", Color.FromArgb(5, 150, 105), () => _navigationService.OpenPaymentVoucher(this)),
+            new("F6", "Receipt", Color.FromArgb(13, 148, 136), () => _navigationService.OpenReceiptVoucher(this)),
+            new("F7", "Journal", Color.FromArgb(13, 148, 136), () => _navigationService.OpenJournalVoucher(this)),
+            new("F8", "Sales", Color.FromArgb(13, 148, 136), () => _navigationService.OpenSalesVoucher(this)),
+            new("F9", "Purchase", Color.FromArgb(13, 148, 136), () => _navigationService.OpenPurchaseVoucher(this))
+        };
+        return list;
     }
 
     private void LayoutOperationsRail()
@@ -858,6 +821,10 @@ public class MainForm : Form
         private readonly Color _badgeColor;
         private readonly Action _onClick;
         private bool _isHovered;
+
+        public bool IsActive { get; set; }
+        public string ActionText => _actionText;
+        public string KeyText => _keyText;
 
         public RailButton(string keyText, string actionText, Color badgeColor, Action onClick)
         {
@@ -903,13 +870,23 @@ public class MainForm : Form
                 g.FillRectangle(clearBrush, ClientRectangle);
             }
 
-            // 1. Button Rounded Pill (#1D2C42, hover #2A4160) - zero border to eliminate white frames
+            // 1. Button Rounded Pill (#1D2C42, hover #2A4160, active #0E7490 cyan accent)
             var rect = new Rectangle(0, 0, Width, Height);
-            Color bg = _isHovered ? Color.FromArgb(42, 65, 96) : Color.FromArgb(29, 44, 66);
+            Color bg = IsActive
+                ? Color.FromArgb(14, 116, 144)
+                : (_isHovered ? Color.FromArgb(42, 65, 96) : Color.FromArgb(29, 44, 66));
+
             using (var path = CreateRoundedPath(rect, 4))
             using (var brush = new SolidBrush(bg))
             {
                 g.FillPath(brush, path);
+            }
+
+            if (IsActive)
+            {
+                using var activePen = new Pen(Color.FromArgb(56, 189, 248), 1);
+                using var borderPath = CreateRoundedPath(new Rectangle(0, 0, Width - 1, Height - 1), 4);
+                g.DrawPath(activePen, borderPath);
             }
 
             // 2. Key Badge (rounded rectangle with solid badge color)
@@ -959,13 +936,13 @@ public class MainForm : Form
 
     private void CreateGatewayLayout()
     {
+
         mainContainer = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(241, 245, 249),
-            Padding = new Padding(12, 10, 12, 10),
-            AutoScroll = true,
-            AutoScrollMinSize = new Size(960, 520)
+            Padding = Padding.Empty,
+            AutoScroll = false
         };
         mainContainer.Resize += (s, e) => ApplyResponsiveLayout();
 
@@ -1203,8 +1180,8 @@ public class MainForm : Form
 
         // ── Card 1: MASTERS [M] ──
         cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
-        AddCardActionRow(cardMasters, 0, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
-        AddCardActionRow(cardMasters, 0, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
+        AddCardActionRow(cardMasters, 0, "Group", "List & Creation", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
+        AddCardActionRow(cardMasters, 0, "Ledgers", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
         cardsGrid.Controls.Add(cardMasters, 0, 0);
 
         // ── Card 2: TRANSACTIONS [T] ──
@@ -1228,21 +1205,376 @@ public class MainForm : Form
 
         UpdateGatewaySelectionUI();
 
-        // Add directly to main container and establish top-to-bottom docking order
-        mainContainer.Controls.Clear();
-        mainContainer.Controls.Add(cardsGrid);
-        mainContainer.Controls.Add(pnlGatewayHeader);
-        mainContainer.Controls.Add(pnlBannerSpacer);
-        mainContainer.Controls.Add(pnlCompanyBanner);
+        // 1. Gateway of Accounting Workspace Subpanel (Dynamic Content on Gateway)
+        // Contains Company Banner at the top, Spacer, Gateway Header, 3 Cards Grid filling remainder, and Operations Rail at the bottom
+        pnlGatewayWorkspace = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+        var pnlToolbarSpacer = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 8,
+            BackColor = Color.Transparent
+        };
 
-        pnlCompanyBanner.SendToBack();
-        pnlBannerSpacer.SendToBack();
-        pnlGatewayHeader.SendToBack();
+        pnlGatewayWorkspace.Controls.Add(cardsGrid);
+        pnlGatewayWorkspace.Controls.Add(pnlGatewayHeader);
+        pnlGatewayWorkspace.Controls.Add(pnlBannerSpacer);
+        pnlGatewayWorkspace.Controls.Add(pnlCompanyBanner);
+        pnlGatewayWorkspace.Controls.Add(pnlToolbarSpacer);
+        pnlGatewayWorkspace.Controls.Add(toolbarPanel);
+        pnlGatewayWorkspace.Controls.Add(operationsRail);
+
+        operationsRail.Dock = DockStyle.Bottom;
+        toolbarPanel.Dock = DockStyle.Top;
+        pnlToolbarSpacer.Dock = DockStyle.Top;
+        pnlCompanyBanner.Dock = DockStyle.Top;
+        pnlBannerSpacer.Dock = DockStyle.Top;
+        pnlGatewayHeader.Dock = DockStyle.Top;
+        cardsGrid.Dock = DockStyle.Fill;
+
         cardsGrid.BringToFront();
+        pnlGatewayHeader.SendToBack();
+        pnlBannerSpacer.SendToBack();
+        pnlCompanyBanner.SendToBack();
+        pnlToolbarSpacer.SendToBack();
+        toolbarPanel.SendToBack();
+        operationsRail.SendToBack();
+
+        pnlGatewayWorkspace.Resize += (s, e) =>
+        {
+            LayoutCompanyBanner();
+            LayoutGatewayHeader();
+            UpdateCardRowHeights();
+            LayoutOperationsRail();
+        };
+
+        // 3. Create subtle loading & error overlays inside dynamic content panel
+        CreateLoadingOverlay();
+        CreateErrorOverlay();
+
+        // 4. Central Dynamic Content Panel holds Gateway and overlays
+        mainContainer.Controls.Clear();
+        mainContainer.Controls.Add(pnlGatewayWorkspace);
+        mainContainer.Controls.Add(pnlLoadingOverlay);
+        mainContainer.Controls.Add(pnlErrorOverlay);
+
+        pnlGatewayWorkspace.BringToFront();
 
         LayoutCompanyBanner();
         LayoutGatewayHeader();
         UpdateCardRowHeights();
+        LayoutOperationsRail();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  DYNAMIC WORKSPACE / CONTENT PANEL (INavigationHost Implementation)
+    // ═══════════════════════════════════════════════════════════════
+
+    public string CurrentModuleKey => _currentModuleKey;
+    public bool IsOnGateway => _currentModuleKey == "Gateway" && _activeChildForm == null;
+
+    public void ShowInWorkspace(Func<Form> formFactory, string moduleKey, string moduleTitle)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(new Action(() => ShowInWorkspace(formFactory, moduleKey, moduleTitle)));
+            return;
+        }
+
+        if (_currentModuleKey == moduleKey && _activeChildForm != null)
+        {
+            _activeChildForm.Focus();
+            return;
+        }
+
+        // Show subtle desktop ERP loading indicator inside dynamic workspace
+        ShowLoadingOverlay($"Loading {moduleTitle}...");
+
+        try
+        {
+            // Close and remove previous child form cleanly
+            if (_activeChildForm != null)
+            {
+                var oldForm = _activeChildForm;
+                _activeChildForm = null;
+                mainContainer.Controls.Remove(oldForm);
+                oldForm.Close();
+                oldForm.Dispose();
+            }
+
+            var childForm = formFactory();
+
+            // Enforce embedded child hosting parameters
+            childForm.TopLevel = false;
+            childForm.FormBorderStyle = FormBorderStyle.None;
+            childForm.Dock = DockStyle.Fill;
+            childForm.KeyPreview = true;
+
+            // When child form closes (via ESC or form close), smoothly return to Gateway
+            childForm.FormClosed += (s, e) =>
+            {
+                if (_activeChildForm == childForm)
+                {
+                    ReturnToGateway();
+                }
+            };
+
+            // Switch view inside dynamic workspace
+            pnlGatewayWorkspace.Visible = false;
+            pnlErrorOverlay.Visible = false;
+            pnlLoadingOverlay.Visible = false;
+
+            mainContainer.Controls.Add(childForm);
+            _activeChildForm = childForm;
+            _currentModuleKey = moduleKey;
+
+            childForm.Dock = DockStyle.Fill;
+            childForm.BringToFront();
+            childForm.Show();
+            childForm.Focus();
+
+            UpdateActiveNavigationState(moduleKey);
+        }
+        catch (Exception ex)
+        {
+            _lastFailedFactory = formFactory;
+            _lastFailedModuleKey = moduleKey;
+            _lastFailedModuleTitle = moduleTitle;
+            ShowErrorOverlay(moduleTitle, ex.Message);
+        }
+    }
+
+    public void ReturnToGateway()
+    {
+        if (InvokeRequired)
+        {
+            Invoke(new Action(ReturnToGateway));
+            return;
+        }
+
+        if (_activeChildForm != null)
+        {
+            var form = _activeChildForm;
+            _activeChildForm = null;
+            mainContainer.Controls.Remove(form);
+            form.Close();
+            form.Dispose();
+        }
+
+        _currentModuleKey = "Gateway";
+        pnlLoadingOverlay.Visible = false;
+        pnlErrorOverlay.Visible = false;
+        pnlGatewayWorkspace.Visible = true;
+        pnlGatewayWorkspace.BringToFront();
+
+        UpdateActiveNavigationState("Gateway");
+        UpdateGatewaySelectionUI();
+        cardsGrid?.Focus();
+    }
+
+    public bool NavigateBack()
+    {
+        if (_activeChildForm is IBackNavigable backNavigable && backNavigable.HandleBackNavigation())
+        {
+            return true;
+        }
+
+        if (_activeChildForm != null)
+        {
+            return MoneyFlowEscController.HandleEsc(
+                _activeChildForm.ActiveControl,
+                _activeChildForm,
+                closeAction: () =>
+                {
+                    ReturnToGateway();
+                });
+        }
+        return false;
+    }
+
+    private void CreateLoadingOverlay()
+    {
+        pnlLoadingOverlay = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(241, 245, 249),
+            Visible = false
+        };
+
+        var centerCard = new Guna2Panel
+        {
+            Size = new Size(320, 110),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(226, 232, 240),
+            BorderThickness = 1,
+            BorderRadius = 6
+        };
+
+        lblLoadingText = new Label
+        {
+            Text = "Loading module...",
+            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Location = new Point(24, 26),
+            AutoSize = true
+        };
+
+        progressLoading = new Guna2ProgressBar
+        {
+            Location = new Point(24, 60),
+            Size = new Size(272, 6),
+            Style = ProgressBarStyle.Marquee,
+            ProgressColor = Color.FromArgb(37, 99, 235),
+            ProgressColor2 = Color.FromArgb(59, 130, 246),
+            BorderRadius = 3
+        };
+
+        centerCard.Controls.Add(lblLoadingText);
+        centerCard.Controls.Add(progressLoading);
+
+        pnlLoadingOverlay.Controls.Add(centerCard);
+        pnlLoadingOverlay.Resize += (s, e) =>
+        {
+            centerCard.Location = new Point(
+                Math.Max(10, (pnlLoadingOverlay.Width - centerCard.Width) / 2),
+                Math.Max(10, (pnlLoadingOverlay.Height - centerCard.Height) / 2));
+        };
+    }
+
+    private void ShowLoadingOverlay(string text)
+    {
+        lblLoadingText.Text = text;
+        pnlLoadingOverlay.Visible = true;
+        pnlLoadingOverlay.BringToFront();
+        Application.DoEvents();
+    }
+
+    private void CreateErrorOverlay()
+    {
+        pnlErrorOverlay = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(241, 245, 249),
+            Visible = false
+        };
+
+        var card = new Guna2Panel
+        {
+            Size = new Size(440, 180),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(254, 202, 202),
+            BorderThickness = 1,
+            BorderRadius = 6
+        };
+
+        lblErrorTitle = new Label
+        {
+            Text = "Unable to load module",
+            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(185, 28, 28),
+            Location = new Point(24, 20),
+            AutoSize = true
+        };
+
+        lblErrorMessage = new Label
+        {
+            Text = "An unexpected error occurred while loading this module.",
+            Font = new Font("Segoe UI", 8.5F),
+            ForeColor = Color.FromArgb(100, 116, 139),
+            Location = new Point(24, 52),
+            Size = new Size(392, 50),
+            AutoEllipsis = true
+        };
+
+        btnRetry = new Guna2Button
+        {
+            Text = "Retry",
+            Size = new Size(90, 32),
+            Location = new Point(24, 122),
+            FillColor = Color.FromArgb(37, 99, 235),
+            ForeColor = Color.White,
+            BorderRadius = 4,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnRetry.Click += (s, e) =>
+        {
+            if (_lastFailedFactory != null && _lastFailedModuleKey != null && _lastFailedModuleTitle != null)
+            {
+                ShowInWorkspace(_lastFailedFactory, _lastFailedModuleKey, _lastFailedModuleTitle);
+            }
+        };
+
+        btnErrorBack = new Guna2Button
+        {
+            Text = "Back to Gateway",
+            Size = new Size(130, 32),
+            Location = new Point(122, 122),
+            FillColor = Color.FromArgb(241, 245, 249),
+            ForeColor = Color.FromArgb(71, 85, 105),
+            BorderColor = Color.FromArgb(203, 213, 225),
+            BorderThickness = 1,
+            BorderRadius = 4,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        btnErrorBack.Click += (s, e) => ReturnToGateway();
+
+        card.Controls.Add(lblErrorTitle);
+        card.Controls.Add(lblErrorMessage);
+        card.Controls.Add(btnRetry);
+        card.Controls.Add(btnErrorBack);
+
+        pnlErrorOverlay.Controls.Add(card);
+        pnlErrorOverlay.Resize += (s, e) =>
+        {
+            card.Location = new Point(
+                Math.Max(10, (pnlErrorOverlay.Width - card.Width) / 2),
+                Math.Max(10, (pnlErrorOverlay.Height - card.Height) / 2));
+        };
+    }
+
+    private void ShowErrorOverlay(string moduleTitle, string errorDetails)
+    {
+        pnlLoadingOverlay.Visible = false;
+        lblErrorTitle.Text = $"Unable to load {moduleTitle}";
+        lblErrorMessage.Text = string.IsNullOrWhiteSpace(errorDetails) ? "Unable to load module." : errorDetails;
+        pnlErrorOverlay.Visible = true;
+        pnlErrorOverlay.BringToFront();
+    }
+
+    private void UpdateActiveNavigationState(string moduleKey)
+    {
+        if (operationsRail != null)
+        {
+            foreach (Control c in operationsRail.Controls)
+            {
+                if (c is RailButton rb)
+                {
+                    rb.IsActive = !string.Equals(moduleKey, "Gateway", StringComparison.OrdinalIgnoreCase) &&
+                        (rb.ActionText.Equals(moduleKey, StringComparison.OrdinalIgnoreCase)
+                         || (moduleKey == "Payment" && rb.ActionText == "Payment")
+                         || (moduleKey == "Receipt" && rb.ActionText == "Receipt")
+                         || (moduleKey == "Contra" && rb.ActionText == "Contra")
+                         || (moduleKey == "Journal" && rb.ActionText == "Journal")
+                         || (moduleKey == "Sales" && rb.ActionText == "Sales")
+                         || (moduleKey == "Purchase" && rb.ActionText == "Purchase"));
+                    rb.Invalidate();
+                }
+            }
+        }
+
+        foreach (var kvp in _toolbarActionPanels)
+        {
+            bool isActive = !string.Equals(moduleKey, "Gateway", StringComparison.OrdinalIgnoreCase) &&
+                            kvp.Key.Equals(moduleKey, StringComparison.OrdinalIgnoreCase);
+            kvp.Value.FillColor = isActive ? Color.FromArgb(224, 231, 255) : Color.White;
+            kvp.Value.BorderColor = isActive ? Color.FromArgb(99, 102, 241) : Color.FromArgb(203, 213, 225);
+            kvp.Value.Invalidate();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1683,7 +2015,9 @@ public class MainForm : Form
 
     private void AdaptTierDimensions()
     {
-        if (mainContainer == null || pnlCompanyBanner == null || pnlBannerSpacer == null || pnlGatewayHeader == null) return;
+        if (mainContainer == null || pnlCompanyBanner == null || pnlBannerSpacer == null || pnlGatewayHeader == null || pnlGatewayWorkspace == null) return;
+
+        mainContainer.Padding = Padding.Empty;
 
         var tier = ScreenFittingManager.ClassifyTier(mainContainer.ClientSize.Width, mainContainer.ClientSize.Height);
 
@@ -1693,14 +2027,14 @@ public class MainForm : Form
                 pnlCompanyBanner.Height = 68;
                 pnlBannerSpacer.Height = 8;
                 pnlGatewayHeader.Height = 38;
-                mainContainer.Padding = new Padding(12, 8, 12, 8);
+                pnlGatewayWorkspace.Padding = new Padding(12, 4, 12, 6);
                 break;
 
             case LayoutTier.Standard:
                 pnlCompanyBanner.Height = 74;
                 pnlBannerSpacer.Height = 10;
                 pnlGatewayHeader.Height = 42;
-                mainContainer.Padding = new Padding(14, 8, 14, 8);
+                pnlGatewayWorkspace.Padding = new Padding(14, 4, 14, 8);
                 break;
 
             case LayoutTier.Large:
@@ -1708,7 +2042,7 @@ public class MainForm : Form
                 pnlCompanyBanner.Height = 76;
                 pnlBannerSpacer.Height = 12;
                 pnlGatewayHeader.Height = 44;
-                mainContainer.Padding = new Padding(16, 10, 16, 10);
+                pnlGatewayWorkspace.Padding = new Padding(16, 4, 16, 10);
                 break;
         }
     }
@@ -1950,8 +2284,8 @@ public class MainForm : Form
             return;
         }
 
-        // Single hotkeys for dashboard navigation (Tally style)
-        if (!e.Control && !e.Alt && ActiveControl is not TextBox and not Guna2TextBox)
+        // Single hotkeys for dashboard navigation (Tally style) - only when on Gateway
+        if (IsOnGateway && !e.Control && !e.Alt && ActiveControl is not TextBox and not Guna2TextBox)
         {
             switch (e.KeyCode)
             {
@@ -1967,6 +2301,12 @@ public class MainForm : Form
         switch (e.KeyCode)
         {
             case Keys.Escape:
+                if (!IsOnGateway)
+                {
+                    NavigateBack();
+                    e.Handled = true;
+                    return;
+                }
                 PromptExitApplication();
                 break;
             case Keys.F1: _navigationService.OpenGlobalSearch(this); break;
@@ -1984,38 +2324,47 @@ public class MainForm : Form
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (keyData == Keys.Escape && !IsOnGateway)
+        {
+            NavigateBack();
+            return true;
+        }
+
         // Don't intercept when user is typing in a text field
         if (ActiveControl is TextBox or Guna2TextBox or ComboBox or RichTextBox)
         {
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        switch (keyData)
+        if (IsOnGateway)
         {
-            case Keys.Down:
-                NavigateGateway(0, 1);
-                return true;
-            case Keys.Up:
-                NavigateGateway(0, -1);
-                return true;
-            case Keys.Right:
-                NavigateGateway(1, 0);
-                return true;
-            case Keys.Left:
-                NavigateGateway(-1, 0);
-                return true;
-            case Keys.Enter:
-                ExecuteSelectedGatewayItem();
-                return true;
-            case Keys.M:
-                JumpToGatewayColumn(0);
-                return true;
-            case Keys.T:
-                JumpToGatewayColumn(1);
-                return true;
-            case Keys.R:
-                JumpToGatewayColumn(2);
-                return true;
+            switch (keyData)
+            {
+                case Keys.Down:
+                    NavigateGateway(0, 1);
+                    return true;
+                case Keys.Up:
+                    NavigateGateway(0, -1);
+                    return true;
+                case Keys.Right:
+                    NavigateGateway(1, 0);
+                    return true;
+                case Keys.Left:
+                    NavigateGateway(-1, 0);
+                    return true;
+                case Keys.Enter:
+                    ExecuteSelectedGatewayItem();
+                    return true;
+                case Keys.M:
+                    JumpToGatewayColumn(0);
+                    return true;
+                case Keys.T:
+                    JumpToGatewayColumn(1);
+                    return true;
+                case Keys.R:
+                    JumpToGatewayColumn(2);
+                    return true;
+            }
         }
 
         return base.ProcessCmdKey(ref msg, keyData);
@@ -2208,6 +2557,7 @@ public class MainForm : Form
         }
 
         _isExiting = true;
+        _navigationService.UnregisterHost(this);
         sessionTimer?.Stop();
         sessionTimer?.Dispose();
         base.OnFormClosing(e);

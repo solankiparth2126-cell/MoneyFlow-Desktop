@@ -1,41 +1,70 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Controls.Panels;
+using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
 
 /// <summary>
-/// Tally-style Master Chart of Accounts (Groups & Ledgers).
-/// Features a real database-driven hierarchy tree displaying Groups, Sub-Groups, and Ledgers,
-/// distinct icons and visual hierarchy, keyboard navigation, and full Master CRUD operations.
+/// Full-screen keyboard-first Group Master for MoneyFlow.
+/// Follows Tally-style workflow:
+/// 1. Group Master List loads first with all database groups (sorted GroupId DESC, newest at top).
+/// 2. Clicking Create or Alter replaces the list full-screen with Group Creation form.
+/// 3. Save / ESC returns directly to Group Master List, refreshes DB, and highlights the newest group.
 /// </summary>
-public class GroupListForm : Form
+public class GroupListForm : Form, IBackNavigable
 {
     private readonly IGroupService _groupService;
     private readonly IAccountingHierarchyService _hierarchyService;
     private readonly ILedgerService _ledgerService;
     private readonly ICompanyContext _companyContext;
 
-    private TreeView tvAccounts = null!;
-    private Guna2DataGridView dgvDetails = null!;
-    private TextBox txtSearch = null!;
-    private Button btnCreateGroup = null!;
-    private Button btnCreateLedger = null!;
-    private Button btnAlter = null!;
-    private Button btnDelete = null!;
-    private Button btnExpandAll = null!;
-    private Button btnCollapseAll = null!;
-    private Button btnClose = null!;
-    private Label lblSelectionInfo = null!;
+    // Outer View Switcher Containers
+    private Panel pnlListContainer = null!;
+    private Panel pnlCreationContainer = null!;
 
-    private List<AccountHierarchyNodeDto> _rootNodes = new();
+    // Group Master List UI
+    private TextBox txtSearch = null!;
+    private Guna2DataGridView dgvGroups = null!;
+    private GroupMasterRightActionPanel pnlRightActions = null!;
+    private Label lblTitle = null!;
+    private Label lblRecordCount = null!;
+    private Label lblGridFooter = null!;
+    private Button btnScrollUp = null!;
+    private Button btnScrollDown = null!;
+
+    public GroupMasterRightActionPanel RightActionPanel => pnlRightActions;
+    public Button ButtonCreate => pnlRightActions.ButtonCreate;
+    public Button ButtonAlter => pnlRightActions.ButtonAlter;
+    public Button ButtonDelete => pnlRightActions.ButtonDelete;
+    public Button ButtonSearch => pnlRightActions.ButtonSearch;
+    public Button ButtonFind => pnlRightActions.ButtonSearch;
+    public Button ButtonClose => pnlRightActions.ButtonClose;
+    public Guna2DataGridView Grid => dgvGroups;
+    public Label TitleLabel => lblTitle;
+    public Label FooterLabel => lblGridFooter;
+
+    private List<GroupSummaryDto> _allGroups = new();
+    private GroupCreateEditForm? _activeCreationForm;
+    private bool _isCreationViewActive;
+
+    public bool IsCreationViewActive => _isCreationViewActive;
+    public Panel ListContainer => pnlListContainer;
+    public Panel CreationContainer => pnlCreationContainer;
+    public GroupCreateEditForm? ActiveCreationForm => _activeCreationForm;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string lParam);
+    private const int EM_SETCUEBANNER = 0x1501;
 
     public GroupListForm(
         IGroupService groupService,
@@ -43,509 +72,1014 @@ public class GroupListForm : Form
         ILedgerService ledgerService,
         ICompanyContext companyContext)
     {
-        _groupService = groupService;
+        _groupService = groupService ?? throw new ArgumentNullException(nameof(groupService));
         _hierarchyService = hierarchyService;
         _ledgerService = ledgerService;
-        _companyContext = companyContext;
+        _companyContext = companyContext ?? throw new ArgumentNullException(nameof(companyContext));
 
         InitializeComponent();
-        LoadAccountHierarchyAsync();
+        _ = LoadGroupsFromDatabaseAsync();
     }
 
     private void InitializeComponent()
     {
-        Text = "MoneyFlow Desktop — Chart of Accounts (Groups & Ledgers)";
-        Size = new Size(1060, 680);
-        MinimumSize = new Size(960, 580);
+        Text = "MoneyFlow Desktop — Group Master";
+        Size = new Size(1100, 700);
+        MinimumSize = new Size(880, 520);
         StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.Sizable;
-        MaximizeBox = true;
-        MinimizeBox = true;
-        BackColor = Color.FromArgb(245, 247, 250);
+        FormBorderStyle = FormBorderStyle.None;
+        Dock = DockStyle.Fill;
+        BackColor = Color.FromArgb(240, 242, 245);
         Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
-        // Header Panel
-        var headerPanel = new Panel
+        // Container 1: Full-Screen Group Creation Host (hidden initially)
+        pnlCreationContainer = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Visible = false
+        };
+        Controls.Add(pnlCreationContainer);
+
+        // Container 2: Group Master List
+        pnlListContainer = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Visible = true,
+            BackColor = Color.FromArgb(240, 242, 245), // #F0F2F5
+            Padding = new Padding(16, 16, 16, 16)      // 16px clean outer margin on all sides
+        };
+
+        // ── 1. Top Header Card (Solid Navy #1B365D, Height 54px, Clean Square Accounting Layout) ──
+        var headerCard = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 55,
-            BackColor = ExecLedgerTheme.PrimaryNavy
+            Height = 54,
+            BackColor = ExecLedgerTheme.PrimaryNavy // #1B365D
         };
-        var lblTitle = new Label
-        {
-            Text = $"Chart of Accounts (Groups & Ledgers) — {_companyContext.CurrentCompany?.CompanyName}",
-            Font = ExecLedgerTheme.UIBold11,
-            ForeColor = Color.White,
-            Location = new Point(18, 16),
-            AutoSize = true
-        };
-        headerPanel.Controls.Add(lblTitle);
-        Controls.Add(headerPanel);
 
-        // Search & Filter Panel
+        var compName = _companyContext.CurrentCompany?.CompanyName ?? "";
+        lblTitle = new Label
+        {
+            Text = $"GROUP MASTER — {compName}",
+            Font = new Font("Segoe UI", 13.5F, FontStyle.Bold),
+            ForeColor = Color.White,
+            Location = new Point(18, 15),
+            AutoSize = true,
+            BackColor = Color.Transparent
+        };
+        headerCard.Controls.Add(lblTitle);
+
+        lblRecordCount = new Label
+        {
+            Text = "0 Groups",
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(203, 213, 225),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Location = new Point(headerCard.Width - 140, 18),
+            AutoSize = true,
+            BackColor = Color.Transparent
+        };
+        headerCard.Controls.Add(lblRecordCount);
+
+        // Header bottom gap (12px)
+        var pnlHeaderGap = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 12,
+            BackColor = Color.Transparent
+        };
+
+        // ── 2. Workspace Panel (Holds Main Content Card and Actions Card) ──
+        var pnlWorkspace = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+
+        // ── Right Action Panel (Dock = Right, Width = 200px, Light Blue Reference Image 1) ──
+        pnlRightActions = new GroupMasterRightActionPanel
+        {
+            Dock = DockStyle.Right,
+            Width = 200
+        };
+        pnlRightActions.CreateClicked += (s, e) => OpenCreateGroupView();
+        pnlRightActions.AlterClicked += (s, e) => AlterSelectedGroup();
+        pnlRightActions.DeleteClicked += async (s, e) => await DeleteSelectedGroupAsync();
+        pnlRightActions.SearchClicked += (s, e) => FocusSearchBox();
+        pnlRightActions.CloseClicked += (s, e) =>
+        {
+            if (HandleBackNavigation()) return;
+            MoneyFlowEscController.HandleEsc(
+                ActiveControl,
+                this,
+                closeAction: () => Close());
+        };
+        pnlRightActions.SetRowSelectedActionsEnabled(false);
+
+        // Gap between Main Grid Area and Right Action Panel (12px)
+        var pnlActionsGap = new Panel
+        {
+            Dock = DockStyle.Right,
+            Width = 12,
+            BackColor = Color.Transparent
+        };
+
+        // ── Main Content Area (Contains Search, Gap, and GridCard) ──
+        var pnlMainArea = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent
+        };
+
+        // ── Search Panel (Top of Main Area) ──
         var searchPanel = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 46,
-            BackColor = Color.FromArgb(235, 238, 242)
+            Height = 44,
+            BackColor = Color.White,
+            Padding = new Padding(8, 6, 8, 6)
         };
-        var lblSearch = new Label { Text = "Search Chart of Accounts:", Location = new Point(18, 14), AutoSize = true, Font = ExecLedgerTheme.UIBold9 };
-        txtSearch = new TextBox { Location = new Point(190, 11), Width = 340, Font = ExecLedgerTheme.UIRegular10 };
-        txtSearch.TextChanged += async (s, e) => await OnSearchChangedAsync();
+        searchPanel.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(203, 213, 225), 1);
+            e.Graphics.DrawRectangle(pen, 0, 0, searchPanel.Width - 1, searchPanel.Height - 1);
+        };
 
-        var btnClear = new Button { Text = "Clear", Location = new Point(540, 10), Size = new Size(70, 26), BackColor = Color.White };
-        btnClear.Click += (s, e) => txtSearch.Clear();
-
-        btnExpandAll = new Button { Text = "Expand All", Location = new Point(625, 10), Size = new Size(85, 26), BackColor = Color.White };
-        btnExpandAll.Click += (s, e) => tvAccounts.ExpandAll();
-
-        btnCollapseAll = new Button { Text = "Collapse All", Location = new Point(715, 10), Size = new Size(85, 26), BackColor = Color.White };
-        btnCollapseAll.Click += (s, e) => tvAccounts.CollapseAll();
-
+        var lblSearch = new Label
+        {
+            Text = "Search:",
+            Location = new Point(12, 11),
+            AutoSize = true,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(15, 23, 42)
+        };
         searchPanel.Controls.Add(lblSearch);
+
+        txtSearch = new TextBox
+        {
+            Location = new Point(72, 7),
+            Width = 360,
+            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+            BorderStyle = BorderStyle.FixedSingle,
+            ForeColor = Color.FromArgb(15, 23, 42)
+        };
+        txtSearch.TextChanged += async (s, e) => await OnSearchChangedAsync();
+        txtSearch.KeyDown += (s, e) =>
+        {
+            if (e.KeyCode == Keys.Down && dgvGroups.Rows.Count > 0)
+            {
+                dgvGroups.Focus();
+                e.Handled = true;
+            }
+        };
+        txtSearch.HandleCreated += (s, e) =>
+        {
+            SendMessage(txtSearch.Handle, EM_SETCUEBANNER, 1, "Type to search group name, alias, nature...");
+        };
         searchPanel.Controls.Add(txtSearch);
-        searchPanel.Controls.Add(btnClear);
-        searchPanel.Controls.Add(btnExpandAll);
-        searchPanel.Controls.Add(btnCollapseAll);
-        Controls.Add(searchPanel);
 
-        // Main Split Container: Left TreeView (Chart of Accounts), Right Grid
-        var splitContainer = new SplitContainer
+        var btnClear = new Button
+        {
+            Text = "Clear",
+            Location = new Point(440, 7),
+            Size = new Size(64, 28),
+            BackColor = Color.FromArgb(240, 242, 245),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Cursor = Cursors.Hand
+        };
+        btnClear.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        btnClear.Click += (s, e) =>
+        {
+            txtSearch.Clear();
+            txtSearch.Focus();
+        };
+        searchPanel.Controls.Add(btnClear);        
+
+        searchPanel.Resize += (s, e) =>
+        {
+            int maxSearchW = Math.Max(180, Math.Min(420, searchPanel.Width - 320));
+            txtSearch.Width = maxSearchW;
+            btnClear.Location = new Point(txtSearch.Right + 8, 7);
+        };
+
+        // Gap between SearchPanel and GridCard (10px)
+        var pnlSearchGridGap = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 10,
+            BackColor = Color.Transparent
+        };
+
+        // ── Grid Card (White container cleanly wrapping Grid and Footer inside a 1px border) ──
+        var gridCard = new Panel
         {
             Dock = DockStyle.Fill,
-            SplitterDistance = 420,
-            BorderStyle = BorderStyle.None
+            BackColor = Color.White,
+            Padding = new Padding(1)
+        };
+        gridCard.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(203, 213, 225), 1);
+            e.Graphics.DrawRectangle(pen, 0, 0, gridCard.Width - 1, gridCard.Height - 1);
         };
 
-        // Left: TreeView
-        var leftPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12, 8, 4, 8) };
-        var lblTreeHeader = new Label
-        {
-            Text = "Hierarchical Structure (Groups & Ledgers)",
-            Dock = DockStyle.Top,
-            Height = 28,
-            BackColor = Color.FromArgb(226, 232, 240),
-            Font = ExecLedgerTheme.UIBold9,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0)
-        };
-        tvAccounts = new TreeView
-        {
-            Dock = DockStyle.Fill,
-            Font = ExecLedgerTheme.UIRegular9,
-            HideSelection = false,
-            ShowPlusMinus = true,
-            ShowLines = true,
-            ShowRootLines = true,
-            ItemHeight = 22,
-            BorderStyle = BorderStyle.FixedSingle
-        };
-        tvAccounts.AfterSelect += (s, e) => OnTreeNodeSelected();
-        tvAccounts.KeyDown += OnTreeKeyDown;
-        tvAccounts.NodeMouseDoubleClick += (s, e) => AlterSelectedNode();
-
-        leftPanel.Controls.Add(tvAccounts);
-        leftPanel.Controls.Add(lblTreeHeader);
-        splitContainer.Panel1.Controls.Add(leftPanel);
-
-        // Right: Details Panel / Grid
-        var rightPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(4, 8, 12, 8) };
-        lblSelectionInfo = new Label
-        {
-            Text = "Child Accounts & Properties",
-            Dock = DockStyle.Top,
-            Height = 28,
-            BackColor = Color.FromArgb(226, 232, 240),
-            Font = ExecLedgerTheme.UIBold9,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0)
-        };
-        dgvDetails = new Guna2DataGridView
+        // ── DataGridView (Group Master Accounting Table) ──
+        dgvGroups = new Guna2DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Color.White,
-            BorderStyle = BorderStyle.FixedSingle,
+            BorderStyle = BorderStyle.None,
+            ShowCellToolTips = false, // Clean accounting style: no popup tooltips over cells or headers
+            ScrollBars = ScrollBars.None, // Clean accounting style: no visible vertical/horizontal scrollbar
+            CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+            GridColor = Color.FromArgb(226, 232, 240),
+            ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
+            RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
             MultiSelect = false,
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
+            AllowUserToResizeRows = false,
+            AllowUserToResizeColumns = false,
             ReadOnly = true,
             RowHeadersVisible = false,
+            ColumnHeadersVisible = true,
+            ColumnHeadersHeight = 36,
+            ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+            EnableHeadersVisualStyles = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            RowTemplate = { Height = 26 }
+            RowTemplate = { Height = 30 }
         };
 
-        dgvDetails.Columns.Add("Id", "ID");
-        dgvDetails.Columns["Id"]!.Visible = false;
-        dgvDetails.Columns.Add("Type", "Type");
-        dgvDetails.Columns.Add("Name", "Name");
-        dgvDetails.Columns.Add("HierarchyPath", "Full Path / Under");
-        dgvDetails.Columns.Add("Nature", "Nature");
-        dgvDetails.Columns.Add("Balance", "Opening Balance");
+        // Column definitions with exact uppercase titles & proportional FillWeights (Section 7)
+        dgvGroups.Columns.Clear();
 
-        dgvDetails.Columns["Type"]!.FillWeight = 12;
-        dgvDetails.Columns["Name"]!.FillWeight = 30;
-        dgvDetails.Columns["HierarchyPath"]!.FillWeight = 32;
-        dgvDetails.Columns["Nature"]!.FillWeight = 13;
-        dgvDetails.Columns["Balance"]!.FillWeight = 13;
-
-        dgvDetails.DoubleClick += (s, e) => AlterSelectedGridRow();
-        dgvDetails.KeyDown += (s, e) =>
+        var colGroupId = new DataGridViewTextBoxColumn
         {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.Handled = true;
-                AlterSelectedGridRow();
-            }
+            Name = "GroupId",
+            HeaderText = "Group ID",
+            Visible = false
+        };
+        dgvGroups.Columns.Add(colGroupId);
+
+        var colGroupName = new DataGridViewTextBoxColumn
+        {
+            Name = "GroupName",
+            HeaderText = "GROUP NAME",
+            FillWeight = 42,
+            MinimumWidth = 160
+        };
+        dgvGroups.Columns.Add(colGroupName);
+
+        var colUnder = new DataGridViewTextBoxColumn
+        {
+            Name = "UnderGroup",
+            HeaderText = "UNDER",
+            FillWeight = 23,
+            MinimumWidth = 100
+        };
+        dgvGroups.Columns.Add(colUnder);
+
+        var colNature = new DataGridViewTextBoxColumn
+        {
+            Name = "Nature",
+            HeaderText = "NATURE",
+            FillWeight = 23,
+            MinimumWidth = 100
+        };
+        dgvGroups.Columns.Add(colNature);
+
+        var colStatus = new DataGridViewTextBoxColumn
+        {
+            Name = "Status",
+            HeaderText = "STATUS",
+            FillWeight = 12,
+            MinimumWidth = 80
+        };
+        dgvGroups.Columns.Add(colStatus);
+
+        // Accounting Table Styling matching exact MoneyFlow specifications
+        var headerStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.FromArgb(27, 54, 93), // Solid Navy #1B365D
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            SelectionBackColor = Color.FromArgb(27, 54, 93),
+            SelectionForeColor = Color.White,
+            Padding = new Padding(8, 0, 8, 0)
+        };
+        dgvGroups.ColumnHeadersDefaultCellStyle = headerStyle;
+        dgvGroups.ThemeStyle.HeaderStyle.BackColor = Color.FromArgb(27, 54, 93);
+        dgvGroups.ThemeStyle.HeaderStyle.ForeColor = Color.White;
+        dgvGroups.ThemeStyle.HeaderStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        dgvGroups.ThemeStyle.HeaderStyle.Height = 36;
+
+        var rowStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            SelectionBackColor = Color.FromArgb(224, 237, 253), // #E0EDFD
+            SelectionForeColor = Color.FromArgb(15, 23, 42), // #0F172A
+            Padding = new Padding(8, 0, 8, 0)
+        };
+        dgvGroups.DefaultCellStyle = rowStyle;
+        dgvGroups.ThemeStyle.RowsStyle.BackColor = Color.White;
+        dgvGroups.ThemeStyle.RowsStyle.ForeColor = Color.FromArgb(15, 23, 42);
+        dgvGroups.ThemeStyle.RowsStyle.Font = new Font("Segoe UI", 9.5F, FontStyle.Regular);
+        dgvGroups.ThemeStyle.RowsStyle.SelectionBackColor = Color.FromArgb(224, 237, 253);
+        dgvGroups.ThemeStyle.RowsStyle.SelectionForeColor = Color.FromArgb(15, 23, 42);
+
+        dgvGroups.AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
+        {
+            BackColor = Color.FromArgb(248, 250, 252),
+            ForeColor = Color.FromArgb(15, 23, 42),
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            Alignment = DataGridViewContentAlignment.MiddleLeft,
+            SelectionBackColor = Color.FromArgb(224, 237, 253),
+            SelectionForeColor = Color.FromArgb(15, 23, 42),
+            Padding = new Padding(8, 0, 8, 0)
         };
 
-        rightPanel.Controls.Add(dgvDetails);
-        rightPanel.Controls.Add(lblSelectionInfo);
-        splitContainer.Panel2.Controls.Add(rightPanel);
+        dgvGroups.DoubleClick += (s, e) => { if (ButtonAlter.Enabled) AlterSelectedGroup(); };
+        dgvGroups.KeyDown += OnGridKeyDown;
+        dgvGroups.SelectionChanged += (s, e) =>
+        {
+            UpdateActionButtonsEnabledState();
+            EnsureSelectedRowVisible();
+        };
+        dgvGroups.Resize += (s, e) => EnsureSelectedRowVisible();
+        dgvGroups.MouseWheel += (s, e) =>
+        {
+            if (e.Delta < 0)
+                ScrollDownOneRow();
+            else if (e.Delta > 0)
+                ScrollUpOneRow();
+        };
+        dgvGroups.Scroll += (s, e) => UpdateScrollIndicators();
 
-        Controls.Add(splitContainer);
-
-        // Bottom Action Buttons Panel
-        var btnPanel = new Panel
+        // ── Grid Footer Bar with Down/Up Scroll Arrows (Section 19 & 38) ──
+        var pnlGridFooter = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 56,
-            BackColor = Color.FromArgb(235, 238, 242),
-            Padding = new Padding(12, 10, 12, 10)
+            Height = 34,
+            BackColor = Color.White
         };
-
-        btnCreateGroup = new Button
+        pnlGridFooter.Paint += (s, e) =>
         {
-            Text = "&Create Group (Alt+C)",
-            Location = new Point(12, 11),
-            Size = new Size(155, 34),
-            BackColor = Color.FromArgb(16, 185, 129),
-            ForeColor = Color.White,
-            Font = ExecLedgerTheme.UIBold9
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawLine(pen, 0, 0, pnlGridFooter.Width, 0);
         };
-        btnCreateGroup.Click += (s, e) => CreateGroup();
 
-        btnCreateLedger = new Button
+        var pnlFooterRight = new FlowLayoutPanel
         {
-            Text = "Create &Ledger (Alt+L)",
-            Location = new Point(175, 11),
-            Size = new Size(160, 34),
-            BackColor = Color.FromArgb(14, 165, 233),
-            ForeColor = Color.White,
-            Font = ExecLedgerTheme.UIBold9
+            Dock = DockStyle.Right,
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 5, 8, 0)
         };
-        btnCreateLedger.Click += (s, e) => CreateLedgerUnderSelectedGroup();
 
-        btnAlter = new Button
+        btnScrollUp = new Button
         {
-            Text = "&Alter (Alt+A)",
-            Location = new Point(343, 11),
-            Size = new Size(120, 34),
-            BackColor = Color.FromArgb(245, 158, 11),
-            ForeColor = Color.White,
-            Font = ExecLedgerTheme.UIBold9
+            Text = "▲",
+            Size = new Size(28, 24),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(240, 242, 245),
+            ForeColor = Color.FromArgb(27, 54, 93),
+            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Visible = false
         };
-        btnAlter.Click += (s, e) => AlterSelectedNode();
+        btnScrollUp.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        btnScrollUp.Click += (s, e) => ScrollUpOneRow();
 
-        btnDelete = new Button
+        btnScrollDown = new Button
         {
-            Text = "&Delete (Alt+D)",
-            Location = new Point(471, 11),
-            Size = new Size(120, 34),
-            BackColor = Color.FromArgb(239, 68, 68),
-            ForeColor = Color.White,
-            Font = ExecLedgerTheme.UIBold9
+            Text = "▼",
+            Size = new Size(28, 24),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(240, 242, 245),
+            ForeColor = Color.FromArgb(27, 54, 93),
+            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+            Cursor = Cursors.Hand
         };
-        btnDelete.Click += async (s, e) => await DeleteSelectedNodeAsync();
+        btnScrollDown.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        btnScrollDown.Click += (s, e) => ScrollDownOneRow();
 
-        btnClose = new Button
+        pnlFooterRight.Controls.Add(btnScrollUp);
+        pnlFooterRight.Controls.Add(btnScrollDown);
+
+        lblGridFooter = new Label
         {
-            Text = "Close (Esc)",
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(915, 11),
-            Size = new Size(125, 34),
-            BackColor = Color.FromArgb(226, 232, 240),
-            Font = ExecLedgerTheme.UIRegular9
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            ForeColor = Color.FromArgb(46, 91, 136), // #2E5B88
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 8, 0)
         };
-        btnClose.Click += (s, e) => Close();
 
-        btnPanel.Controls.Add(btnCreateGroup);
-        btnPanel.Controls.Add(btnCreateLedger);
-        btnPanel.Controls.Add(btnAlter);
-        btnPanel.Controls.Add(btnDelete);
-        btnPanel.Controls.Add(btnClose);
-        Controls.Add(btnPanel);
+        pnlGridFooter.Controls.Add(pnlFooterRight);
+        pnlGridFooter.Controls.Add(lblGridFooter);
+        pnlFooterRight.SendToBack();
+        lblGridFooter.BringToFront();
 
-        CancelButton = btnClose;
+        // Assembly inside GridCard: Footer docks Bottom first, Grid docks Fill above it
+        gridCard.Controls.Add(pnlGridFooter);
+        gridCard.Controls.Add(dgvGroups);
+        pnlGridFooter.SendToBack();
+        dgvGroups.BringToFront();
+
+        // Assembly inside MainArea: SearchPanel docks Top first, Gap docks Top second, GridCard docks Fill
+        pnlMainArea.Controls.Add(searchPanel);
+        pnlMainArea.Controls.Add(pnlSearchGridGap);
+        pnlMainArea.Controls.Add(gridCard);
+        searchPanel.SendToBack();
+        pnlSearchGridGap.SendToBack();
+        gridCard.BringToFront();
+
+        // Assembly inside Workspace: Actions docks Right first, Gap docks Right second, MainArea docks Fill
+        pnlWorkspace.Controls.Add(pnlRightActions);
+        pnlWorkspace.Controls.Add(pnlActionsGap);
+        pnlWorkspace.Controls.Add(pnlMainArea);
+        pnlRightActions.SendToBack();
+        pnlActionsGap.SendToBack();
+        pnlMainArea.BringToFront();
+
+        // Assembly inside ListContainer: Header docks Top first, Gap docks Top second, Workspace docks Fill
+        pnlListContainer.Controls.Add(headerCard);
+        pnlListContainer.Controls.Add(pnlHeaderGap);
+        pnlListContainer.Controls.Add(pnlWorkspace);
+        headerCard.SendToBack();
+        pnlHeaderGap.SendToBack();
+        pnlWorkspace.BringToFront();
+
+        Controls.Add(pnlListContainer);
+
+        // Window Shortcuts
+        KeyDown += OnFormKeyDown;
+
+        Shown += (s, e) =>
+        {
+            FocusFirstRowInGrid();
+            UpdateActionButtonsEnabledState();
+        };
     }
 
-    private async void LoadAccountHierarchyAsync()
+    /// <summary>
+    /// Places keyboard focus on the first row of the grid with the first row selected.
+    /// Default focus behavior when Group Master is opened.
+    /// </summary>
+    public void FocusFirstRowInGrid()
+    {
+        if (dgvGroups.Rows.Count > 0)
+        {
+            dgvGroups.ClearSelection();
+            dgvGroups.Rows[0].Selected = true;
+            if (dgvGroups.Columns.Contains("GroupName"))
+            {
+                dgvGroups.CurrentCell = dgvGroups.Rows[0].Cells["GroupName"];
+            }
+        }
+        if (dgvGroups.CanFocus)
+        {
+            dgvGroups.Focus();
+        }
+    }
+
+    /// <summary>
+    /// Enables or disables ALTER and DELETE action buttons depending on whether a row is currently selected in the grid.
+    /// </summary>
+    public void UpdateActionButtonsEnabledState()
+    {
+        bool hasSelection = dgvGroups.SelectedRows.Count > 0 && dgvGroups.SelectedRows[0].Index >= 0;
+        pnlRightActions.SetRowSelectedActionsEnabled(hasSelection);
+    }
+
+    /// <summary>
+    /// Moves keyboard focus to the search textbox and selects existing search text for immediate typing.
+    /// Triggered by clicking FIND or pressing Alt+F anywhere in Group Master.
+    /// </summary>
+    public void FocusSearchBox()
+    {
+        if (txtSearch.CanFocus)
+        {
+            txtSearch.Focus();
+            txtSearch.SelectAll();
+        }
+    }
+
+    /// <summary>
+    /// Loads all groups for the current company from the database.
+    /// Strictly orders by GroupId DESC (authoritative newest-first order).
+    /// </summary>
+    public async Task LoadGroupsFromDatabaseAsync(int? selectGroupId = null)
     {
         if (_companyContext.CurrentCompany == null) return;
         int companyId = _companyContext.CurrentCompany.CompanyId;
+        lblTitle.Text = $"GROUP MASTER — {_companyContext.CurrentCompany.CompanyName}";
 
-        tvAccounts.BeginUpdate();
-        tvAccounts.Nodes.Clear();
-
-        _rootNodes = (await _hierarchyService.GetAccountTreeAsync(companyId, includeLedgers: true)).ToList();
-        foreach (var root in _rootNodes)
+        try
         {
-            tvAccounts.Nodes.Add(BuildTreeNode(root));
-        }
+            // Database is the SINGLE SOURCE OF TRUTH
+            var groups = await _groupService.GetGroupsByCompanyAsync(companyId, null);
 
-        tvAccounts.ExpandAll();
-        if (tvAccounts.Nodes.Count > 0)
+            // Default Order: GroupId DESC (Newest record MUST appear at the TOP)
+            _allGroups = groups.OrderByDescending(g => g.GroupId).ToList();
+
+            ApplyFilterAndBind(selectGroupId);
+        }
+        catch (Exception ex)
         {
-            tvAccounts.SelectedNode = tvAccounts.Nodes[0];
+            MessageBox.Show($"Failed to load group master data: {ex.Message}", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-
-        tvAccounts.EndUpdate();
-
-        PopulateGridFromSelection();
     }
 
-    private TreeNode BuildTreeNode(AccountHierarchyNodeDto dto)
+    private void ApplyFilterAndBind(int? selectGroupId = null)
     {
-        string icon = dto.IsGroup ? "📁" : "📄";
-        string label = dto.IsGroup ? $"{icon} {dto.Name} ({dto.Nature})" : $"{icon} {dto.Name}";
-        var node = new TreeNode(label)
-        {
-            Tag = dto,
-            NodeFont = dto.IsGroup ? ExecLedgerTheme.UIBold9 : ExecLedgerTheme.UIRegular9,
-            ForeColor = dto.IsGroup ? ExecLedgerTheme.PrimaryNavy : ExecLedgerTheme.PrimaryText
-        };
+        string term = txtSearch.Text.Trim();
 
-        foreach (var child in dto.Children)
+        var filtered = _allGroups.AsEnumerable();
+        if (!string.IsNullOrEmpty(term))
         {
-            node.Nodes.Add(BuildTreeNode(child));
+            filtered = filtered.Where(g =>
+                g.GroupName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (g.ParentGroupName != null && g.ParentGroupName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                g.NatureDisplay.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        return node;
-    }
+        // Preserve newest-first order
+        var list = filtered.OrderByDescending(g => g.GroupId).ToList();
 
-    private void OnTreeNodeSelected()
-    {
-        PopulateGridFromSelection();
-    }
+        dgvGroups.Rows.Clear();
+        int rowIndexToSelect = -1;
 
-    private void PopulateGridFromSelection()
-    {
-        dgvDetails.Rows.Clear();
-        if (tvAccounts.SelectedNode?.Tag is not AccountHierarchyNodeDto selected) return;
-
-        if (selected.IsGroup)
+        for (int i = 0; i < list.Count; i++)
         {
-            lblSelectionInfo.Text = $"Group: {selected.Path} — ({selected.SubGroupsCount} Sub-Groups, {selected.LedgersCount} Ledgers)";
-            foreach (var child in selected.Children)
+            var g = list[i];
+            string under = string.IsNullOrEmpty(g.ParentGroupName) ? "Primary" : g.ParentGroupName;
+            string status = "Active";
+
+            int r = dgvGroups.Rows.Add(g.GroupId, g.GroupName, under, g.NatureDisplay, status);
+
+            if (selectGroupId.HasValue && g.GroupId == selectGroupId.Value)
             {
-                string typeLabel = child.IsGroup ? "[Group]" : "[Ledger]";
-                string balanceStr = child.IsGroup
-                    ? "—"
-                    : $"₹{child.Balance:N2} {(child.BalanceType == Core.Enums.BalanceType.Debit ? "Dr" : "Cr")}";
-
-                dgvDetails.Rows.Add(
-                    child.Id,
-                    typeLabel,
-                    child.Name,
-                    child.Path,
-                    child.Nature.ToString(),
-                    balanceStr);
+                rowIndexToSelect = r;
             }
         }
-        else
+
+        lblRecordCount.Text = $"{list.Count} Groups";
+
+        if (rowIndexToSelect >= 0 && rowIndexToSelect < dgvGroups.Rows.Count)
         {
-            lblSelectionInfo.Text = $"Ledger: {selected.Path}";
-            string balanceStr = $"₹{selected.Balance:N2} {(selected.BalanceType == Core.Enums.BalanceType.Debit ? "Dr" : "Cr")}";
-            dgvDetails.Rows.Add(
-                selected.Id,
-                "[Ledger]",
-                selected.Name,
-                selected.Path,
-                selected.Nature.ToString(),
-                balanceStr);
+            dgvGroups.Rows[rowIndexToSelect].Selected = true;
+            dgvGroups.CurrentCell = dgvGroups.Rows[rowIndexToSelect].Cells["GroupName"];
+        }
+        else if (dgvGroups.Rows.Count > 0)
+        {
+            // Select first (newest) row by default
+            dgvGroups.Rows[0].Selected = true;
+            dgvGroups.CurrentCell = dgvGroups.Rows[0].Cells["GroupName"];
+        }
+
+        UpdateActionButtonsEnabledState();
+        EnsureSelectedRowVisible();
+        UpdateScrollIndicators();
+
+        if (ActiveControl == null || ActiveControl == this || ActiveControl == dgvGroups)
+        {
+            FocusFirstRowInGrid();
         }
     }
 
     private async Task OnSearchChangedAsync()
     {
-        string term = txtSearch.Text.Trim();
-        if (string.IsNullOrWhiteSpace(term))
+        await Task.Yield();
+        ApplyFilterAndBind();
+    }
+
+    /// <summary>
+    /// Switches workspace full-screen from Group Master List to Group Creation.
+    /// The list disappears completely; Group Creation occupies 100% of DynamicContentPanel.
+    /// </summary>
+    public void OpenCreateGroupView(int? parentGroupId = null)
+    {
+        if (_companyContext.CurrentCompany == null) return;
+
+        pnlListContainer.Visible = false;
+        _isCreationViewActive = true;
+
+        _activeCreationForm?.Dispose();
+        pnlCreationContainer.Controls.Clear();
+
+        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, null, parentGroupId)
         {
-            PopulateGridFromSelection();
-            return;
+            TopLevel = false,
+            FormBorderStyle = FormBorderStyle.None,
+            Dock = DockStyle.Fill
+        };
+
+        _activeCreationForm.Saved += async (newGroupId) =>
+        {
+            CloseCreationView();
+            await LoadGroupsFromDatabaseAsync(selectGroupId: newGroupId);
+        };
+
+        _activeCreationForm.Cancelled += async () =>
+        {
+            CloseCreationView();
+            await LoadGroupsFromDatabaseAsync();
+        };
+
+        pnlCreationContainer.Controls.Add(_activeCreationForm);
+        pnlCreationContainer.Visible = true;
+        _activeCreationForm.Show();
+        _activeCreationForm.Focus();
+    }
+
+    /// <summary>
+    /// Switches workspace full-screen from Group Master List to Group Alteration in EDIT mode.
+    /// </summary>
+    public void OpenAlterGroupView(int groupId)
+    {
+        if (_companyContext.CurrentCompany == null) return;
+
+        pnlListContainer.Visible = false;
+        _isCreationViewActive = true;
+
+        _activeCreationForm?.Dispose();
+        pnlCreationContainer.Controls.Clear();
+
+        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, groupId)
+        {
+            TopLevel = false,
+            FormBorderStyle = FormBorderStyle.None,
+            Dock = DockStyle.Fill
+        };
+
+        _activeCreationForm.Saved += async (savedGroupId) =>
+        {
+            CloseCreationView();
+            await LoadGroupsFromDatabaseAsync(selectGroupId: savedGroupId);
+        };
+
+        _activeCreationForm.Cancelled += async () =>
+        {
+            CloseCreationView();
+            await LoadGroupsFromDatabaseAsync();
+        };
+
+        pnlCreationContainer.Controls.Add(_activeCreationForm);
+        pnlCreationContainer.Visible = true;
+        _activeCreationForm.Show();
+        _activeCreationForm.Focus();
+    }
+
+    private void CloseCreationView()
+    {
+        _isCreationViewActive = false;
+        if (_activeCreationForm != null)
+        {
+            pnlCreationContainer.Controls.Remove(_activeCreationForm);
+            _activeCreationForm.Dispose();
+            _activeCreationForm = null;
         }
 
-        if (_companyContext.CurrentCompany == null) return;
-        int companyId = _companyContext.CurrentCompany.CompanyId;
+        pnlCreationContainer.Visible = false;
+        pnlListContainer.Visible = true;
+        pnlListContainer.BringToFront();
 
-        dgvDetails.Rows.Clear();
-        lblSelectionInfo.Text = $"Search results for '{term}' in Chart of Accounts";
-
-        var matches = await _hierarchyService.SearchLedgersAsync(companyId, term);
-        foreach (var m in matches)
+        if (dgvGroups.CanFocus)
         {
-            string balanceStr = $"₹{m.CurrentBalance:N2} {(m.CurrentBalanceType == Core.Enums.BalanceType.Debit ? "Dr" : "Cr")}";
-            dgvDetails.Rows.Add(
-                m.LedgerId,
-                "[Ledger]",
-                m.LedgerName,
-                m.FullHierarchyPath,
-                m.GroupNature.ToString(),
-                balanceStr);
+            dgvGroups.Focus();
         }
     }
 
-    private void OnTreeKeyDown(object? sender, KeyEventArgs e)
+    private void AlterSelectedGroup()
+    {
+        if (!ButtonAlter.Enabled || dgvGroups.SelectedRows.Count == 0) return;
+        int groupId = Convert.ToInt32(dgvGroups.SelectedRows[0].Cells["GroupId"].Value);
+        OpenAlterGroupView(groupId);
+    }
+
+    private async Task DeleteSelectedGroupAsync()
+    {
+        if (!ButtonDelete.Enabled || dgvGroups.SelectedRows.Count == 0 || _companyContext.CurrentCompany == null) return;
+
+        int groupId = Convert.ToInt32(dgvGroups.SelectedRows[0].Cells["GroupId"].Value);
+        string name = dgvGroups.SelectedRows[0].Cells["GroupName"].Value?.ToString() ?? "Group";
+
+        var confirm = MessageBox.Show(
+            $"Delete selected group '{name}'?\n\nThis will remove the group from the chart of accounts.",
+            "Confirm Delete",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning);
+
+        if (confirm == DialogResult.Yes)
+        {
+            try
+            {
+                bool deleted = await _groupService.DeleteGroupAsync(groupId);
+                if (deleted)
+                {
+                    await LoadGroupsFromDatabaseAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Cannot delete group: {ex.Message}", "Delete Prevented", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            }
+        }
+    }
+
+    private void OnGridKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.KeyCode == Keys.Enter)
         {
-            e.Handled = true;
-            AlterSelectedNode();
+            if (ButtonAlter.Enabled)
+            {
+                e.Handled = true;
+                AlterSelectedGroup();
+            }
         }
         else if (e.KeyCode == Keys.Delete)
         {
-            e.Handled = true;
-            _ = DeleteSelectedNodeAsync();
-        }
-    }
-
-    private void CreateGroup()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        int? parentId = null;
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel && sel.IsGroup)
-        {
-            parentId = sel.Id;
-        }
-
-        using var form = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, null, parentId);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadAccountHierarchyAsync();
-        }
-    }
-
-    private void CreateLedgerUnderSelectedGroup()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        int? groupId = null;
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel)
-        {
-            groupId = sel.IsGroup ? sel.Id : sel.ParentGroupId;
-        }
-
-        using var form = new LedgerCreateEditForm(_ledgerService, _groupService, _companyContext.CurrentCompany.CompanyId, null, groupId);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadAccountHierarchyAsync();
-        }
-    }
-
-    private void AlterSelectedNode()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel)
-        {
-            if (sel.IsGroup)
+            if (ButtonDelete.Enabled)
             {
-                using var form = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, sel.Id);
-                if (form.ShowDialog(this) == DialogResult.OK)
-                {
-                    LoadAccountHierarchyAsync();
-                }
+                e.Handled = true;
+                _ = DeleteSelectedGroupAsync();
+            }
+        }
+        else if (e.KeyCode == Keys.C && !e.Control && !e.Alt)
+        {
+            e.Handled = true;
+            OpenCreateGroupView();
+        }
+        else if (e.KeyCode == Keys.A && !e.Control && !e.Alt)
+        {
+            if (ButtonAlter.Enabled)
+            {
+                e.Handled = true;
+                AlterSelectedGroup();
+            }
+        }
+        else if (e.KeyCode == Keys.Down)
+        {
+            e.Handled = true;
+            ScrollDownOneRow();
+        }
+        else if (e.KeyCode == Keys.Up)
+        {
+            if (dgvGroups.SelectedRows.Count > 0 && dgvGroups.SelectedRows[0].Index == 0)
+            {
+                e.Handled = true;
+                FocusSearchBox();
             }
             else
             {
-                using var form = new LedgerCreateEditForm(_ledgerService, _groupService, _companyContext.CurrentCompany.CompanyId, sel.Id);
-                if (form.ShowDialog(this) == DialogResult.OK)
-                {
-                    LoadAccountHierarchyAsync();
-                }
+                e.Handled = true;
+                ScrollUpOneRow();
             }
+        }
+        else if (e.KeyCode == Keys.PageDown)
+        {
+            e.Handled = true;
+            int step = Math.Max(1, dgvGroups.DisplayedRowCount(false));
+            int cur = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
+            int target = Math.Min(dgvGroups.Rows.Count - 1, cur + step);
+            if (target < dgvGroups.Rows.Count)
+            {
+                dgvGroups.Rows[target].Selected = true;
+                dgvGroups.CurrentCell = dgvGroups.Rows[target].Cells["GroupName"];
+                EnsureSelectedRowVisible();
+            }
+        }
+        else if (e.KeyCode == Keys.PageUp)
+        {
+            e.Handled = true;
+            int step = Math.Max(1, dgvGroups.DisplayedRowCount(false));
+            int cur = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
+            int target = Math.Max(0, cur - step);
+            if (target >= 0 && dgvGroups.Rows.Count > 0)
+            {
+                dgvGroups.Rows[target].Selected = true;
+                dgvGroups.CurrentCell = dgvGroups.Rows[target].Cells["GroupName"];
+                EnsureSelectedRowVisible();
+            }
+        }
+        else if (e.Alt && e.KeyCode == Keys.F)
+        {
+            e.Handled = true;
+            FocusSearchBox();
         }
     }
 
-    private void AlterSelectedGridRow()
+    /// <summary>
+    /// Moves selection down by one row and auto-scrolls the grid viewport to keep the selected row in view.
+    /// </summary>
+    public void ScrollDownOneRow()
     {
-        if (_companyContext.CurrentCompany == null || dgvDetails.SelectedRows.Count == 0) return;
-
-        var row = dgvDetails.SelectedRows[0];
-        int id = Convert.ToInt32(row.Cells["Id"].Value);
-        string type = row.Cells["Type"].Value?.ToString() ?? string.Empty;
-
-        if (type.Contains("Group"))
+        if (dgvGroups.Rows.Count == 0) return;
+        int currentIndex = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
+        if (currentIndex < dgvGroups.Rows.Count - 1)
         {
-            using var form = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, id);
-            if (form.ShowDialog(this) == DialogResult.OK)
-            {
-                LoadAccountHierarchyAsync();
-            }
+            int nextIndex = currentIndex + 1;
+            dgvGroups.Rows[nextIndex].Selected = true;
+            dgvGroups.CurrentCell = dgvGroups.Rows[nextIndex].Cells["GroupName"];
         }
-        else
-        {
-            using var form = new LedgerCreateEditForm(_ledgerService, _groupService, _companyContext.CurrentCompany.CompanyId, id);
-            if (form.ShowDialog(this) == DialogResult.OK)
-            {
-                LoadAccountHierarchyAsync();
-            }
-        }
+        EnsureSelectedRowVisible();
+        if (dgvGroups.CanFocus) dgvGroups.Focus();
     }
 
-    private async Task DeleteSelectedNodeAsync()
+    /// <summary>
+    /// Moves selection up by one row and auto-scrolls the grid viewport to keep the selected row in view.
+    /// </summary>
+    public void ScrollUpOneRow()
     {
-        if (tvAccounts.SelectedNode?.Tag is not AccountHierarchyNodeDto sel)
+        if (dgvGroups.Rows.Count == 0) return;
+        int currentIndex = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
+        if (currentIndex > 0)
         {
-            MessageBox.Show("Please select a group or ledger to delete.", "Selection Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            int prevIndex = currentIndex - 1;
+            dgvGroups.Rows[prevIndex].Selected = true;
+            dgvGroups.CurrentCell = dgvGroups.Rows[prevIndex].Cells["GroupName"];
+        }
+        EnsureSelectedRowVisible();
+        if (dgvGroups.CanFocus) dgvGroups.Focus();
+    }
+
+    /// <summary>
+    /// Automatically adjusts FirstDisplayedScrollingRowIndex so the currently selected row is completely visible in the viewport.
+    /// Works without needing native scrollbars.
+    /// </summary>
+    public void EnsureSelectedRowVisible()
+    {
+        if (dgvGroups.Rows.Count == 0)
+        {
+            UpdateScrollIndicators();
             return;
         }
 
-        if (sel.IsGroup)
-        {
-            var confirm = MessageBox.Show(
-                $"Are you sure you want to delete the Group '{sel.Name}'?",
-                "Confirm Delete Group",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
+        int selIndex = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
+        int displayedCount = dgvGroups.DisplayedRowCount(false);
 
-            if (confirm == DialogResult.Yes)
+        if (displayedCount > 0)
+        {
+            int first = dgvGroups.FirstDisplayedScrollingRowIndex;
+            if (first < 0) first = 0;
+
+            if (selIndex < first)
             {
-                try
+                dgvGroups.FirstDisplayedScrollingRowIndex = selIndex;
+            }
+            else if (selIndex >= first + displayedCount)
+            {
+                int targetFirst = Math.Max(0, selIndex - displayedCount + 1);
+                if (targetFirst < dgvGroups.Rows.Count)
                 {
-                    await _groupService.DeleteGroupAsync(sel.Id);
-                    MessageBox.Show("Group deleted successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    LoadAccountHierarchyAsync();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "Cannot Delete Group", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    dgvGroups.FirstDisplayedScrollingRowIndex = targetFirst;
                 }
             }
         }
-        else
-        {
-            var confirm = MessageBox.Show(
-                $"Are you sure you want to delete the Ledger '{sel.Name}'?",
-                "Confirm Delete Ledger",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
 
-            if (confirm == DialogResult.Yes)
+        UpdateScrollIndicators();
+    }
+
+    /// <summary>
+    /// Updates the visibility of the footer down (▼) and up (▲) scroll indicator buttons based on viewport position
+    /// and dynamically displays the current row range in the footer.
+    /// </summary>
+    public void UpdateScrollIndicators()
+    {
+        if (btnScrollUp == null || btnScrollDown == null || lblGridFooter == null) return;
+
+        int total = _allGroups.Count;
+        int count = dgvGroups.Rows.Count;
+
+        if (count == 0)
+        {
+            btnScrollUp.Visible = false;
+            btnScrollDown.Visible = false;
+            lblGridFooter.Text = $"Total Groups: {total}     |     Showing: 0–0 of {total}";
+            return;
+        }
+
+        int first = dgvGroups.FirstDisplayedScrollingRowIndex;
+        if (first < 0) first = 0;
+        int displayedCount = dgvGroups.DisplayedRowCount(false);
+
+        if (displayedCount == 0)
+        {
+            btnScrollUp.Visible = first > 0;
+            btnScrollDown.Visible = count > 15;
+            lblGridFooter.Text = $"Total Groups: {total}     |     Showing: 1–{count} of {total}";
+            return;
+        }
+
+        btnScrollUp.Visible = first > 0;
+        btnScrollDown.Visible = (first + displayedCount) < count;
+
+        int start = first + 1;
+        int end = Math.Min(first + displayedCount, count);
+        lblGridFooter.Text = $"Total Groups: {total}     |     Showing: {start}–{end} of {total}";
+    }
+
+    public bool HandleBackNavigation()
+    {
+        if (_isCreationViewActive)
+        {
+            if (_activeCreationForm != null)
             {
-                try
-                {
-                    await _ledgerService.DeleteLedgerAsync(sel.Id);
-                    MessageBox.Show("Ledger deleted successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    LoadAccountHierarchyAsync();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "Cannot Delete Ledger", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
+                _activeCreationForm.HandleCancel();
             }
+            else
+            {
+                CloseCreationView();
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Alt | Keys.S) || keyData == (Keys.Alt | Keys.F))
+        {
+            FocusSearchBox();
+            return true;
+        }
+
+        if (keyData == Keys.Escape)
+        {
+            if (HandleBackNavigation())
+            {
+                return true;
+            }
+
+            return MoneyFlowEscController.HandleEsc(
+                ActiveControl,
+                this,
+                closeAction: () =>
+                {
+                    Close();
+                });
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void OnFormKeyDown(object? sender, KeyEventArgs e)
+    {
+        // When in creation view, let creation view handle keys
+        if (pnlCreationContainer.Visible) return;
+
+        // Group Master List Shortcuts
+        if (e.KeyCode == Keys.Escape)
+        {
+            e.Handled = true;
+            HandleBackNavigation();
+            return;
+        }
+
+        if (e.Alt && e.KeyCode == Keys.C)
+        {
+            e.Handled = true;
+            OpenCreateGroupView();
+            return;
+        }
+
+        if (e.Alt && e.KeyCode == Keys.A)
+        {
+            if (ButtonAlter.Enabled)
+            {
+                e.Handled = true;
+                AlterSelectedGroup();
+            }
+            return;
+        }
+
+        if ((e.Alt && e.KeyCode == Keys.D) || e.KeyCode == Keys.Delete)
+        {
+            if (ButtonDelete.Enabled)
+            {
+                e.Handled = true;
+                _ = DeleteSelectedGroupAsync();
+            }
+            return;
+        }
+
+        if (e.Alt && (e.KeyCode == Keys.S || e.KeyCode == Keys.F))
+        {
+            e.Handled = true;
+            FocusSearchBox();
+            return;
         }
     }
 }

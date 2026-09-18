@@ -114,112 +114,136 @@ public class NavigationService : INavigationService
         }
     }
 
+    private INavigationHost? _host;
+
+    public void RegisterHost(INavigationHost host)
+    {
+        _host = host;
+    }
+
+    public void UnregisterHost(INavigationHost host)
+    {
+        if (_host == host) _host = null;
+    }
+
+    public void NavigateToGateway()
+    {
+        _host?.ReturnToGateway();
+        ActiveModuleChanged?.Invoke("Gateway");
+    }
+
+    public bool NavigateBack()
+    {
+        var handled = _host?.NavigateBack() ?? false;
+        if (handled)
+        {
+            ActiveModuleChanged?.Invoke(_host?.CurrentModuleKey ?? "Gateway");
+        }
+        return handled;
+    }
+
+    public string CurrentModuleKey => _host?.CurrentModuleKey ?? "Gateway";
+
+    public event Action<string>? ActiveModuleChanged;
+
+    private void NavigateOrModal(string moduleKey, string moduleTitle, Func<Form> formFactory, IWin32Window? owner)
+    {
+        if (_host != null)
+        {
+            _host.ShowInWorkspace(formFactory, moduleKey, moduleTitle);
+            ActiveModuleChanged?.Invoke(moduleKey);
+        }
+        else
+        {
+            using var form = formFactory();
+            ShowModal(form, owner);
+        }
+    }
+
     // --- Masters ---
     public void OpenGroupList(IWin32Window? owner = null)
     {
         if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<GroupListForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Groups", "Group Master", () => _formFactory.Create<GroupListForm>(), owner);
     }
 
     public void OpenLedgerList(IWin32Window? owner = null)
     {
         if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<LedgerListForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Ledgers", "Ledgers Master", () => _formFactory.Create<LedgerListForm>(), owner);
     }
-
-
 
     // --- Transactions / Vouchers ---
     public void OpenContraVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<ContraVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Contra", "Contra Voucher", () => _formFactory.Create<ContraVoucherForm>(), owner);
     }
 
     public void OpenPaymentVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<PaymentVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Payment", "Payment Voucher", () => _formFactory.Create<PaymentVoucherForm>(), owner);
     }
 
     public void OpenReceiptVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<ReceiptVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Receipt", "Receipt Voucher", () => _formFactory.Create<ReceiptVoucherForm>(), owner);
     }
 
     public void OpenJournalVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<JournalVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Journal", "Journal Voucher", () => _formFactory.Create<JournalVoucherForm>(), owner);
     }
 
     public void OpenSalesVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<SalesVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Sales", "Sales Voucher", () => _formFactory.Create<SalesVoucherForm>(), owner);
     }
 
     public void OpenPurchaseVoucher(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<PurchaseVoucherForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("Purchase", "Purchase Voucher", () => _formFactory.Create<PurchaseVoucherForm>(), owner);
     }
-
-
-
-
 
     public void OpenDayBook(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<DayBookForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("DayBook", "Day Book", () => _formFactory.Create<DayBookForm>(), owner);
     }
 
     public void OpenLedgerStatement(IWin32Window? owner = null, int? ledgerId = null)
     {
         if (!EnsureCompanyOpen(owner)) return;
-        using var form = _formFactory.Create<LedgerStatementForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("LedgerStatement", "Ledger Accounts", () => ledgerId.HasValue ? _formFactory.Create<LedgerStatementForm>(ledgerId.Value) : _formFactory.Create<LedgerStatementForm>(), owner);
     }
-
-
 
     public void OpenProfitLoss(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<ProfitLossForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("ProfitLoss", "Profit & Loss", () => _formFactory.Create<ProfitLossForm>(), owner);
     }
 
     public void OpenBalanceSheet(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<BalanceSheetForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("BalanceSheet", "Balance Sheet", () => _formFactory.Create<BalanceSheetForm>(), owner);
     }
 
     public void OpenCashBankBook(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<CashBankBookForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("CashBankBook", "Cash & Bank Book", () => _formFactory.Create<CashBankBookForm>(), owner);
     }
 
     public void OpenBankReconciliation(IWin32Window? owner = null)
     {
         if (!EnsureCompanyAndFinancialYear(owner)) return;
-        using var form = _formFactory.Create<BankReconciliationForm>();
-        ShowModal(form, owner);
+        NavigateOrModal("BankReconciliation", "Bank Reconciliation", () => _formFactory.Create<BankReconciliationForm>(), owner);
     }
 
 
