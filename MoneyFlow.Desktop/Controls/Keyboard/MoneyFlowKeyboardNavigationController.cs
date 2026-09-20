@@ -85,11 +85,39 @@ public class MoneyFlowKeyboardNavigationController
             return;
         }
 
+        // If control is a ComboBox with dropped down list:
+        if (current is ComboBox cmb)
+        {
+            if (e.KeyCode == Keys.Escape && cmb.DroppedDown)
+            {
+                cmb.DroppedDown = false;
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Enter && !e.Alt && !e.Control && !e.Shift)
+            {
+                if (cmb.DroppedDown)
+                {
+                    // Allow the user to select/commit the current value before moving to the next control
+                    cmb.DroppedDown = false;
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    return;
+                }
+            }
+        }
+
         // If control is an inner TextBox of a lookup and lookup popup is currently visible, let popup handle it
         var lookupParent = FindLookupParent(current);
-        if (lookupParent != null && lookupParent.Config != null)
+        if (lookupParent != null && lookupParent.IsPopupOpen)
         {
-            // Handled inside MoneyFlowTextLookup
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Escape)
+            {
+                // Handled inside lookup popup
+                return;
+            }
         }
 
         // 1. Shift+Enter or Shift+Tab: Navigate Previous
@@ -97,7 +125,7 @@ public class MoneyFlowKeyboardNavigationController
         {
             e.Handled = true;
             e.SuppressKeyPress = true;
-            NavigatePrevious(current);
+            NavigatePrevious(lookupParent ?? current);
             return;
         }
 
@@ -199,6 +227,11 @@ public class MoneyFlowKeyboardNavigationController
             tb.Focus();
             tb.SelectAll();
         }
+        else if (ctrl is ComboBox cb)
+        {
+            cb.Focus();
+            cb.SelectAll();
+        }
         else
         {
             ctrl.Focus();
@@ -230,6 +263,12 @@ public class MoneyFlowKeyboardNavigationController
             if (c is MoneyFlowTextLookup lookup)
             {
                 list.Add(lookup);
+                continue;
+            }
+
+            if (c is ComboBox cmb && cmb.TabStop)
+            {
+                list.Add(cmb);
                 continue;
             }
 

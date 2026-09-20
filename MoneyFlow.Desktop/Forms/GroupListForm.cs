@@ -36,11 +36,15 @@ public class GroupListForm : Form, IBackNavigable
     private TextBox txtSearch = null!;
     private Guna2DataGridView dgvGroups = null!;
     private GroupMasterRightActionPanel pnlRightActions = null!;
+    private Panel pnlActionsGap = null!;
+    private Panel pnlWorkspace = null!;
     private Label lblTitle = null!;
     private Label lblRecordCount = null!;
     private Label lblGridFooter = null!;
     private Button btnScrollUp = null!;
     private Button btnScrollDown = null!;
+    private Button btnToggleActions = null!;
+    private bool _isActionsPanelCollapsed;
 
     public GroupMasterRightActionPanel RightActionPanel => pnlRightActions;
     public Button ButtonCreate => pnlRightActions.ButtonCreate;
@@ -49,6 +53,9 @@ public class GroupListForm : Form, IBackNavigable
     public Button ButtonSearch => pnlRightActions.ButtonSearch;
     public Button ButtonFind => pnlRightActions.ButtonSearch;
     public Button ButtonClose => pnlRightActions.ButtonClose;
+    public Button ButtonToggleActions => btnToggleActions;
+    public bool IsActionsPanelCollapsed => _isActionsPanelCollapsed;
+    public void ToggleActionsPanel() => SetActionsPanelCollapsed(!_isActionsPanelCollapsed);
     public Guna2DataGridView Grid => dgvGroups;
     public Label TitleLabel => lblTitle;
     public Label FooterLabel => lblGridFooter;
@@ -135,12 +142,21 @@ public class GroupListForm : Form, IBackNavigable
             Text = "0 Groups",
             Font = new Font("Segoe UI", 9F, FontStyle.Regular),
             ForeColor = Color.FromArgb(203, 213, 225),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(headerCard.Width - 140, 18),
             AutoSize = true,
             BackColor = Color.Transparent
         };
         headerCard.Controls.Add(lblRecordCount);
+
+        void UpdateRecordCountPos()
+        {
+            if (headerCard.Width > 0 && lblRecordCount != null)
+            {
+                lblRecordCount.Location = new Point(headerCard.Width - lblRecordCount.Width - 20, 18);
+            }
+        }
+        headerCard.Resize += (s, e) => UpdateRecordCountPos();
+        lblRecordCount.TextChanged += (s, e) => UpdateRecordCountPos();
+        headerCard.HandleCreated += (s, e) => UpdateRecordCountPos();
 
         // Header bottom gap (12px)
         var pnlHeaderGap = new Panel
@@ -151,7 +167,7 @@ public class GroupListForm : Form, IBackNavigable
         };
 
         // ── 2. Workspace Panel (Holds Main Content Card and Actions Card) ──
-        var pnlWorkspace = new Panel
+        pnlWorkspace = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = Color.Transparent
@@ -175,10 +191,15 @@ public class GroupListForm : Form, IBackNavigable
                 this,
                 closeAction: () => Close());
         };
+        pnlRightActions.CollapseToggled += (s, e) =>
+        {
+            EnsureSelectedRowVisible();
+            UpdateScrollIndicators();
+        };
         pnlRightActions.SetRowSelectedActionsEnabled(false);
 
         // Gap between Main Grid Area and Right Action Panel (12px)
-        var pnlActionsGap = new Panel
+        pnlActionsGap = new Panel
         {
             Dock = DockStyle.Right,
             Width = 12,
@@ -256,13 +277,25 @@ public class GroupListForm : Form, IBackNavigable
             txtSearch.Clear();
             txtSearch.Focus();
         };
-        searchPanel.Controls.Add(btnClear);        
+        searchPanel.Controls.Add(btnClear);
+
+        // Positioned on the boundary between main area and actions sidebar
+        btnToggleActions = pnlRightActions.ToggleButton;
+        btnToggleActions.Size = new Size(28, 28);
+        btnToggleActions.Location = new Point(searchPanel.Width - 36, 7);
+        btnToggleActions.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnToggleActions.Click += (s, e) => ToggleActionsPanel();
+        searchPanel.Controls.Add(btnToggleActions);
 
         searchPanel.Resize += (s, e) =>
         {
-            int maxSearchW = Math.Max(180, Math.Min(420, searchPanel.Width - 320));
+            int maxSearchW = Math.Max(180, Math.Min(420, searchPanel.Width - 340));
             txtSearch.Width = maxSearchW;
             btnClear.Location = new Point(txtSearch.Right + 8, 7);
+            if (btnToggleActions != null)
+            {
+                btnToggleActions.Location = new Point(searchPanel.Width - btnToggleActions.Width - 8, 7);
+            }
         };
 
         // Gap between SearchPanel and GridCard (10px)
@@ -525,11 +558,33 @@ public class GroupListForm : Form, IBackNavigable
         // Window Shortcuts
         KeyDown += OnFormKeyDown;
 
+        // Default to collapsed state as per requirement and reference image
+        SetActionsPanelCollapsed(true);
+
         Shown += (s, e) =>
         {
             FocusFirstRowInGrid();
             UpdateActionButtonsEnabledState();
         };
+    }
+
+    /// <summary>
+    /// Collapses or expands the right-side Actions panel, hiding it completely when collapsed
+    /// and allowing the Group Master table and search panel to occupy 100% of the available workspace.
+    /// </summary>
+    public void SetActionsPanelCollapsed(bool collapsed)
+    {
+        _isActionsPanelCollapsed = collapsed;
+
+        pnlWorkspace.SuspendLayout();
+        pnlRightActions.Visible = !collapsed;
+        pnlActionsGap.Visible = !collapsed;
+        pnlWorkspace.ResumeLayout(true);
+
+        pnlRightActions.SetCollapsed(collapsed);
+
+        EnsureSelectedRowVisible();
+        UpdateScrollIndicators();
     }
 
     /// <summary>
@@ -927,7 +982,8 @@ public class GroupListForm : Form, IBackNavigable
         }
 
         int selIndex = dgvGroups.SelectedRows.Count > 0 ? dgvGroups.SelectedRows[0].Index : 0;
-        int displayedCount = dgvGroups.DisplayedRowCount(false);
+        int displayedCount = dgvGroups.DisplayedRowCount(true);
+        if (displayedCount <= 0) displayedCount = dgvGroups.DisplayedRowCount(false);
 
         if (displayedCount > 0)
         {

@@ -124,6 +124,31 @@ public class MoneyFlowField : Panel
         UpdateDisplayValue();
     }
 
+    public void UpdateEditorWidth(int width)
+    {
+        if (_editorContainer != null && width > 100)
+        {
+            _editorContainer.Width = width;
+        }
+    }
+
+    protected override void OnEnabledChanged(EventArgs e)
+    {
+        base.OnEnabledChanged(e);
+        if (_lblTitle != null)
+        {
+            _lblTitle.ForeColor = Enabled ? Color.FromArgb(15, 23, 42) : Color.FromArgb(148, 163, 184);
+        }
+        if (_lblColon != null)
+        {
+            _lblColon.ForeColor = Enabled ? Color.FromArgb(71, 85, 105) : Color.FromArgb(148, 163, 184);
+        }
+        if (_lblDisplay != null)
+        {
+            _lblDisplay.ForeColor = Enabled ? Color.FromArgb(15, 23, 42) : Color.FromArgb(100, 116, 139);
+        }
+    }
+
     public void SetActive(bool active)
     {
         if (_isActive == active) return;
@@ -147,6 +172,11 @@ public class MoneyFlowField : Panel
                 {
                     tb.Focus();
                     tb.SelectAll();
+                }
+                else if (_editor is ComboBox cb)
+                {
+                    cb.Focus();
+                    cb.SelectAll();
                 }
                 else
                 {

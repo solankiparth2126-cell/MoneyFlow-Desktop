@@ -236,18 +236,33 @@ public class MoneyFlowTextLookup : UserControl
         }
     }
 
+    public event KeyEventHandler? EditorKeyDown;
+    public event EventHandler? SelectionCommitted;
+
+    public TextBox InnerTextBox => _innerTextBox;
+
     private async Task HandleInnerKeyDownAsync(KeyEventArgs e)
     {
-        // 1. Enter Key Handling: jump to next control immediately
+        // Forward inner key to external listeners and UserControl.OnKeyDown
+        EditorKeyDown?.Invoke(this, e);
+        if (e.Handled || e.SuppressKeyPress) return;
+
+        OnKeyDown(e);
+        if (e.Handled || e.SuppressKeyPress) return;
+
+        // 1. Enter Key Handling
         if (e.KeyCode == Keys.Enter)
         {
+            if (_popup != null && _popup.Visible)
+            {
+                // Popup is visible; let the popup keyboard controller commit selection
+                return;
+            }
+
             e.Handled = true;
             e.SuppressKeyPress = true;
 
-            if (_popup != null && _popup.Visible)
-            {
-                return;
-            }
+            SelectionCommitted?.Invoke(this, EventArgs.Empty);
 
             var parent = FindForm();
             parent?.SelectNextControl(this, true, true, true, true);
@@ -326,13 +341,17 @@ public class MoneyFlowTextLookup : UserControl
                 _suppressAutoOpenUntilLeave = true;
 
                 SelectedValueChanged?.Invoke(this, EventArgs.Empty);
+                SelectionCommitted?.Invoke(this, EventArgs.Empty);
 
-                // Immediately advance focus to the next control in the form
-                BeginInvoke(new Action(() =>
+                // If no external commit listener is registered, fallback to form's SelectNextControl
+                if (SelectionCommitted == null)
                 {
-                    var parent = FindForm();
-                    parent?.SelectNextControl(this, true, true, true, true);
-                }));
+                    BeginInvoke(new Action(() =>
+                    {
+                        var parent = FindForm();
+                        parent?.SelectNextControl(this, true, true, true, true);
+                    }));
+                }
             };
 
             _popup.CreateRequested += () =>

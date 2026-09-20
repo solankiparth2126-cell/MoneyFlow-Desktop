@@ -534,6 +534,227 @@ public class GroupMasterWorkflowTests
         groupListForm.Grid.ShowCellToolTips.Should().BeFalse();
     }
 
+    [Fact]
+    public void GroupMaster_CollapsibleSidebar_InitialState_CollapsedWithToggleButton()
+    {
+        var testCompany = new Company { CompanyId = 1, CompanyName = "Test Co" };
+        var fakeCompanyContext = new FakeCompanyContext(testCompany);
+        var fakeGroupService = new FakeGroupService();
+
+        using var groupListForm = new GroupListForm(
+            fakeGroupService,
+            null!,
+            null!,
+            fakeCompanyContext);
+
+        // Initial default state is collapsed as per image reference
+        groupListForm.IsActionsPanelCollapsed.Should().BeTrue();
+        groupListForm.RightActionPanel.Visible.Should().BeFalse();
+        groupListForm.ButtonToggleActions.Should().NotBeNull();
+        groupListForm.ButtonToggleActions.AccessibleName.Should().Be("Expand Actions");
+        groupListForm.ButtonToggleActions.Visible.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GroupMaster_CollapsibleSidebar_ToggleExpand_ShowsActions()
+    {
+        var testCompany = new Company { CompanyId = 1, CompanyName = "Test Co" };
+        var fakeCompanyContext = new FakeCompanyContext(testCompany);
+        var fakeGroupService = new FakeGroupService();
+
+        using var groupListForm = new GroupListForm(
+            fakeGroupService,
+            null!,
+            null!,
+            fakeCompanyContext);
+
+        // Initial collapsed state
+        groupListForm.IsActionsPanelCollapsed.Should().BeTrue();
+        groupListForm.RightActionPanel.Visible.Should().BeFalse();
+
+        // Click toggle button to expand
+        groupListForm.ButtonToggleActions.PerformClick();
+
+        // Verifications on expanded state
+        groupListForm.IsActionsPanelCollapsed.Should().BeFalse();
+        groupListForm.RightActionPanel.Visible.Should().BeTrue();
+        groupListForm.RightActionPanel.Width.Should().Be(200);
+        groupListForm.ButtonToggleActions.AccessibleName.Should().Be("Collapse Actions");
+
+        // Action buttons must be visible
+        groupListForm.ButtonCreate.Visible.Should().BeTrue();
+        groupListForm.ButtonAlter.Visible.Should().BeTrue();
+        groupListForm.ButtonDelete.Visible.Should().BeTrue();
+        groupListForm.ButtonSearch.Visible.Should().BeTrue();
+        groupListForm.ButtonClose.Visible.Should().BeTrue();
+    }
+
+    [Fact]
+    public void GroupMaster_CollapsibleSidebar_ToggleCollapse_RestoresCollapsedState()
+    {
+        var testCompany = new Company { CompanyId = 1, CompanyName = "Test Co" };
+        var fakeCompanyContext = new FakeCompanyContext(testCompany);
+        var fakeGroupService = new FakeGroupService();
+
+        using var groupListForm = new GroupListForm(
+            fakeGroupService,
+            null!,
+            null!,
+            fakeCompanyContext);
+
+        // Expand
+        groupListForm.ToggleActionsPanel();
+        groupListForm.IsActionsPanelCollapsed.Should().BeFalse();
+        groupListForm.RightActionPanel.Visible.Should().BeTrue();
+
+        // Collapse again
+        groupListForm.ButtonToggleActions.PerformClick();
+        groupListForm.IsActionsPanelCollapsed.Should().BeTrue();
+        groupListForm.RightActionPanel.Visible.Should().BeFalse();
+        groupListForm.ButtonToggleActions.AccessibleName.Should().Be("Expand Actions");
+    }
+
+    [Fact]
+    public void GroupMaster_CollapsibleSidebar_ShortcutsPreservedWhenCollapsed()
+    {
+        var testCompany = new Company { CompanyId = 1, CompanyName = "Test Co" };
+        var fakeCompanyContext = new FakeCompanyContext(testCompany);
+        var fakeGroupService = new FakeGroupService();
+
+        using var groupListForm = new GroupListForm(
+            fakeGroupService,
+            null!,
+            null!,
+            fakeCompanyContext);
+
+        // Collapse actions sidebar
+        groupListForm.ToggleActionsPanel();
+        groupListForm.IsActionsPanelCollapsed.Should().BeTrue();
+
+        // Trigger Alt+C shortcut
+        groupListForm.IsCreationViewActive.Should().BeFalse();
+        groupListForm.RightActionPanel.TriggerCreate();
+        groupListForm.IsCreationViewActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AlterGroup_HeaderAndGroupInformationSection_DoNotOverlapAndAreVisible()
+    {
+        var fakeGroupService = new FakeGroupService();
+        using var form = new GroupCreateEditForm(fakeGroupService, companyId: 1, groupIdToEdit: 10);
+
+        form.HeaderPanel.Should().NotBeNull();
+        form.HeaderPanel.Dock.Should().Be(DockStyle.Top);
+        form.HeaderPanel.Height.Should().Be(48);
+
+        form.SectionLabel.Should().NotBeNull();
+        form.SectionLabel.Text.Should().Be("Group Information");
+        form.SectionLabel.Location.Y.Should().Be(20);
+
+        form.CardPanel.Should().NotBeNull();
+        form.CardPanel.Location.Y.Should().Be(16);
+
+        // HeaderPanel and CardPanel are separated in docking/viewport order; SectionLabel is fully visible inside Card
+        form.CardPanel.Controls.Contains(form.SectionLabel).Should().BeTrue();
+    }
+
+    [Fact]
+    public void AlterGroup_FormCard_IsResponsiveAndHugsContentWithoutUnusedSpace()
+    {
+        var fakeGroupService = new FakeGroupService();
+        using var form = new GroupCreateEditForm(fakeGroupService, companyId: 1, groupIdToEdit: 10);
+
+        // Card height is tightly bounded (~500-515px) to eliminate large blank void
+        form.CardPanel.Height.Should().BeInRange(490, 525);
+
+        // All 9 fields exist and are configured
+        form.FieldName.Should().NotBeNull();
+        form.FieldAlias.Should().NotBeNull();
+        form.FieldUnder.Should().NotBeNull();
+        form.FieldSubLedger.Should().NotBeNull();
+        form.FieldNettBalances.Should().NotBeNull();
+        form.FieldCalculation.Should().NotBeNull();
+        form.FieldMethodToAllocate.Should().NotBeNull();
+        form.FieldNature.Should().NotBeNull();
+        form.FieldAffectsPL.Should().NotBeNull();
+
+        // Save & Cancel buttons are aligned below form fields
+        form.ButtonSave.Location.X.Should().Be(322); // Aligned with input fields
+        form.ButtonCancel.Location.X.Should().Be(322 + 195);
+        form.ButtonSave.Location.Y.Should().Be(442);
+        form.ButtonCancel.Location.Y.Should().Be(442);
+    }
+
+    [Fact]
+    public void AlterGroup_EnterKeyNavigation_MovesThroughFieldsToSaveButton()
+    {
+        var fakeGroupService = new FakeGroupService();
+        using var form = new GroupCreateEditForm(fakeGroupService, companyId: 1, groupIdToEdit: null);
+
+        // Initially Field 0 (Name) is active
+        form.ActiveFieldIndex.Should().Be(0);
+
+        // Enter on Field 0 advances to Field 1 (alias)
+        form.MoveToNextField(0);
+        form.ActiveFieldIndex.Should().Be(1);
+
+        // Enter on Field 1 advances to Field 2 (Under)
+        form.MoveToNextField(1);
+        form.ActiveFieldIndex.Should().Be(2);
+
+        // Enter on Field 2 advances to Field 3 (SubLedger)
+        form.MoveToNextField(2);
+        form.ActiveFieldIndex.Should().Be(3);
+
+        // Advance to Field 6 (MethodToAllocate)
+        form.MoveToNextField(3);
+        form.ActiveFieldIndex.Should().Be(4);
+        form.MoveToNextField(4);
+        form.ActiveFieldIndex.Should().Be(5);
+        form.MoveToNextField(5);
+        form.ActiveFieldIndex.Should().Be(6);
+
+        // When Nature (7) and AffectsPL (8) are disabled, advancing from Field 6 moves focus to Save button
+        form.FieldNature.Enabled = false;
+        form.FieldNature.Editor!.Enabled = false;
+        form.FieldAffectsPL.Enabled = false;
+        form.FieldAffectsPL.Editor!.Enabled = false;
+
+        form.MoveToNextField(6);
+        form.ActiveFieldIndex.Should().Be(-1); // Active input field cleared, focus on btnSave
+        form.ButtonSave.Focused.Should().BeTrue();
+    }
+
+    [Fact]
+    public void KeyboardNavigationController_ComboBox_CommitOnEnterBeforeAdvance()
+    {
+        using var form = new Form();
+        var cmb = new ComboBox { TabIndex = 0, DropDownStyle = ComboBoxStyle.DropDownList };
+        cmb.Items.AddRange(new object[] { "Option A", "Option B" });
+        cmb.SelectedIndex = 0;
+        var txt = new TextBox { TabIndex = 1 };
+
+        form.Controls.Add(cmb);
+        form.Controls.Add(txt);
+
+        var controller = new MoneyFlowKeyboardNavigationController(form);
+
+        // Simulate ComboBox being dropped down
+        cmb.DroppedDown = true;
+        cmb.DroppedDown.Should().BeTrue();
+
+        // Simulate pressing Enter while dropped down
+        var enterKey = new KeyEventArgs(Keys.Enter);
+        var method = typeof(MoneyFlowKeyboardNavigationController).GetMethod(
+            "OnControlKeyDown",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        method?.Invoke(controller, new object[] { cmb, enterKey });
+
+        // Dropdown is committed/closed, navigation does not advance immediately
+        cmb.DroppedDown.Should().BeFalse();
+        enterKey.Handled.Should().BeTrue();
+    }
+
     private class FakeCompanyContext : ICompanyContext
     {
         public FakeCompanyContext(Company? company) => CurrentCompany = company;

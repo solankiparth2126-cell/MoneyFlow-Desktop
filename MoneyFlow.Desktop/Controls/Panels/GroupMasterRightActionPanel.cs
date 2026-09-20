@@ -20,13 +20,20 @@ public class GroupMasterRightActionPanel : Panel
     public event EventHandler? SearchClicked;
     public event EventHandler? FindClicked;
     public event EventHandler? CloseClicked;
+    public event EventHandler? CollapseToggled;
 
     private readonly Label lblHeader;
+    private readonly ActionToggleButton btnToggle;
+    private readonly ToolTip toolTip;
     private readonly ActionNavButton btnCreate;
     private readonly ActionNavButton btnAlter;
     private readonly ActionNavButton btnDelete;
     private readonly ActionNavButton btnSearch;
     private readonly ActionNavButton btnClose;
+
+    private bool _isCollapsed = true;
+    private int _expandedWidth = 200;
+    private int _collapsedWidth = 40;
 
     public Button ButtonCreate => btnCreate;
     public Button ButtonAlter => btnAlter;
@@ -34,6 +41,25 @@ public class GroupMasterRightActionPanel : Panel
     public Button ButtonSearch => btnSearch;
     public Button ButtonFind => btnSearch;
     public Button ButtonClose => btnClose;
+    public Button ButtonToggle => btnToggle;
+    public Button ToggleButton => btnToggle;
+    public ActionToggleButton ActionToggleButton => btnToggle;
+
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        set => SetCollapsed(value);
+    }
+
+    public int ExpandedWidth
+    {
+        get => _expandedWidth;
+        set
+        {
+            _expandedWidth = value;
+            if (!_isCollapsed) Width = _expandedWidth;
+        }
+    }
 
     public void TriggerCreate() => CreateClicked?.Invoke(this, EventArgs.Empty);
     public void TriggerAlter()
@@ -55,6 +81,20 @@ public class GroupMasterRightActionPanel : Panel
     public void TriggerFind() => TriggerSearch();
     public void TriggerClose() => CloseClicked?.Invoke(this, EventArgs.Empty);
 
+    public void ToggleCollapse() => SetCollapsed(!_isCollapsed);
+
+    public void SetCollapsed(bool collapse)
+    {
+        _isCollapsed = collapse;
+        Visible = !collapse;
+
+        btnToggle.IsCollapsed = _isCollapsed;
+        toolTip.SetToolTip(btnToggle, _isCollapsed ? "Expand Actions" : "Collapse Actions");
+        btnToggle.AccessibleName = _isCollapsed ? "Expand Actions" : "Collapse Actions";
+
+        CollapseToggled?.Invoke(this, EventArgs.Empty);
+    }
+
     public void SetRowSelectedActionsEnabled(bool enabled)
     {
         btnAlter.Enabled = enabled;
@@ -64,10 +104,18 @@ public class GroupMasterRightActionPanel : Panel
     public GroupMasterRightActionPanel()
     {
         Dock = DockStyle.Right;
-        Width = 200; // 180px–210px compact sidebar width
+        Width = _expandedWidth; // 180px–210px compact sidebar width
         BackColor = Color.FromArgb(224, 237, 253); // Light Blue #E0EDFD (Reference Image 1)
         Padding = new Padding(10, 12, 10, 12);
         DoubleBuffered = true;
+
+        toolTip = new ToolTip
+        {
+            ShowAlways = true,
+            InitialDelay = 200,
+            ReshowDelay = 100,
+            AutoPopDelay = 3000
+        };
 
         // Action Panel Header: "ACTIONS" (15px–17px, Weight 700, #1B365D)
         lblHeader = new Label
@@ -80,6 +128,14 @@ public class GroupMasterRightActionPanel : Panel
             BackColor = Color.Transparent
         };
         Controls.Add(lblHeader);
+
+        // Modern, compact toggle button (Collapse/Expand Actions)
+        btnToggle = new ActionToggleButton
+        {
+            IsCollapsed = true,
+            AccessibleName = "Expand Actions"
+        };
+        toolTip.SetToolTip(btnToggle, "Expand Actions");
 
         // Corporate Navy Color from Image 2: #1B365D (RGB: 27, 54, 93)
         var btnNavy = Color.FromArgb(27, 54, 93);
@@ -192,6 +248,15 @@ public class GroupMasterRightActionPanel : Panel
         btnClose.SetBounds(btnX, closeY, btnWidth, btnHeight);
     }
 
+    protected override void OnMouseClick(MouseEventArgs e)
+    {
+        base.OnMouseClick(e);
+        if (_isCollapsed && e.Button == MouseButtons.Left)
+        {
+            ToggleCollapse();
+        }
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
@@ -212,6 +277,132 @@ public class GroupMasterRightActionPanel : Panel
         path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
         path.CloseFigure();
         return path;
+    }
+}
+
+/// <summary>
+/// Modern, compact toggle button for expanding and collapsing the right-side Actions sidebar.
+/// Follows MoneyFlow ERP theme with Corporate Navy #1B365D styling, rounded corners,
+/// and crisp anti-aliased GDI+ vector chevron icons indicating collapse/expand direction.
+/// </summary>
+public class ActionToggleButton : Button
+{
+    private bool _isHovered;
+    private bool _isPressed;
+    private bool _isCollapsed;
+
+    public bool IsCollapsed
+    {
+        get => _isCollapsed;
+        set
+        {
+            if (_isCollapsed != value)
+            {
+                _isCollapsed = value;
+                Invalidate();
+            }
+        }
+    }
+
+    public ActionToggleButton()
+    {
+        Size = new Size(28, 28);
+        FlatStyle = FlatStyle.Flat;
+        FlatAppearance.BorderSize = 0;
+        Cursor = Cursors.Hand;
+        DoubleBuffered = true;
+        TabStop = false; // Don't interrupt keyboard-first accounting navigation
+        BackColor = Color.FromArgb(27, 54, 93); // Corporate Navy #1B365D
+        ForeColor = Color.White;
+
+        MouseEnter += (s, e) => { _isHovered = true; Invalidate(); };
+        MouseLeave += (s, e) => { _isHovered = false; Invalidate(); };
+        MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { _isPressed = true; Invalidate(); } };
+        MouseUp += (s, e) => { _isPressed = false; Invalidate(); };
+        GotFocus += (s, e) => Invalidate();
+        LostFocus += (s, e) => Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        // Clear parent background
+        var parentBg = Parent?.BackColor ?? Color.White;
+        using (var parentBrush = new SolidBrush(parentBg))
+        {
+            g.FillRectangle(parentBrush, ClientRectangle);
+        }
+
+        Color bgColor;
+        if (_isPressed)
+        {
+            bgColor = Color.FromArgb(18, 38, 66); // Darker navy on press
+        }
+        else if (_isHovered)
+        {
+            bgColor = Color.FromArgb(36, 71, 107); // Hover navy
+        }
+        else
+        {
+            bgColor = Color.FromArgb(27, 54, 93); // Base Corporate Navy #1B365D
+        }
+
+        var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
+        const int radius = 4;
+
+        using (var path = GroupMasterRightActionPanel.CreateRoundedRectanglePath(bounds, radius))
+        {
+            using (var brush = new SolidBrush(bgColor))
+            {
+                g.FillPath(brush, path);
+            }
+
+            if (Focused)
+            {
+                using var focusPen = new Pen(Color.FromArgb(37, 99, 235), 1.5f);
+                g.DrawPath(focusPen, path);
+            }
+            else
+            {
+                // Subtle border
+                using var borderPen = new Pen(Color.FromArgb(20, 40, 70), 1f);
+                g.DrawPath(borderPen, path);
+            }
+        }
+
+        // Draw crisp vector icon
+        float cx = Width / 2f;
+        float cy = Height / 2f;
+
+        using var pen = new Pen(Color.White, 2f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+
+        if (!_isCollapsed)
+        {
+            // Expanded state: Left-facing double-chevron (<<)
+            // Left chevron
+            g.DrawLine(pen, cx - 0.5f, cy - 4.5f, cx - 3.5f, cy);
+            g.DrawLine(pen, cx - 3.5f, cy, cx - 0.5f, cy + 4.5f);
+            // Right chevron
+            g.DrawLine(pen, cx + 4.5f, cy - 4.5f, cx + 1.5f, cy);
+            g.DrawLine(pen, cx + 1.5f, cy, cx + 4.5f, cy + 4.5f);
+        }
+        else
+        {
+            // Collapsed state: Right-facing double-chevron (>>)
+            // Left chevron
+            g.DrawLine(pen, cx - 4.5f, cy - 4.5f, cx - 1.5f, cy);
+            g.DrawLine(pen, cx - 1.5f, cy, cx - 4.5f, cy + 4.5f);
+            // Right chevron
+            g.DrawLine(pen, cx + 0.5f, cy - 4.5f, cx + 3.5f, cy);
+            g.DrawLine(pen, cx + 3.5f, cy, cx + 0.5f, cy + 4.5f);
+        }
     }
 }
 
