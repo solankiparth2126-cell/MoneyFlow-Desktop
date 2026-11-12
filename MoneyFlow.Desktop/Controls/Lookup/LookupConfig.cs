@@ -14,7 +14,7 @@ public class LookupConfig
     public bool AllowClear { get; set; }
     public string ClearItemText { get; set; } = "◆ Not Applicable";
     public int DefaultWidth { get; set; } = 480;
-    public int DefaultHeight { get; set; } = 340;
+    public int DefaultHeight { get; set; } = 360;
     public string DescriptionColumnHeader { get; set; } = "Description";
     public string CodeColumnHeader { get; set; } = "Code";
     public bool ShowCodeColumn { get; set; } = true;

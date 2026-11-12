@@ -103,8 +103,8 @@ public class MoneyFlowLookupPopup : Form
 
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32)); // 0: Title Bar
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // 1: Sub Bar (Counts & New)
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, _config.ShowSearchBox ? 34 : 0)); // 2: Find Search Bar
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // 3: Columns Header
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, _config.ShowSearchBox ? 44 : 0)); // 2: Find Search Bar
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24)); // 3: Columns Header
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // 4: Items List
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, _config.ShowStatusFilter ? 22 : 0)); // 5: Status Filter & Counter
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26)); // 6: Keyboard Shortcut Footer
@@ -217,13 +217,12 @@ public class MoneyFlowLookupPopup : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Color.White,
-            Padding = new Padding(14, 5, 14, 5),
             Margin = new Padding(0),
             Visible = _config.ShowSearchBox
         };
         pnlFind.Paint += (s, e) =>
         {
-            using var pen = new Pen(Color.FromArgb(241, 245, 249), 1);
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
             e.Graphics.DrawLine(pen, 0, pnlFind.Height - 1, pnlFind.Width, pnlFind.Height - 1);
         };
 
@@ -233,16 +232,16 @@ public class MoneyFlowLookupPopup : Form
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             ForeColor = Color.FromArgb(71, 85, 105),
             AutoSize = true,
-            Location = new Point(14, 7),
+            Location = new Point(14, 12),
             BackColor = Color.Transparent
         };
         pnlFind.Controls.Add(lblFindIcon);
 
         _txtSearch = new TextBox
         {
-            Location = new Point(56, 5),
-            Width = Width - 70,
-            Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
+            Location = new Point(58, 9),
+            Width = Math.Max(80, Width - 74),
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
             ForeColor = ExecLedgerTheme.PrimaryText,
             BorderStyle = BorderStyle.FixedSingle,
             Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
@@ -250,6 +249,14 @@ public class MoneyFlowLookupPopup : Form
         _txtSearch.TextChanged += async (s, e) => await OnSearchTextChangedAsync();
         _txtSearch.KeyDown += OnSearchKeyDown;
         pnlFind.Controls.Add(_txtSearch);
+
+        pnlFind.Resize += (s, e) =>
+        {
+            int centerY = pnlFind.ClientSize.Height / 2;
+            lblFindIcon.Top = Math.Max(2, centerY - (lblFindIcon.PreferredHeight / 2));
+            _txtSearch.Top = Math.Max(2, centerY - (_txtSearch.PreferredHeight / 2));
+            _txtSearch.Width = Math.Max(80, pnlFind.ClientSize.Width - 74);
+        };
 
         // ── 3. Column Headers ──
         var pnlCols = new Panel
