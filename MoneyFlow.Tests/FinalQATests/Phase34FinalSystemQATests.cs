@@ -367,4 +367,36 @@ public class Phase34FinalSystemQATests
         bs.Difference.Should().Be(0m);
         bs.TotalAssetsSide.Should().Be(bs.TotalLiabilitiesSide);
     }
+
+    [Fact]
+    public void DependencyInjection_CanResolve_CompanyService_And_MainForm_Without_Constructor_Ambiguity()
+    {
+        var services = new ServiceCollection();
+        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+        services.AddLogging();
+        MoneyFlow.Desktop.Configuration.ServiceCollectionExtensions.AddDatabaseServices(services, configuration);
+        MoneyFlow.Desktop.Configuration.ServiceCollectionExtensions.AddDataRepositories(services);
+        MoneyFlow.Desktop.Configuration.ServiceCollectionExtensions.AddDomainServices(services);
+        MoneyFlow.Desktop.Configuration.ServiceCollectionExtensions.AddNavigationServices(services);
+        MoneyFlow.Desktop.Configuration.ServiceCollectionExtensions.AddDesktopForms(services);
+
+        var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        // Ensure ICompanyService resolves without ambiguous constructor exception
+        var companyService = scope.ServiceProvider.GetRequiredService<ICompanyService>();
+        companyService.Should().NotBeNull();
+
+        var companies = companyService.GetAllCompaniesAsync().GetAwaiter().GetResult();
+        companies.Should().NotBeNull();
+
+        // Ensure IDatabaseSetupService resolves
+        var dbSetup = scope.ServiceProvider.GetRequiredService<IDatabaseSetupService>();
+        dbSetup.Should().NotBeNull();
+
+        // Ensure MainForm resolves
+        var mainForm = scope.ServiceProvider.GetRequiredService<MoneyFlow.Desktop.Forms.MainForm>();
+        mainForm.Should().NotBeNull();
+    }
 }
+

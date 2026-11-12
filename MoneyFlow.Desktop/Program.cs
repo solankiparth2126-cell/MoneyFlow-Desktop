@@ -90,7 +90,25 @@ static class Program
 
             var configuration = builder.Build();
 
+<<<<<<< Updated upstream
             // 5. Setup Dependency Injection — File-Based Storage (No SQL Server)
+=======
+            // 3.5. Check & Launch First-Time Setup Wizard if Required
+            if (ApplicationStartupDialog.IsFirstTimeSetupRequired())
+            {
+                Log.Information("First-time setup detected. Displaying Application Startup configuration dialog.");
+                using var startupDlg = new ApplicationStartupDialog();
+                if (startupDlg.ShowDialog() != DialogResult.OK)
+                {
+                    Log.Information("Application startup configuration cancelled by user.");
+                    return;
+                }
+                MoneyFlow.Core.Common.CompanyPathConfiguration.SetConfiguredPaths(startupDlg.SelectedDataPath, startupDlg.SelectedDataPath);
+                Log.Information("First-time setup completed successfully with data path: {DataPath}", startupDlg.SelectedDataPath);
+            }
+
+            // 4. Setup Dependency Injection with Modular Extensions
+>>>>>>> Stashed changes
             var host = Host.CreateDefaultBuilder()
                 .UseDefaultServiceProvider((_, options) =>
                 {
@@ -116,6 +134,7 @@ static class Program
             using var scope = host.Services.CreateScope();
             var services = scope.ServiceProvider;
 
+<<<<<<< Updated upstream
             // 6. Initialize file-based storage (create directories, no SQL)
             var initService = services.GetRequiredService<ApplicationInitializationService>();
             initService.Initialize();
@@ -129,6 +148,21 @@ static class Program
             }
 
             // 8. Launch Gateway Form
+=======
+            // 6. Initialize Local Offline Storage Directories
+            try
+            {
+                var initTask = dbSetup.InitializeDatabaseAsync();
+                initTask.Wait(5000);
+                Log.Information("Offline storage directories verified successfully.");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed initializing offline storage directories.");
+            }
+
+            // 7. Launch Gateway Form
+>>>>>>> Stashed changes
             Log.Information("Launching Main Gateway form.");
             var mainForm = services.GetRequiredService<MainForm>();
             Application.Run(mainForm);

@@ -22,7 +22,11 @@ namespace MoneyFlow.Desktop.Forms;
 /// 70/30 Split (6 Structured Gateway Cards + 3 Quick Widgets),
 /// Horizontal Colored Operations Rail, and Status Bar.
 /// </summary>
+<<<<<<< Updated upstream
 public class MainForm : Form, INavigationHost
+=======
+public class MainForm : Form, IMainContentHost
+>>>>>>> Stashed changes
 {
     // ═══════════════════════════════════════════════════════════════
     //  WIN32 INTEROP for Windows 11 Snap Layouts
@@ -56,8 +60,10 @@ public class MainForm : Form, INavigationHost
     private readonly IBackupRestoreService? _backupRestoreService;
 
     // ═══════════════════════════════════════════════════════════════
-    //  UI CONTROLS
+    //  UI CONTROLS & EMBEDDED VIEW STACK
     // ═══════════════════════════════════════════════════════════════
+    private readonly Stack<Control> _viewStack = new();
+    private Panel pnlGatewayView = null!;
 
     // Title bar
     private Guna2Panel titleBar = null!;
@@ -74,6 +80,7 @@ public class MainForm : Form, INavigationHost
     private System.Windows.Forms.Timer sessionTimer = null!;
     private DateTime sessionStartTime;
 
+<<<<<<< Updated upstream
     // Company Banner Card (Full Width)
     private Guna2Panel pnlCompanyBanner = null!;
     private Panel pnlBannerSpacer = null!;
@@ -91,6 +98,9 @@ public class MainForm : Form, INavigationHost
     private string _booksBeginningDateStr = "01-Apr-2026";
 
     // Gateway Header
+=======
+    // Gateway Header & Navigation
+>>>>>>> Stashed changes
     private Panel pnlGatewayHeader = null!;
     private Label lblGwTitle = null!;
     private Label lblGwSub = null!;
@@ -184,6 +194,8 @@ public class MainForm : Form, INavigationHost
 
         sessionStartTime = DateTime.Now;
 
+        _navigationService.RegisterHost(this);
+
         InitializeComponent();
 
         _navigationService.RegisterHost(this);
@@ -250,11 +262,14 @@ public class MainForm : Form, INavigationHost
         // 7. Keyboard Shortcuts
         KeyDown += MainForm_KeyDown;
 
-        // 8. Auto-Open Select Company On Startup
+        // 8. Auto-Open Select Company On Startup inside main section panel
         Shown += (s, e) =>
         {
             ApplyResponsiveLayout();
-            _navigationService.OpenCompanyList(this);
+            if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+            {
+                _navigationService.OpenCompanyList(this);
+            }
         };
 
         // Listen for OS display settings changes
@@ -270,6 +285,22 @@ public class MainForm : Form, INavigationHost
         };
 
         ResumeLayout(true);
+    }
+
+    /// <summary>
+    /// Centralized guard: requires an active company before accessing Dashboard, Masters, Transactions, Reports, Utilities.
+    /// Opens the Company List inside the main workspace if none is active.
+    /// </summary>
+    public bool RequireActiveCompany()
+    {
+        if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
+        {
+            _navigationService.OpenCompanyList(this);
+            return false;
+        }
+
+        UpdateCompanyContextUI();
+        return true;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -946,6 +977,7 @@ public class MainForm : Form, INavigationHost
         };
         mainContainer.Resize += (s, e) => ApplyResponsiveLayout();
 
+<<<<<<< Updated upstream
         // ── A. FULL-WIDTH COMPANY BANNER CARD ──
         pnlCompanyBanner = new Guna2Panel
         {
@@ -1047,15 +1079,18 @@ public class MainForm : Form, INavigationHost
         };
 
         boxUnified = new Guna2Panel
+=======
+        pnlGatewayView = new Panel
+>>>>>>> Stashed changes
         {
             Dock = DockStyle.Fill,
-            FillColor = Color.White,
-            BorderColor = Color.FromArgb(226, 232, 240),
-            BorderThickness = 1,
-            BorderRadius = 6
+            BackColor = Color.FromArgb(241, 245, 249),
+            Padding = new Padding(14, 8, 14, 8),
+            AutoScroll = false
         };
-        boxUnified.Resize += (s, e) => LayoutUnifiedDateBox();
+        pnlGatewayView.Resize += (s, e) => ApplyResponsiveLayout();
 
+<<<<<<< Updated upstream
         // Left Section: Financial Year
         lblFYTag = new Label
         {
@@ -1139,29 +1174,145 @@ public class MainForm : Form, INavigationHost
             Height = 44,
             BackColor = Color.Transparent,
             Padding = new Padding(2, 0, 0, 0)
+=======
+        // ── A. GATEWAY OF ACCOUNTING HEADER (52px, unclipped, generous top padding) ──
+        pnlGatewayHeader = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 52,
+            BackColor = Color.Transparent,
+            Padding = new Padding(6, 4, 6, 4)
+>>>>>>> Stashed changes
         };
         pnlGatewayHeader.Resize += (s, e) => LayoutGatewayHeader();
 
         lblGwTitle = new Label
         {
             Text = "GATEWAY OF ACCOUNTING",
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
             ForeColor = Color.FromArgb(15, 23, 42),
+<<<<<<< Updated upstream
             Location = new Point(2, 2),
+=======
+            Location = new Point(4, 4),
+>>>>>>> Stashed changes
             AutoSize = true
         };
         lblGwSub = new Label
         {
             Text = "Press highlighted underlined key or click category to open master modules",
-            Font = new Font("Segoe UI", 8F),
+            Font = new Font("Segoe UI", 8.25F),
             ForeColor = Color.FromArgb(100, 116, 139),
+<<<<<<< Updated upstream
             Location = new Point(2, 24),
+=======
+            Location = new Point(4, 28),
+>>>>>>> Stashed changes
             AutoSize = true
         };
         pnlGatewayHeader.Controls.Add(lblGwTitle);
         pnlGatewayHeader.Controls.Add(lblGwSub);
 
+<<<<<<< Updated upstream
         // 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Stretches to 100% available client height)
+=======
+        // Navigation Tip Pill with key badges
+        pnlNavTip = new Guna2Panel
+        {
+            Size = new Size(395, 28),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            FillColor = Color.FromArgb(239, 246, 255),
+            BorderColor = Color.FromArgb(191, 219, 254),
+            BorderThickness = 1,
+            BorderRadius = 4
+        };
+
+        var flowNav = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            WrapContents = false,
+            AutoSize = false,
+            BackColor = Color.Transparent,
+            Padding = new Padding(8, 3, 8, 3)
+        };
+
+        var lblNavPrefix = new Label
+        {
+            Text = "Navigation Tip: Use",
+            Font = new Font("Segoe UI", 7.5F),
+            ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(0, 3, 2, 0)
+        };
+
+        var badgeArrow = new Guna2Panel
+        {
+            Size = new Size(72, 20),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(191, 219, 254),
+            BorderThickness = 1,
+            BorderRadius = 3,
+            Margin = new Padding(2, 0, 2, 0)
+        };
+        var lblArrow = new Label
+        {
+            Text = "Arrow Keys",
+            Font = new Font("Segoe UI", 7F),
+            ForeColor = Color.FromArgb(51, 65, 85),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent
+        };
+        badgeArrow.Controls.Add(lblArrow);
+
+        var lblNavPlus = new Label
+        {
+            Text = "+",
+            Font = new Font("Segoe UI", 7.5F),
+            ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(2, 3, 2, 0)
+        };
+
+        var badgeEnter = new Guna2Panel
+        {
+            Size = new Size(38, 20),
+            FillColor = Color.White,
+            BorderColor = Color.FromArgb(191, 219, 254),
+            BorderThickness = 1,
+            BorderRadius = 3,
+            Margin = new Padding(2, 0, 2, 0)
+        };
+        var lblEnter = new Label
+        {
+            Text = "Enter",
+            Font = new Font("Segoe UI", 7F),
+            ForeColor = Color.FromArgb(51, 65, 85),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            BackColor = Color.Transparent
+        };
+        badgeEnter.Controls.Add(lblEnter);
+
+        var lblNavSuffix = new Label
+        {
+            Text = "or single hotkeys.",
+            Font = new Font("Segoe UI", 7.5F),
+            ForeColor = Color.FromArgb(29, 78, 216),
+            AutoSize = true,
+            Margin = new Padding(2, 3, 0, 0)
+        };
+
+        flowNav.Controls.Add(lblNavPrefix);
+        flowNav.Controls.Add(badgeArrow);
+        flowNav.Controls.Add(lblNavPlus);
+        flowNav.Controls.Add(badgeEnter);
+        flowNav.Controls.Add(lblNavSuffix);
+        pnlNavTip.Controls.Add(flowNav);
+        pnlGatewayHeader.Controls.Add(pnlNavTip);
+
+        // ── B. 3-Column Grid of 3 Main Cards: MASTERS, TRANSACTIONS, REPORTS (Fills remaining height) ──
+>>>>>>> Stashed changes
         cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -1180,8 +1331,17 @@ public class MainForm : Form, INavigationHost
 
         // ── Card 1: MASTERS [M] ──
         cardMasters = CreateStructuredCard("MASTERS", "M", Color.FromArgb(37, 99, 235), 0);
+<<<<<<< Updated upstream
         AddCardActionRow(cardMasters, 0, "Group", "List & Creation", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
         AddCardActionRow(cardMasters, 0, "Ledgers", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
+=======
+        AddCardActionRow(cardMasters, 0, "Groups", "Hierarchy", () => _navigationService.OpenGroupList(this), hotkeyChar: 'G');
+        AddCardActionRow(cardMasters, 0, "Ledgers Master", "Primary", () => _navigationService.OpenLedgerList(this), hotkeyChar: 'L', isHighlighted: true);
+        AddCardActionRow(cardMasters, 0, "Financial Years", "Period", () => _navigationService.OpenFinancialYearList(this), hotkeyChar: 'F');
+        AddCardActionRow(cardMasters, 0, "Alter Company", "Setup", () => _navigationService.OpenAlterCompany(this), hotkeyChar: 'A');
+        AddCardActionRow(cardMasters, 0, "Select Company", "Switch", () => _navigationService.OpenCompanyList(this), hotkeyChar: 'S');
+        AddCardActionRow(cardMasters, 0, "User Management", "Security", () => _navigationService.OpenUserManagement(this), hotkeyChar: 'U');
+>>>>>>> Stashed changes
         cardsGrid.Controls.Add(cardMasters, 0, 0);
 
         // ── Card 2: TRANSACTIONS [T] ──
@@ -1201,10 +1361,12 @@ public class MainForm : Form, INavigationHost
         AddCardActionRow(cardReports, 2, "Profit & Loss", "P&L Stmt", () => _navigationService.OpenProfitLoss(this), hotkeyChar: 'P');
         AddCardActionRow(cardReports, 2, "Balance Sheet", "Financials", () => _navigationService.OpenBalanceSheet(this), hotkeyChar: 'B');
         AddCardActionRow(cardReports, 2, "Cash & Bank Book", "Funds Flow", () => _navigationService.OpenCashBankBook(this), hotkeyChar: 'C');
+        AddCardActionRow(cardReports, 2, "Bank Reconciliation", "Banking", () => _navigationService.OpenBankReconciliation(this), hotkeyChar: 'R');
         cardsGrid.Controls.Add(cardReports, 2, 0);
 
         UpdateGatewaySelectionUI();
 
+<<<<<<< Updated upstream
         // 1. Gateway of Accounting Workspace Subpanel (Dynamic Content on Gateway)
         // Contains Company Banner at the top, Spacer, Gateway Header, 3 Cards Grid filling remainder, and Operations Rail at the bottom
         pnlGatewayWorkspace = new Panel
@@ -1262,8 +1424,17 @@ public class MainForm : Form, INavigationHost
         mainContainer.Controls.Add(pnlErrorOverlay);
 
         pnlGatewayWorkspace.BringToFront();
+=======
+        // Dock cardsGrid (Fill) and pnlGatewayHeader (Top) inside pnlGatewayView
+        pnlGatewayView.Controls.Add(cardsGrid);
+        pnlGatewayView.Controls.Add(pnlGatewayHeader);
 
-        LayoutCompanyBanner();
+        pnlGatewayHeader.BringToFront();
+        cardsGrid.BringToFront();
+
+        mainContainer.Controls.Add(pnlGatewayView);
+>>>>>>> Stashed changes
+
         LayoutGatewayHeader();
         UpdateCardRowHeights();
         LayoutOperationsRail();
@@ -1590,7 +1761,7 @@ public class MainForm : Form, INavigationHost
             BorderColor = Color.FromArgb(226, 232, 240),
             BorderThickness = 1,
             BorderRadius = 8,
-            Margin = new Padding(6, 4, 6, 4),
+            Margin = new Padding(6, 4, 6, 6),
             Padding = new Padding(0)
         };
 
@@ -1665,8 +1836,8 @@ public class MainForm : Form, INavigationHost
         {
             Dock = DockStyle.Fill,
             BackColor = Color.White,
-            Padding = new Padding(8, 6, 8, 6),
-            AutoScroll = false
+            Padding = new Padding(10, 6, 10, 10),
+            AutoScroll = true
         };
 
         var tblRows = new TableLayoutPanel
@@ -1681,11 +1852,142 @@ public class MainForm : Form, INavigationHost
         };
         tblRows.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
+        var moduleDeck = CreateModuleDeck(colIndex);
+
+        pnlContent.Controls.Add(moduleDeck);
         pnlContent.Controls.Add(tblRows);
+
         card.Controls.Add(pnlContent);
         card.Controls.Add(header);
         card.Tag = tblRows;
         return card;
+    }
+
+    private Control CreateModuleDeck(int colIndex)
+    {
+        var deck = new Guna2Panel
+        {
+            Dock = DockStyle.Fill,
+            FillColor = Color.FromArgb(248, 250, 252),
+            BorderColor = Color.FromArgb(226, 232, 240),
+            BorderThickness = 1,
+            BorderRadius = 6,
+            Margin = new Padding(0, 10, 0, 0),
+            Padding = new Padding(12, 8, 12, 8)
+        };
+
+        string deckHeader;
+        Color accentColor;
+        (string Key, string Desc)[] items;
+
+        if (colIndex == 0) // Masters
+        {
+            deckHeader = "CHART OF ACCOUNTS & SETUP";
+            accentColor = Color.FromArgb(37, 99, 235);
+            items = new[]
+            {
+                ("Alt+C", "Quick create Master in any voucher"),
+                ("Hierarchy", "28 Groups, Primary & Sub-groups"),
+                ("Security", "User role permissions & audit trail"),
+                ("Multi-Co", "Company switch & FY period support")
+            };
+        }
+        else if (colIndex == 1) // Transactions
+        {
+            deckHeader = "TRANSACTION REGISTRY & VOUCHERS";
+            accentColor = Color.FromArgb(16, 185, 129);
+            items = new[]
+            {
+                ("Double Entry", "Strict debit / credit validation"),
+                ("Quick Keys", "F4 Contra, F5 Payment, F6 Receipt"),
+                ("Registers", "F7 Journal, F8 Sales, F9 Purchase"),
+                ("Integrity", "Sequential numbering & audit log")
+            };
+        }
+        else // Reports
+        {
+            deckHeader = "FINANCIAL INTELLIGENCE & AUDIT";
+            accentColor = Color.FromArgb(245, 158, 11);
+            items = new[]
+            {
+                ("Real-time", "Instant Balance Sheet & Profit & Loss"),
+                ("Drill-Down", "Direct navigation from ledger to vouchers"),
+                ("Banking", "Bank reconciliation & statement sync"),
+                ("Compliance", "Trial balance verified to Ind AS")
+            };
+        }
+
+        var lblHeader = new Label
+        {
+            Text = deckHeader,
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            ForeColor = accentColor,
+            Dock = DockStyle.Top,
+            Height = 22,
+            BackColor = Color.Transparent
+        };
+        deck.Controls.Add(lblHeader);
+
+        var pnlList = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            AutoScroll = false,
+            Padding = new Padding(0, 2, 0, 0)
+        };
+
+        int curY = 4;
+        foreach (var (key, desc) in items)
+        {
+            var rowPnl = new Panel
+            {
+                Location = new Point(0, curY),
+                Size = new Size(deck.Width - 24, 22),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                BackColor = Color.Transparent
+            };
+
+            var badge = new Guna2Panel
+            {
+                Size = new Size(74, 18),
+                Location = new Point(0, 2),
+                FillColor = Color.White,
+                BorderColor = Color.FromArgb(203, 213, 225),
+                BorderThickness = 1,
+                BorderRadius = 3
+            };
+            var lblKey = new Label
+            {
+                Text = key,
+                Font = new Font("Segoe UI", 7F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(51, 65, 85),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+            badge.Controls.Add(lblKey);
+
+            var lblDesc = new Label
+            {
+                Text = desc,
+                Font = new Font("Segoe UI", 7.75F),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Location = new Point(80, 2),
+                Size = new Size(Math.Max(10, rowPnl.Width - 84), 18),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                AutoEllipsis = true,
+                BackColor = Color.Transparent
+            };
+
+            rowPnl.Controls.Add(badge);
+            rowPnl.Controls.Add(lblDesc);
+            pnlList.Controls.Add(rowPnl);
+            curY += 24;
+        }
+
+        deck.Controls.Add(pnlList);
+        pnlList.BringToFront();
+        return deck;
     }
 
     private void AddCardActionRow(
@@ -1929,7 +2231,7 @@ public class MainForm : Form, INavigationHost
         row.Click += (s, e) =>
         {
             SetGatewaySelection(colIndex, rowIndex);
-            click();
+            if (RequireActiveCompany()) click();
         };
 
         tblRows.Controls.Add(row, 0, rowIndex);
@@ -1980,6 +2282,7 @@ public class MainForm : Form, INavigationHost
 
     private void ExecuteSelectedGatewayItem()
     {
+        if (!RequireActiveCompany()) return;
         var item = _gatewayItems.FirstOrDefault(i => i.ColumnIndex == _gatewayCol && i.RowIndex == _gatewayRow);
         item?.Action?.Invoke();
     }
@@ -2007,7 +2310,6 @@ public class MainForm : Form, INavigationHost
     {
         PositionRightControls();
         AdaptTierDimensions();
-        LayoutCompanyBanner();
         LayoutGatewayHeader();
         UpdateCardRowHeights();
         LayoutOperationsRail();
@@ -2015,15 +2317,20 @@ public class MainForm : Form, INavigationHost
 
     private void AdaptTierDimensions()
     {
+<<<<<<< Updated upstream
         if (mainContainer == null || pnlCompanyBanner == null || pnlBannerSpacer == null || pnlGatewayHeader == null || pnlGatewayWorkspace == null) return;
 
         mainContainer.Padding = Padding.Empty;
+=======
+        if (mainContainer == null || pnlGatewayHeader == null) return;
+>>>>>>> Stashed changes
 
         var tier = ScreenFittingManager.ClassifyTier(mainContainer.ClientSize.Width, mainContainer.ClientSize.Height);
 
         switch (tier)
         {
             case LayoutTier.Compact:
+<<<<<<< Updated upstream
                 pnlCompanyBanner.Height = 68;
                 pnlBannerSpacer.Height = 8;
                 pnlGatewayHeader.Height = 38;
@@ -2035,14 +2342,37 @@ public class MainForm : Form, INavigationHost
                 pnlBannerSpacer.Height = 10;
                 pnlGatewayHeader.Height = 42;
                 pnlGatewayWorkspace.Padding = new Padding(14, 4, 14, 8);
+=======
+                pnlGatewayHeader.Height = 44;
+                if (pnlGatewayView != null)
+                {
+                    pnlGatewayView.Padding = new Padding(10, 6, 10, 6);
+                }
+                break;
+
+            case LayoutTier.Standard:
+                pnlGatewayHeader.Height = 48;
+                if (pnlGatewayView != null)
+                {
+                    pnlGatewayView.Padding = new Padding(12, 8, 12, 8);
+                }
+>>>>>>> Stashed changes
                 break;
 
             case LayoutTier.Large:
             default:
+<<<<<<< Updated upstream
                 pnlCompanyBanner.Height = 76;
                 pnlBannerSpacer.Height = 12;
                 pnlGatewayHeader.Height = 44;
                 pnlGatewayWorkspace.Padding = new Padding(16, 4, 16, 10);
+=======
+                pnlGatewayHeader.Height = 52;
+                if (pnlGatewayView != null)
+                {
+                    pnlGatewayView.Padding = new Padding(16, 10, 16, 10);
+                }
+>>>>>>> Stashed changes
                 break;
         }
     }
@@ -2059,71 +2389,29 @@ public class MainForm : Form, INavigationHost
         }
     }
 
-    private void LayoutUnifiedDateBox()
-    {
-        if (boxUnified == null || sepFYDate == null || lblFYTag == null || lblBannerFY == null || lblDateTag == null || lblBannerDate == null) return;
-
-        int boxW = boxUnified.Width;
-        int sepX = Math.Clamp((int)(boxW * 0.38f), 110, 150);
-
-        sepFYDate.Location = new Point(sepX, (boxUnified.Height - sepFYDate.Height) / 2);
-        lblFYTag.Location = new Point(12, 8);
-        lblBannerFY.Location = new Point(12, 26);
-
-        int dateX = sepX + 12;
-        lblDateTag.Location = new Point(dateX, 8);
-        lblBannerDate.Location = new Point(dateX, 26);
-        lblBannerDate.MaximumSize = new Size(Math.Max(50, boxW - dateX - 8), 24);
-        lblBannerDate.AutoEllipsis = true;
-    }
-
-    private void LayoutCompanyBanner()
-    {
-        if (pnlCompanyBanner == null || lblBannerCompName == null || pnlActivePill == null || lblBannerBooksBeginning == null || pnlBannerRight == null) return;
-
-        // Dynamic width for right box based on banner width
-        int bannerW = pnlCompanyBanner.Width;
-        int rightW = Math.Clamp((int)(bannerW * 0.32f), 320, 420);
-        pnlBannerRight.Width = rightW;
-        LayoutUnifiedDateBox();
-
-        int leftAvail = bannerW - rightW - 76;
-        int nameW = TextRenderer.MeasureText(lblBannerCompName.Text, lblBannerCompName.Font).Width;
-        int pillW = pnlActivePill.Width;
-        int booksW = TextRenderer.MeasureText(lblBannerBooksBeginning.Text, lblBannerBooksBeginning.Font).Width;
-
-        // If company name + active pill + books beginning fit on line 1:
-        if (nameW + pillW + booksW + 24 <= leftAvail)
-        {
-            lblBannerCompName.Location = new Point(68, 14);
-            lblBannerCompName.MaximumSize = new Size(Math.Max(100, leftAvail - pillW - booksW - 24), 28);
-            lblBannerCompName.AutoEllipsis = true;
-            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 16);
-            lblBannerBooksBeginning.Text = _booksBeginningDateStr.StartsWith("|")
-                ? _booksBeginningDateStr
-                : $"|   Books Beginning: {_booksBeginningDateStr}";
-            lblBannerBooksBeginning.Location = new Point(pnlActivePill.Right + 8, 18);
-            lblBannerCompSubtitle.Location = new Point(68, 44);
-        }
-        else
-        {
-            // Compact two-line layout: Line 1 has Company Name + Pill, Line 2 has Subtitle + Books Beginning
-            lblBannerCompName.Location = new Point(68, 12);
-            lblBannerCompName.MaximumSize = new Size(Math.Max(100, leftAvail - pillW - 16), 28);
-            lblBannerCompName.AutoEllipsis = true;
-            pnlActivePill.Location = new Point(lblBannerCompName.Right + 8, 14);
-
-            lblBannerCompSubtitle.Location = new Point(68, 42);
-            lblBannerBooksBeginning.Text = $"|   Books Beginning: {_booksBeginningDateStr}";
-            lblBannerBooksBeginning.Location = new Point(lblBannerCompSubtitle.Right + 8, 43);
-        }
-    }
-
     private void LayoutGatewayHeader()
     {
+<<<<<<< Updated upstream
         if (pnlGatewayHeader == null || lblGwTitle == null || lblGwSub == null) return;
         lblGwSub.Text = "Press highlighted underlined key or click category to open master modules";
         lblGwSub.Visible = true;
+=======
+        if (pnlGatewayHeader == null || pnlNavTip == null || lblGwTitle == null || lblGwSub == null) return;
+
+        int headerW = pnlGatewayHeader.Width;
+        lblGwTitle.Location = new Point(4, 2);
+        lblGwSub.Location = new Point(4, 26);
+
+        if (headerW >= 760)
+        {
+            pnlNavTip.Visible = true;
+            pnlNavTip.Location = new Point(headerW - pnlNavTip.Width - 4, 8);
+        }
+        else
+        {
+            pnlNavTip.Visible = false;
+        }
+>>>>>>> Stashed changes
     }
 
     private void UpdateCardRowHeights()
@@ -2133,9 +2421,9 @@ public class MainForm : Form, INavigationHost
         var tier = ScreenFittingManager.ClassifyTier(mainContainer.ClientSize.Width, mainContainer.ClientSize.Height);
         float targetRowH = tier switch
         {
-            LayoutTier.Compact => 34f,
-            LayoutTier.Large => 38f,
-            _ => 36f
+            LayoutTier.Compact => 38f,
+            LayoutTier.Large => 44f,
+            _ => 42f
         };
 
         var cards = new[] { cardMasters, cardTrans, cardReports };
@@ -2165,14 +2453,23 @@ public class MainForm : Form, INavigationHost
 
     private void UpdateCompanyContextUI()
     {
+<<<<<<< Updated upstream
         if (pnlCompanyBanner != null) pnlCompanyBanner.Visible = true;
         if (pnlBannerSpacer != null) pnlBannerSpacer.Visible = true;
+=======
+        if (InvokeRequired)
+        {
+            BeginInvoke(UpdateCompanyContextUI);
+            return;
+        }
+>>>>>>> Stashed changes
 
         if (_companyContext.IsCompanyOpen && _companyContext.CurrentCompany != null)
         {
             var company = _companyContext.CurrentCompany;
             var fy = _companyContext.CurrentFinancialYear;
 
+<<<<<<< Updated upstream
             if (lblBannerCompName != null) lblBannerCompName.Text = company.CompanyName;
             if (fy != null)
             {
@@ -2207,21 +2504,40 @@ public class MainForm : Form, INavigationHost
 
             // Company name permanently removed from main title bar per design
             if (lblTitleSeparator != null)
+=======
+            string fyRange = fy != null 
+                ? $"{fy.StartDate:dd-MMM-yyyy} to {fy.EndDate:dd-MMM-yyyy}" 
+                : "01-Apr-2026 to 31-Mar-2027";
+
+            if (lblStatusCompany != null) lblStatusCompany.Text = $"● Company: {company.CompanyName} ({company.CompanyNumber})";
+            if (lblStatusFY != null) lblStatusFY.Text = fy != null ? $"FY: {fy.YearName}" : "FY: Not set";
+            if (lblTitleSeparator != null && lblTitleText != null)
+>>>>>>> Stashed changes
             {
                 lblTitleSeparator.Visible = false;
                 lblTitleSeparator.Text = string.Empty;
             }
             if (lblTitleContext != null)
             {
+<<<<<<< Updated upstream
                 lblTitleContext.Visible = false;
                 lblTitleContext.Text = string.Empty;
+=======
+                lblTitleContext.Text = $"{company.CompanyName} • Entity: {company.CompanyNumber} • FY: {fyRange}";
+                lblTitleContext.Location = new Point(lblTitleSeparator.Right + 8, 7);
+>>>>>>> Stashed changes
             }
 
-            LayoutCompanyBanner();
+            if (lblGwSub != null)
+            {
+                lblGwSub.Text = $"Active Company: {company.CompanyName} ({company.CompanyNumber})   |   FY: {fyRange}   |   Press highlighted key or category to open";
+            }
+
             PositionRightControls();
         }
         else
         {
+<<<<<<< Updated upstream
             if (lblBannerCompName != null) lblBannerCompName.Text = "No Company Selected";
             if (lblBannerBooksBeginning != null) lblBannerBooksBeginning.Text = string.Empty;
             if (lblBannerCompSubtitle != null) lblBannerCompSubtitle.Text = "Accounts";
@@ -2241,6 +2557,18 @@ public class MainForm : Form, INavigationHost
                 lblTitleContext.Text = string.Empty;
             }
             LayoutCompanyBanner();
+=======
+            if (lblStatusCompany != null) lblStatusCompany.Text = "● Company: [None Selected]";
+            if (lblStatusFY != null) lblStatusFY.Text = "FY: Not Selected";
+            if (lblTitleSeparator != null) lblTitleSeparator.Visible = false;
+            if (lblTitleContext != null) lblTitleContext.Text = "";
+
+            if (lblGwSub != null)
+            {
+                lblGwSub.Text = "No Company Selected   |   Press [F3] to Select Company or [Alt+C] to Create Company";
+            }
+
+>>>>>>> Stashed changes
             PositionRightControls();
         }
     }
@@ -2265,11 +2593,146 @@ public class MainForm : Form, INavigationHost
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  IMainContentHost IMPLEMENTATION (Tally-Style Embedded Views)
+    // ═══════════════════════════════════════════════════════════════
+
+    public bool HasActiveChildView => _viewStack.Count > 0;
+
+    public void ShowView(Form viewForm)
+    {
+        if (viewForm == null || IsDisposed) return;
+
+        SuspendLayout();
+        mainContainer.SuspendLayout();
+
+        // 1. Configure child form as borderless embedded view
+        viewForm.TopLevel = false;
+        viewForm.FormBorderStyle = FormBorderStyle.None;
+        viewForm.Dock = DockStyle.Fill;
+
+        // 2. Hide currently active view (top of stack, or gateway view)
+        if (_viewStack.Count > 0)
+        {
+            _viewStack.Peek().Visible = false;
+        }
+        else if (pnlGatewayView != null)
+        {
+            pnlGatewayView.Visible = false;
+        }
+
+        // 3. Push onto stack and add to main container
+        _viewStack.Push(viewForm);
+        mainContainer.Controls.Add(viewForm);
+
+        // 4. Hook closed event to pop view and restore previous
+        viewForm.FormClosed += (s, e) =>
+        {
+            PopView(viewForm);
+        };
+
+        mainContainer.ResumeLayout(true);
+        ResumeLayout(true);
+
+        viewForm.Visible = true;
+        viewForm.BringToFront();
+        viewForm.Focus();
+    }
+
+    public void CloseCurrentView()
+    {
+        if (_viewStack.Count > 0)
+        {
+            var current = _viewStack.Peek();
+            if (current is Form f)
+            {
+                f.Close();
+            }
+            else
+            {
+                PopView(current);
+            }
+        }
+    }
+
+    public void ReturnToGateway()
+    {
+        while (_viewStack.Count > 0)
+        {
+            var view = _viewStack.Pop();
+            if (view is Form f)
+            {
+                f.Close();
+                f.Dispose();
+            }
+            if (mainContainer.Controls.Contains(view))
+            {
+                mainContainer.Controls.Remove(view);
+            }
+        }
+
+        if (pnlGatewayView != null)
+        {
+            pnlGatewayView.Visible = true;
+            pnlGatewayView.BringToFront();
+            UpdateCompanyContextUI();
+            pnlGatewayView.Focus();
+        }
+    }
+
+    private void PopView(Control view)
+    {
+        if (IsDisposed) return;
+
+        SuspendLayout();
+        mainContainer.SuspendLayout();
+
+        if (_viewStack.Contains(view))
+        {
+            if (_viewStack.Count > 0 && _viewStack.Peek() == view)
+            {
+                _viewStack.Pop();
+            }
+            else
+            {
+                var remaining = _viewStack.Where(v => v != view).Reverse().ToList();
+                _viewStack.Clear();
+                foreach (var v in remaining) _viewStack.Push(v);
+            }
+        }
+
+        if (mainContainer.Controls.Contains(view))
+        {
+            mainContainer.Controls.Remove(view);
+        }
+
+        if (_viewStack.Count > 0)
+        {
+            var top = _viewStack.Peek();
+            top.Visible = true;
+            top.BringToFront();
+            top.Focus();
+        }
+        else if (pnlGatewayView != null)
+        {
+            pnlGatewayView.Visible = true;
+            pnlGatewayView.BringToFront();
+            UpdateCompanyContextUI();
+            pnlGatewayView.Focus();
+        }
+
+        mainContainer.ResumeLayout(true);
+        ResumeLayout(true);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  KEYBOARD SHORTCUTS
     // ═══════════════════════════════════════════════════════════════
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
     {
+        // When an embedded child view is active in the main container, let it handle its own keys
+        if (HasActiveChildView) return;
+
         if ((e.Alt && e.KeyCode == Keys.G) || (e.Control && e.KeyCode == Keys.K) || (e.Control && e.KeyCode == Keys.F))
         {
             _navigationService.OpenGlobalSearch(this);
@@ -2294,7 +2757,15 @@ public class MainForm : Form, INavigationHost
                 case Keys.D: _navigationService.OpenDayBook(this); e.Handled = true; return;
                 case Keys.P: _navigationService.OpenProfitLoss(this); e.Handled = true; return;
                 case Keys.B: _navigationService.OpenBalanceSheet(this); e.Handled = true; return;
+<<<<<<< Updated upstream
                 case Keys.C: _navigationService.OpenCashBankBook(this); e.Handled = true; return;
+=======
+                case Keys.P: _navigationService.OpenProfitLoss(this); e.Handled = true; return;
+                case Keys.C: _navigationService.OpenCashBankBook(this); e.Handled = true; return;
+                case Keys.A: _navigationService.OpenAlterCompany(this); e.Handled = true; return;
+                case Keys.S: _navigationService.OpenCompanyList(this); e.Handled = true; return;
+                case Keys.U: _navigationService.OpenUserManagement(this); e.Handled = true; return;
+>>>>>>> Stashed changes
             }
         }
 
@@ -2324,10 +2795,17 @@ public class MainForm : Form, INavigationHost
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+<<<<<<< Updated upstream
         if (keyData == Keys.Escape && !IsOnGateway)
         {
             NavigateBack();
             return true;
+=======
+        // When an embedded child view is active in the main container, do not intercept any keys!
+        if (HasActiveChildView)
+        {
+            return base.ProcessCmdKey(ref msg, keyData);
+>>>>>>> Stashed changes
         }
 
         // Don't intercept when user is typing in a text field

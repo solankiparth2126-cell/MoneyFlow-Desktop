@@ -203,4 +203,77 @@ public static class ScreenFittingManager
         var metrics = GetDisplayMetrics(form);
         Log.Information("Window initialized on display: {Metrics}", metrics);
     }
+
+    /// <summary>
+    /// Fits and centers any form or modal dialog within the usable monitor work area
+    /// across all desktop resolutions (720p, 768p, 1080p, 1440p, 4K, and high DPI scaling 125%-200%).
+    /// Dynamically ensures minimum sizes never exceed the work area, prevents taskbar occlusion,
+    /// and centers the window over the owner or screen.
+    /// </summary>
+    public static void FitDialogToWorkArea(
+        Form form,
+        int idealWidth,
+        int idealHeight,
+        int minWidth = 600,
+        int minHeight = 380,
+        IWin32Window? owner = null,
+        bool startMaximizedIfScreenTooSmall = false)
+    {
+        // Embedded child forms inside MainForm host container must not be repositioned as desktop windows
+        if (!form.TopLevel) return;
+
+        try
+        {
+            Screen screen = (owner is Control c && c.IsHandleCreated ? Screen.FromControl(c) : null)
+                ?? (form.IsHandleCreated ? Screen.FromHandle(form.Handle) : null)
+                ?? Screen.PrimaryScreen
+                ?? Screen.AllScreens[0];
+
+            var workArea = screen.WorkingArea;
+
+            // Maximum allowed bounds with 16px safety margin from screen edges
+            int maxW = Math.Max(minWidth, workArea.Width - 24);
+            int maxH = Math.Max(minHeight, workArea.Height - 28);
+
+            // Dynamically scale minimum size so it never exceeds available work area
+            int effectiveMinW = Math.Min(minWidth, maxW);
+            int effectiveMinH = Math.Min(minHeight, maxH);
+            form.MinimumSize = new Size(effectiveMinW, effectiveMinH);
+
+            if (startMaximizedIfScreenTooSmall && (workArea.Width < idealWidth || workArea.Height < idealHeight))
+            {
+                form.WindowState = FormWindowState.Maximized;
+                return;
+            }
+
+            int targetW = Math.Clamp(idealWidth, effectiveMinW, maxW);
+            int targetH = Math.Clamp(idealHeight, effectiveMinH, maxH);
+
+            form.Size = new Size(targetW, targetH);
+
+            // Center over owner or monitor working area
+            int targetX, targetY;
+            if (owner is Form ownerForm && ownerForm.IsHandleCreated && ownerForm.WindowState != FormWindowState.Minimized)
+            {
+                targetX = ownerForm.Left + (ownerForm.Width - targetW) / 2;
+                targetY = ownerForm.Top + (ownerForm.Height - targetH) / 2;
+            }
+            else
+            {
+                targetX = workArea.Left + (workArea.Width - targetW) / 2;
+                targetY = workArea.Top + (workArea.Height - targetH) / 2;
+            }
+
+            // Ensure window remains completely inside monitor work area
+            targetX = Math.Clamp(targetX, workArea.Left, Math.Max(workArea.Left, workArea.Right - targetW));
+            targetY = Math.Clamp(targetY, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - targetH));
+
+            form.StartPosition = FormStartPosition.Manual;
+            form.Bounds = new Rectangle(targetX, targetY, targetW, targetH);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to fit dialog {Form} to work area.", form.Name);
+        }
+    }
 }

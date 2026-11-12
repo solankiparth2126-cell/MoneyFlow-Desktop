@@ -11,6 +11,7 @@ using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 
 using Guna.UI2.WinForms;
+using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
