@@ -3,40 +3,61 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
-using MoneyFlow.Data;
+using MoneyFlow.Data.Repositories;
+using GroupEntity = MoneyFlow.Core.Entities.Group;
+using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
 
 namespace MoneyFlow.Services.Group;
 
 public class GroupService : IGroupService
 {
-    private readonly AppDbContext _context;
     private readonly IGroupRepository _groupRepo;
     private readonly ICompanyRepository _companyRepo;
+    private readonly ICompanyDataStore _dataStore;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<GroupService> _logger;
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public GroupService(
-        AppDbContext context,
         IGroupRepository groupRepo,
         ICompanyRepository companyRepo,
+        ICompanyDataStore dataStore,
         IUnitOfWork unitOfWork,
         ILogger<GroupService> logger)
     {
-        _context = context;
         _groupRepo = groupRepo;
         _companyRepo = companyRepo;
+        _dataStore = dataStore;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
-    public async Task<Core.Entities.Group> CreateGroupAsync(int companyId, GroupCreateDto dto, CancellationToken ct = default)
+    internal GroupService(
+        MoneyFlow.Data.AppDbContext context,
+        IGroupRepository groupRepo,
+        ICompanyRepository companyRepo,
+        IUnitOfWork unitOfWork,
+        ILogger<GroupService> logger)
+        : this(groupRepo, companyRepo, null!, unitOfWork, logger)
+    {
+    }
+
+    public GroupService(
+        IGroupRepository groupRepo,
+        ICompanyRepository companyRepo,
+        IUnitOfWork unitOfWork,
+        ILogger<GroupService> logger)
+        : this(groupRepo, companyRepo, null!, unitOfWork, logger)
+    {
+    }
+
+    public async Task<GroupEntity> CreateGroupAsync(int companyId, GroupCreateDto dto, CancellationToken ct = default)
     {
         var company = await _companyRepo.GetByIdAsync(companyId, ct)
             ?? throw new KeyNotFoundException($"Company with ID {companyId} not found.");
@@ -53,7 +74,7 @@ public class GroupService : IGroupService
             throw new InvalidOperationException($"A group named '{trimmedName}' already exists in this company.");
         }
 
-        var group = new Core.Entities.Group
+        var group = new GroupEntity
         {
             CompanyId = companyId,
             GroupName = trimmedName,
@@ -91,7 +112,7 @@ public class GroupService : IGroupService
         return group;
     }
 
-    public async Task<Core.Entities.Group> UpdateGroupAsync(GroupUpdateDto dto, CancellationToken ct = default)
+    public async Task<GroupEntity> UpdateGroupAsync(GroupUpdateDto dto, CancellationToken ct = default)
     {
         var group = await _groupRepo.GetByIdAsync(dto.GroupId, ct)
             ?? throw new KeyNotFoundException($"Group with ID {dto.GroupId} not found.");
@@ -161,14 +182,14 @@ public class GroupService : IGroupService
         if (group == null) return false;
 
         // Check if group has sub-groups
-        bool hasSubGroups = await _context.Groups.AnyAsync(g => g.ParentGroupId == groupId && g.IsActive, ct);
+        bool hasSubGroups = _dataStore.GetEntityList<GroupEntity>().Any(g => g.ParentGroupId == groupId && g.IsActive);
         if (hasSubGroups)
         {
             throw new InvalidOperationException($"Cannot delete group '{group.GroupName}' because it contains sub-groups. Move or delete the sub-groups first.");
         }
 
         // Check if group has ledgers
-        bool hasLedgers = await _context.Ledgers.AnyAsync(l => l.GroupId == groupId && l.IsActive, ct);
+        bool hasLedgers = _dataStore.GetEntityList<LedgerEntity>().Any(l => l.GroupId == groupId && l.IsActive);
         if (hasLedgers)
         {
             throw new InvalidOperationException($"Cannot delete group '{group.GroupName}' because it contains ledgers. This Group contains Ledger accounts.");
@@ -187,41 +208,41 @@ public class GroupService : IGroupService
         return true;
     }
 
-    public async Task<Core.Entities.Group?> GetGroupByIdAsync(int groupId, CancellationToken ct = default)
+    public Task<GroupEntity?> GetGroupByIdAsync(int groupId, CancellationToken ct = default)
     {
-        return await _context.Groups
-            .Include(g => g.ParentGroup)
-            .Include(g => g.SubGroups)
-            .Include(g => g.Ledgers)
-            .FirstOrDefaultAsync(g => g.GroupId == groupId, ct);
+        var group = _dataStore.GetEntityList<GroupEntity>().FirstOrDefault(g => g.GroupId == groupId);
+        if (group != null)
+        {
+            group.ParentGroup = _dataStore.GetEntityList<GroupEntity>().FirstOrDefault(g => g.GroupId == group.ParentGroupId);
+            group.SubGroups = _dataStore.GetEntityList<GroupEntity>().Where(g => g.ParentGroupId == groupId).ToList();
+            group.Ledgers = _dataStore.GetEntityList<LedgerEntity>().Where(l => l.GroupId == groupId).ToList();
+        }
+        return Task.FromResult(group);
     }
 
-    public async Task<IReadOnlyList<GroupSummaryDto>> GetGroupsByCompanyAsync(int companyId, string? searchTerm = null, CancellationToken ct = default)
+    public Task<IReadOnlyList<GroupSummaryDto>> GetGroupsByCompanyAsync(int companyId, string? searchTerm = null, CancellationToken ct = default)
     {
-        var query = _context.Groups
-            .AsNoTracking()
-            .Where(g => g.CompanyId == companyId && g.IsActive);
+        var allGroups = _dataStore.GetEntityList<GroupEntity>();
+        var allLedgers = _dataStore.GetEntityList<LedgerEntity>();
+
+        var groups = allGroups.Where(g => g.CompanyId == companyId && g.IsActive);
 
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
             string term = searchTerm.Trim().ToLower();
-            query = query.Where(g => g.GroupName.ToLower().Contains(term));
+            groups = groups.Where(g => g.GroupName.ToLower().Contains(term));
         }
 
-        var groups = await query
-            .Include(g => g.ParentGroup)
-            .Include(g => g.SubGroups)
-            .Include(g => g.Ledgers)
-            .OrderBy(g => g.GroupName)
-            .ToListAsync(ct);
+        var groupList = groups.OrderBy(g => g.GroupName).ToList();
+        var groupDict = allGroups.ToDictionary(g => g.GroupId);
 
-        return groups.Select(g => new GroupSummaryDto
+        IReadOnlyList<GroupSummaryDto> result = groupList.Select(g => new GroupSummaryDto
         {
             GroupId = g.GroupId,
             CompanyId = g.CompanyId,
             GroupName = g.GroupName,
             ParentGroupId = g.ParentGroupId,
-            ParentGroupName = g.ParentGroup?.GroupName,
+            ParentGroupName = g.ParentGroupId.HasValue && groupDict.TryGetValue(g.ParentGroupId.Value, out var pg) ? pg.GroupName : null,
             Nature = g.Nature,
             PrimaryGroup = g.PrimaryGroup,
             AffectProfitLoss = g.AffectProfitLoss,
@@ -229,15 +250,16 @@ public class GroupService : IGroupService
             SubGroupsCount = g.SubGroups.Count(s => s.IsActive),
             LedgersCount = g.Ledgers.Count(l => l.IsActive)
         }).ToList();
+
+        return Task.FromResult(result);
     }
 
-    public async Task<IReadOnlyList<GroupTreeNodeDto>> GetGroupTreeAsync(int companyId, CancellationToken ct = default)
+    public Task<IReadOnlyList<GroupTreeNodeDto>> GetGroupTreeAsync(int companyId, CancellationToken ct = default)
     {
-        var allGroups = await _context.Groups
-            .AsNoTracking()
+        var allGroups = _dataStore.GetEntityList<GroupEntity>()
             .Where(g => g.CompanyId == companyId && g.IsActive)
             .OrderBy(g => g.GroupName)
-            .ToListAsync(ct);
+            .ToList();
 
         var roots = allGroups.Where(g => g.ParentGroupId == null).ToList();
         var tree = new List<GroupTreeNodeDto>();
@@ -247,16 +269,16 @@ public class GroupService : IGroupService
             tree.Add(BuildTreeNode(root, allGroups));
         }
 
-        return tree;
+        IReadOnlyList<GroupTreeNodeDto> result = tree;
+        return Task.FromResult(result);
     }
 
-    public async Task<IReadOnlyList<Core.Entities.Group>> GetPotentialParentGroupsAsync(int companyId, int? currentGroupId = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<GroupEntity>> GetPotentialParentGroupsAsync(int companyId, int? currentGroupId = null, CancellationToken ct = default)
     {
-        var allGroups = await _context.Groups
-            .AsNoTracking()
+        var allGroups = _dataStore.GetEntityList<GroupEntity>()
             .Where(g => g.CompanyId == companyId && g.IsActive)
             .OrderBy(g => g.GroupName)
-            .ToListAsync(ct);
+            .ToList();
 
         if (!currentGroupId.HasValue)
         {
@@ -269,7 +291,7 @@ public class GroupService : IGroupService
         return allGroups.Where(g => !descendantIds.Contains(g.GroupId)).ToList();
     }
 
-    private GroupTreeNodeDto BuildTreeNode(Core.Entities.Group current, List<Core.Entities.Group> allGroups)
+    private GroupTreeNodeDto BuildTreeNode(GroupEntity current, List<GroupEntity> allGroups)
     {
         var node = new GroupTreeNodeDto
         {
@@ -289,17 +311,16 @@ public class GroupService : IGroupService
         return node;
     }
 
-    private async Task<HashSet<int>> GetDescendantGroupIdsAsync(int companyId, int rootGroupId, CancellationToken ct)
+    private Task<HashSet<int>> GetDescendantGroupIdsAsync(int companyId, int rootGroupId, CancellationToken ct)
     {
-        var allGroups = await _context.Groups
-            .AsNoTracking()
+        var allGroups = _dataStore.GetEntityList<GroupEntity>()
             .Where(g => g.CompanyId == companyId && g.IsActive)
             .Select(g => new { g.GroupId, g.ParentGroupId })
-            .ToListAsync(ct);
+            .ToList();
 
         var descendants = new HashSet<int>();
         CollectDescendants(rootGroupId, allGroups, descendants);
-        return descendants;
+        return Task.FromResult(descendants);
     }
 
     private void CollectDescendants(int currentId, IEnumerable<dynamic> allGroups, HashSet<int> accumulator)

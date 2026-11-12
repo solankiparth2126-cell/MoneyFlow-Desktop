@@ -189,6 +189,7 @@ public class ResponsiveLayoutTests
     }
 
     [Fact]
+<<<<<<< Updated upstream
     public void CompanyListForm_InitializesWithReferenceStructure_AndNoTechnicalClutter()
     {
         var services = new ServiceCollection();
@@ -202,11 +203,41 @@ public class ResponsiveLayoutTests
 
         services.AddLogging();
         services.AddDatabaseServices(configuration);
+=======
+    public void FitDialogToWorkArea_ClampsToWorkingArea_NeverExceedsScreen()
+    {
+        using var testDialog = new Form();
+        var screen = Screen.PrimaryScreen ?? Screen.AllScreens[0];
+
+        // Ideal size 1400x900 should clamp to screen working area
+        ScreenFittingManager.FitDialogToWorkArea(testDialog, 1400, 900, 800, 460);
+
+        testDialog.Width.Should().BeLessThanOrEqualTo(screen.WorkingArea.Width);
+        testDialog.Height.Should().BeLessThanOrEqualTo(screen.WorkingArea.Height);
+        testDialog.Left.Should().BeGreaterThanOrEqualTo(screen.WorkingArea.Left);
+        testDialog.Top.Should().BeGreaterThanOrEqualTo(screen.WorkingArea.Top);
+        testDialog.Right.Should().BeLessThanOrEqualTo(screen.WorkingArea.Right);
+        testDialog.Bottom.Should().BeLessThanOrEqualTo(screen.WorkingArea.Bottom);
+    }
+
+    [Fact]
+    public void CompanyCreateEditForm_HasScrollableCanvas_AndResponsiveControls()
+    {
+        var services = new ServiceCollection();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=MoneyFlowTestDB;Trusted_Connection=True;"
+        }).Build();
+
+        services.AddLogging();
+        services.AddDatabaseServices(config);
+>>>>>>> Stashed changes
         services.AddDataRepositories();
         services.AddDomainServices();
         services.AddNavigationServices();
         services.AddDesktopForms();
         services.AddDbContext<AppDbContext>(options =>
+<<<<<<< Updated upstream
             options.UseInMemoryDatabase("CompanyListTestDb_" + Guid.NewGuid().ToString()));
 
         var provider = services.BuildServiceProvider();
@@ -276,11 +307,44 @@ public class ResponsiveLayoutTests
         var configuration = new ConfigurationBuilder().Build();
         services.AddLogging();
         services.AddDatabaseServices(configuration);
+=======
+            options.UseInMemoryDatabase("CompanyCreateEditForm_TestDb_" + Guid.NewGuid()));
+
+        var provider = services.BuildServiceProvider();
+        var companyService = provider.GetRequiredService<ICompanyService>();
+
+        using var form = new CompanyCreateEditForm(companyService);
+
+        var pnlMainContent = form.GetType().GetField("pnlMainContent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Panel;
+        pnlMainContent.Should().NotBeNull();
+        pnlMainContent!.AutoScroll.Should().BeTrue();
+        pnlMainContent.AutoScrollMinSize.Height.Should().BeGreaterThanOrEqualTo(700);
+
+        var btnMaxRestore = form.GetType().GetField("btnMaxRestoreTop", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Label;
+        btnMaxRestore.Should().NotBeNull();
+
+        var btnSaveAndOpen = form.GetType().GetField("btnSaveAndOpen", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Button;
+        btnSaveAndOpen.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CompanyListForm_HasMaximizeAndWorkAreaPlacement()
+    {
+        var services = new ServiceCollection();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=MoneyFlowTestDB;Trusted_Connection=True;"
+        }).Build();
+
+        services.AddLogging();
+        services.AddDatabaseServices(config);
+>>>>>>> Stashed changes
         services.AddDataRepositories();
         services.AddDomainServices();
         services.AddNavigationServices();
         services.AddDesktopForms();
         services.AddDbContext<AppDbContext>(options =>
+<<<<<<< Updated upstream
             options.UseInMemoryDatabase("CompanyListCloseTestDb_" + Guid.NewGuid().ToString()));
 
         var provider = services.BuildServiceProvider();
@@ -316,6 +380,93 @@ public class ResponsiveLayoutTests
             sb.Append(' ').Append(GetAllFormTextRecursive(child));
         }
         return sb.ToString();
+=======
+            options.UseInMemoryDatabase("CompanyListForm_TestDb_" + Guid.NewGuid()));
+
+        var provider = services.BuildServiceProvider();
+        var companyService = provider.GetRequiredService<ICompanyService>();
+        var companyContext = provider.GetRequiredService<ICompanyContext>();
+
+        using var form = new CompanyListForm(companyService, companyContext);
+
+        var btnMaxRestore = form.GetType().GetField("btnMaxRestoreHeader", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Guna.UI2.WinForms.Guna2Button;
+        btnMaxRestore.Should().NotBeNull();
+
+        var screen = Screen.PrimaryScreen ?? Screen.AllScreens[0];
+        form.Width.Should().BeLessThanOrEqualTo(screen.WorkingArea.Width);
+        form.Height.Should().BeLessThanOrEqualTo(screen.WorkingArea.Height);
+    }
+
+    [Fact]
+    public void MainContentHost_EmbedsView_WithoutTopLevel_AndPopsOnClose()
+    {
+        var services = new ServiceCollection();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=MoneyFlowTestDB;Trusted_Connection=True;"
+        }).Build();
+
+        services.AddLogging();
+        services.AddDatabaseServices(config);
+        services.AddDataRepositories();
+        services.AddDomainServices();
+        services.AddNavigationServices();
+        services.AddDesktopForms();
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseInMemoryDatabase("MainContentHost_TestDb_" + Guid.NewGuid()));
+
+        var provider = services.BuildServiceProvider();
+        using var mainForm = provider.GetRequiredService<MainForm>();
+
+        mainForm.HasActiveChildView.Should().BeFalse();
+
+        using var childForm = new Form();
+        mainForm.ShowView(childForm);
+
+        mainForm.HasActiveChildView.Should().BeTrue();
+        childForm.TopLevel.Should().BeFalse();
+        childForm.FormBorderStyle.Should().Be(FormBorderStyle.None);
+        childForm.Dock.Should().Be(DockStyle.Fill);
+
+        childForm.Close();
+        mainForm.HasActiveChildView.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CompanyCreateEditForm_TallyDesign_HasSkyBlueHeader_AndPaleYellowFocus()
+    {
+        var services = new ServiceCollection();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=MoneyFlowTestDB;Trusted_Connection=True;"
+        }).Build();
+
+        services.AddLogging();
+        services.AddDatabaseServices(config);
+        services.AddDataRepositories();
+        services.AddDomainServices();
+        services.AddNavigationServices();
+        services.AddDesktopForms();
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseInMemoryDatabase("CompanyCreateEditForm_TallyDesign_TestDb_" + Guid.NewGuid()));
+
+        var provider = services.BuildServiceProvider();
+        var companyService = provider.GetRequiredService<ICompanyService>();
+
+        using var form = new CompanyCreateEditForm(companyService);
+
+        var pnlHeader = form.GetType().GetField("pnlHeader", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Panel;
+        pnlHeader.Should().NotBeNull();
+        pnlHeader!.BackColor.Should().Be(Color.FromArgb(143, 184, 222)); // Soft Tally Sky Blue
+
+        var lblHdrTitle = form.GetType().GetField("lblHdrTitle", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Label;
+        lblHdrTitle.Should().NotBeNull();
+        lblHdrTitle!.ForeColor.Should().Be(Color.FromArgb(15, 23, 42)); // Dark Navy
+
+        var btnCloseTop = form.GetType().GetField("btnCloseTop", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.GetValue(form) as Label;
+        btnCloseTop.Should().NotBeNull();
+        btnCloseTop!.Text.Should().Be("✕");
+>>>>>>> Stashed changes
     }
 }
 

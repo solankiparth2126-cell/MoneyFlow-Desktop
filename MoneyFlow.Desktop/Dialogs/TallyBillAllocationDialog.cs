@@ -45,14 +45,14 @@ public class TallyBillAllocationDialog : Form
     private void InitializeComponent()
     {
         Text = $"Bill-wise Details — {_ledgerName}";
-        Size = new Size(680, 420);
-        StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         BackColor = Color.FromArgb(240, 246, 252);
         Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
+
+        ScreenFittingManager.FitDialogToWorkArea(this, 680, 420, 560, 360);
 
         // Header Panel (Tally Deep Blue)
         var pnlHeader = new Panel

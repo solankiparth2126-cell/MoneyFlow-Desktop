@@ -8,6 +8,9 @@ namespace MoneyFlow.Desktop.Navigation;
 /// </summary>
 public interface INavigationService
 {
+    // Host Registration
+    void RegisterHost(IMainContentHost host);
+
     // Company & Session
     void OpenCompanyList(IWin32Window? owner = null);
     void OpenCreateCompany(IWin32Window? owner = null);

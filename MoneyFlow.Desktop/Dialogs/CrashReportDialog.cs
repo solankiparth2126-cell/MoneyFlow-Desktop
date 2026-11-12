@@ -26,8 +26,6 @@ public class CrashReportDialog : Form
     private void InitializeComponent()
     {
         Text = "MoneyFlow Desktop — Unexpected Error";
-        Size = new Size(650, 480);
-        StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -35,12 +33,16 @@ public class CrashReportDialog : Form
         BackColor = Color.FromArgb(248, 250, 252);
         Font = ExecLedgerTheme.UIRegular9;
 
+<<<<<<< Updated upstream
         var appIcon = ExecLedgerIcons.GetAppIcon();
         if (appIcon != null)
         {
             Icon = appIcon;
             ShowIcon = true;
         }
+=======
+        ScreenFittingManager.FitDialogToWorkArea(this, 650, 480, 520, 380);
+>>>>>>> Stashed changes
 
         // Header Panel
         var headerPanel = new Panel

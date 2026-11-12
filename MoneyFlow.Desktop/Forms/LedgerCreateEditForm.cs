@@ -59,13 +59,13 @@ public partial class LedgerCreateEditForm : Form
     private void InitializeComponent()
     {
         Text = _ledgerId.HasValue ? "Ledger Alteration (Edit)" : "Ledger Creation";
-        Size = new Size(680, 680);
-        StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
+
+        ScreenFittingManager.FitDialogToWorkArea(this, 680, 680, 520, 420);
 
         var mainPanel = new TableLayoutPanel
         {

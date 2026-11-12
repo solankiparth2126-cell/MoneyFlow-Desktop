@@ -3,29 +3,51 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Interfaces;
-using MoneyFlow.Data;
 
 namespace MoneyFlow.Services.Security;
 
 public class AuditService : IAuditService
 {
-    private readonly AppDbContext _context;
+    private readonly IRepository<AuditLog> _auditRepo;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IUserContext _userContext;
     private readonly ILogger<AuditService> _logger;
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public AuditService(
-        AppDbContext context,
+        IRepository<AuditLog> auditRepo,
+        IUnitOfWork unitOfWork,
         IUserContext userContext,
         ILogger<AuditService> logger)
     {
-        _context = context;
+        _auditRepo = auditRepo;
+        _unitOfWork = unitOfWork;
         _userContext = userContext;
         _logger = logger;
+    }
+
+    public AuditService(
+        IRepository<AuditLog> auditRepo,
+        IUnitOfWork unitOfWork,
+        IUserContext userContext)
+        : this(auditRepo, unitOfWork, userContext, Microsoft.Extensions.Logging.Abstractions.NullLogger<AuditService>.Instance)
+    {
+    }
+
+    internal AuditService(
+        MoneyFlow.Data.AppDbContext context,
+        IUserContext userContext,
+        ILogger<AuditService> logger)
+        : this(
+            new MoneyFlow.Data.Repositories.Repository<AuditLog>(context),
+            new MoneyFlow.Data.Repositories.UnitOfWork(context),
+            userContext,
+            logger)
+    {
     }
 
     public async Task LogAsync(
@@ -45,12 +67,12 @@ public class AuditService : IAuditService
                 Action = action,
                 Module = module,
                 RecordId = recordId ?? string.Empty,
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.UtcNow,
                 Description = description ?? string.Empty
             };
 
-            _context.AuditLogs.Add(auditEntry);
-            await _context.SaveChangesAsync(ct);
+            await _auditRepo.AddAsync(auditEntry, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {
@@ -60,7 +82,8 @@ public class AuditService : IAuditService
 
     public async Task<IReadOnlyList<AuditLogDto>> GetLogsAsync(AuditLogFilterDto filter, CancellationToken ct = default)
     {
-        var query = _context.AuditLogs.AsNoTracking().AsQueryable();
+        var logs = await _auditRepo.GetAllAsync(ct);
+        IEnumerable<AuditLog> query = logs;
 
         if (filter.CompanyId.HasValue)
         {
@@ -69,12 +92,12 @@ public class AuditService : IAuditService
 
         if (!string.IsNullOrWhiteSpace(filter.Module))
         {
-            query = query.Where(a => a.Module == filter.Module);
+            query = query.Where(a => a.Module.Equals(filter.Module, StringComparison.OrdinalIgnoreCase));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Action))
         {
-            query = query.Where(a => a.Action == filter.Action);
+            query = query.Where(a => a.Action.Equals(filter.Action, StringComparison.OrdinalIgnoreCase));
         }
 
         if (filter.FromDate.HasValue)
@@ -87,7 +110,7 @@ public class AuditService : IAuditService
             query = query.Where(a => a.Timestamp <= filter.ToDate.Value);
         }
 
-        return await query
+        return query
             .OrderByDescending(a => a.Timestamp)
             .Take(filter.MaxRecords > 0 ? filter.MaxRecords : 200)
             .Select(a => new AuditLogDto
@@ -101,6 +124,6 @@ public class AuditService : IAuditService
                 Timestamp = a.Timestamp,
                 Description = a.Description
             })
-            .ToListAsync(ct);
+            .ToList();
     }
 }

@@ -2,11 +2,15 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Core.Migration;
 using MoneyFlow.Data;
 using MoneyFlow.Data.Encryption;
 using MoneyFlow.Data.Migration;
 using MoneyFlow.Data.Repositories;
+<<<<<<< Updated upstream
 using MoneyFlow.Data.Storage;
+=======
+>>>>>>> Stashed changes
 using MoneyFlow.Desktop.Forms;
 using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Services.Accounting;
@@ -37,6 +41,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddDatabaseServices(this IServiceCollection services, IConfiguration? configuration = null)
     {
+<<<<<<< Updated upstream
         var config = configuration ?? new ConfigurationBuilder().Build();
         services.AddStorageServices(config);
         services.AddDataRepositories();
@@ -89,6 +94,28 @@ public static class ServiceCollectionExtensions
         // Provides IQueryable properties matching old EF Core DbSet names
         services.AddScoped(sp => new AppDataContext(sp.GetRequiredService<CompanySession>()));
         services.AddScoped(sp => new AppDbContext(sp.GetRequiredService<CompanySession>()));
+=======
+        string? dataRoot = configuration["StorageSettings:DataRootPath"];
+        string? companiesPath = configuration["StorageSettings:CompaniesPath"];
+        MoneyFlow.Core.Common.CompanyPathConfiguration.SetConfiguredPaths(dataRoot, companiesPath);
+
+        // Core Encrypted File Storage Engine & Transaction Manager
+        services.AddSingleton<ICompanyDataCrypto, MoneyFlow.Data.Storage.CompanyDataCrypto>();
+        services.AddSingleton<IJournalManager, MoneyFlow.Data.Storage.JournalManager>();
+        services.AddSingleton<ICompanyStorageEngine>(sp =>
+        {
+            var crypto = sp.GetRequiredService<ICompanyDataCrypto>();
+            string root = MoneyFlow.Core.Common.CompanyPathConfiguration.ResolveDataRootPath(dataRoot);
+            return new MoneyFlow.Data.Storage.CompanyStorageEngine(crypto, root);
+        });
+        services.AddSingleton<ITransactionManager, MoneyFlow.Data.Storage.TransactionManager>();
+        services.AddSingleton<ICompanyDataStore, CompanyDataStore>();
+        services.AddSingleton<ICompanyManager, MoneyFlow.Services.Company.CompanyManager>();
+        services.AddScoped<IMigrationManager, MoneyFlow.Services.Migration.MigrationManager>();
+
+        // Offline storage initialization
+        services.AddScoped<IDatabaseSetupService>(sp => ActivatorUtilities.CreateInstance<DatabaseSetupService>(sp));
+>>>>>>> Stashed changes
 
         return services;
     }
@@ -99,6 +126,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddDataRepositories(this IServiceCollection services)
     {
+<<<<<<< Updated upstream
         // Unit of Work
         services.AddScoped<IUnitOfWork>(sp => new FileUnitOfWork(sp.GetRequiredService<CompanySession>()));
 
@@ -111,6 +139,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGroupRepository>(sp => new FileGroupRepository(sp.GetRequiredService<CompanySession>()));
         services.AddScoped<ILedgerRepository>(sp => new FileLedgerRepository(sp.GetRequiredService<CompanySession>()));
         services.AddScoped<IVoucherRepository>(sp => new FileVoucherRepository(sp.GetRequiredService<CompanySession>()));
+=======
+        services.AddScoped<IUnitOfWork, FileUnitOfWork>();
+        services.AddScoped(typeof(IRepository<>), typeof(FileRepository<>));
+        services.AddScoped<ICompanyRepository, FileCompanyRepository>();
+        services.AddScoped<IFinancialYearRepository, FileFinancialYearRepository>();
+        services.AddScoped<IGroupRepository, FileGroupRepository>();
+        services.AddScoped<ILedgerRepository, FileLedgerRepository>();
+        services.AddScoped<IVoucherRepository, FileVoucherRepository>();
+>>>>>>> Stashed changes
 
         return services;
     }
@@ -119,16 +156,38 @@ public static class ServiceCollectionExtensions
     {
         // Company & Session
         services.AddSingleton<ICompanyContext, CompanyContext>();
-        services.AddScoped<ICompanyService, CompanyService>();
-        services.AddScoped<ICompanySplitService, CompanySplitService>();
+        services.AddScoped<ICompanyService>(sp =>
+        {
+            var manager = sp.GetService<ICompanyManager>();
+            if (manager != null)
+            {
+                return new CompanyService(
+                    manager,
+                    sp.GetRequiredService<ICompanyRepository>(),
+                    sp.GetRequiredService<ICompanyContext>(),
+                    sp.GetRequiredService<IUnitOfWork>(),
+                    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CompanyService>>()
+                );
+            }
+            return new CompanyService(
+                sp.GetRequiredService<ICompanyRepository>(),
+                sp.GetRequiredService<IFinancialYearRepository>(),
+                sp.GetRequiredService<IGroupRepository>(),
+                sp.GetRequiredService<ILedgerRepository>(),
+                sp.GetRequiredService<IUnitOfWork>(),
+                sp.GetRequiredService<ICompanyContext>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CompanyService>>()
+            );
+        });
+        services.AddScoped<ICompanySplitService>(sp => ActivatorUtilities.CreateInstance<CompanySplitService>(sp));
 
         // Financial Year
         services.AddScoped<IFinancialYearService, FinancialYearService>();
 
         // Master Data
-        services.AddScoped<IGroupService, GroupService>();
-        services.AddScoped<ILedgerService, LedgerService>();
-        services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IGroupService>(sp => ActivatorUtilities.CreateInstance<GroupService>(sp));
+        services.AddScoped<ILedgerService>(sp => ActivatorUtilities.CreateInstance<LedgerService>(sp));
+        services.AddScoped<IInventoryService>(sp => ActivatorUtilities.CreateInstance<InventoryService>(sp));
 
         // Accounting Engine & Operations
         services.AddScoped<IAccountingHierarchyService, AccountingHierarchyService>();
@@ -137,20 +196,20 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBankReconciliationService, BankReconciliationService>();
 
         // Search & Analytics
-        services.AddScoped<ISearchService, SearchService>();
-        services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<ISearchService>(sp => ActivatorUtilities.CreateInstance<SearchService>(sp));
+        services.AddScoped<IDashboardService>(sp => ActivatorUtilities.CreateInstance<DashboardService>(sp));
 
         // Utilities
-        services.AddScoped<IImportExportService, ImportExportService>();
-        services.AddScoped<IBackupRestoreService, BackupRestoreService>();
+        services.AddScoped<IImportExportService>(sp => ActivatorUtilities.CreateInstance<ImportExportService>(sp));
+        services.AddScoped<IBackupRestoreService>(sp => ActivatorUtilities.CreateInstance<BackupRestoreService>(sp));
 
         // Security & User System
         services.AddSingleton<IUserContext, UserContext>();
-        services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<ISecurityService, SecurityService>();
+        services.AddScoped<IAuditService>(sp => ActivatorUtilities.CreateInstance<AuditService>(sp));
+        services.AddScoped<ISecurityService>(sp => ActivatorUtilities.CreateInstance<SecurityService>(sp));
 
         // Settings
-        services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<ISettingsService>(sp => ActivatorUtilities.CreateInstance<SettingsService>(sp));
 
         return services;
     }
@@ -159,6 +218,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IFormFactory, FormFactory>();
         services.AddScoped<INavigationService, NavigationService>();
+        services.AddSingleton<MoneyFlow.Desktop.Services.MasterNavigationService>();
 
         return services;
     }
@@ -190,6 +250,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<BackupRestoreForm>();
         services.AddTransient<LoginForm>();
         services.AddTransient<UserManagementForm>();
+        services.AddTransient<MoneyFlow.Desktop.Dialogs.ApplicationStartupDialog>();
 
         return services;
     }

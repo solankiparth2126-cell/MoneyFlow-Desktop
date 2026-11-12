@@ -8,6 +8,7 @@ using MoneyFlow.Desktop.Styling;
 using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Navigation;
 
 using MoneyFlow.Desktop.Controls.Lookup;
 using MoneyFlow.Desktop.Navigation;
