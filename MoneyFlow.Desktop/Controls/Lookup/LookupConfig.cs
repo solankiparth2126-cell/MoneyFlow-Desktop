@@ -18,4 +18,6 @@ public class LookupConfig
     public string DescriptionColumnHeader { get; set; } = "Description";
     public string CodeColumnHeader { get; set; } = "Code";
     public bool ShowCodeColumn { get; set; } = true;
+    public bool ShowSearchBox { get; set; } = false;
+    public bool ShowStatusFilter { get; set; } = false;
 }

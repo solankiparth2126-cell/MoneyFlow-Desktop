@@ -131,15 +131,15 @@ public class LookupKeyboardController
                 e.Handled = true;
                 return true;
 
-            case Keys.Tab:
             case Keys.Enter:
+            case Keys.Tab:
                 if (SelectedIndex >= 0 && SelectedIndex < count)
                 {
                     onSelect?.Invoke(items[SelectedIndex]);
                 }
-                else if (count > 0)
+                else
                 {
-                    onSelect?.Invoke(items[0]);
+                    onCancel?.Invoke();
                 }
                 e.Handled = true;
                 return true;

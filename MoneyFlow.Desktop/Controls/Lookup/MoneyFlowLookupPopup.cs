@@ -74,6 +74,15 @@ public class MoneyFlowLookupPopup : Form
         BackColor = ExecLedgerTheme.WorkSurface;
         Size = new Size(_config.DefaultWidth, _config.DefaultHeight);
 
+        // Auto-close on deactivate when focus leaves popup
+        Deactivate += (s, e) =>
+        {
+            if (Visible && !_isSelecting)
+            {
+                ClosePopup(isCancelled: true);
+            }
+        };
+
         // Outer Border
         Paint += (s, e) =>
         {
@@ -94,10 +103,10 @@ public class MoneyFlowLookupPopup : Form
 
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32)); // 0: Title Bar
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // 1: Sub Bar (Counts & New)
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34)); // 2: Find Search Bar
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, _config.ShowSearchBox ? 34 : 0)); // 2: Find Search Bar
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // 3: Columns Header
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // 4: Items List
-        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // 5: Status Filter & Counter
+        mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, _config.ShowStatusFilter ? 22 : 0)); // 5: Status Filter & Counter
         mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 26)); // 6: Keyboard Shortcut Footer
 
         // ── 0. Title Bar ──
@@ -209,7 +218,8 @@ public class MoneyFlowLookupPopup : Form
             Dock = DockStyle.Fill,
             BackColor = Color.White,
             Padding = new Padding(14, 5, 14, 5),
-            Margin = new Padding(0)
+            Margin = new Padding(0),
+            Visible = _config.ShowSearchBox
         };
         pnlFind.Paint += (s, e) =>
         {
@@ -294,7 +304,8 @@ public class MoneyFlowLookupPopup : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(248, 250, 252),
-            Margin = new Padding(0)
+            Margin = new Padding(0),
+            Visible = _config.ShowStatusFilter
         };
         pnlStatus.Paint += (s, e) =>
         {
@@ -337,14 +348,22 @@ public class MoneyFlowLookupPopup : Form
             var g = e.Graphics;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            var items = new (string Key, string Action)[]
+            var items = new List<(string Key, string Action)>
             {
                 ("↑↓", "Navigate"),
                 ("ENTER", "Select"),
-                ("ESC", "Close"),
-                ("ALT+C", "Create"),
-                ("ALT+M", "More")
+                ("ESC", "Close")
             };
+
+            if (_config.AllowCreate)
+            {
+                items.Add(("ALT+C", "Create"));
+            }
+
+            if (_config.AllowShowMore)
+            {
+                items.Add(("ALT+M", "More"));
+            }
 
             using var fontKey = new Font("Segoe UI", 7.5F, FontStyle.Bold);
             using var fontAction = new Font("Segoe UI", 7.5F, FontStyle.Regular);
@@ -405,11 +424,21 @@ public class MoneyFlowLookupPopup : Form
                 }
             }
 
-            _txtSearch.Focus();
-            if (!string.IsNullOrEmpty(initialSearch))
+            if (_config.ShowSearchBox)
             {
-                _txtSearch.Text = initialSearch;
-                _txtSearch.SelectionStart = _txtSearch.Text.Length;
+                _txtSearch.Focus();
+                if (!string.IsNullOrEmpty(initialSearch))
+                {
+                    _txtSearch.Text = initialSearch;
+                    _txtSearch.SelectionStart = _txtSearch.Text.Length;
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(initialSearch))
+                {
+                    ApplyFilter(initialSearch);
+                }
             }
         }
         catch
@@ -419,81 +448,62 @@ public class MoneyFlowLookupPopup : Form
 
     public void PositionNear(Control anchorControl)
     {
-        var parentForm = anchorControl.FindForm();
         var screen = Screen.FromControl(anchorControl);
         var workArea = screen.WorkingArea;
 
-        // Viewport: bounded by parent application window if present, otherwise screen working area
-        Rectangle viewport = workArea;
-        if (parentForm?.Owner != null && parentForm.Owner.Visible)
-        {
-            var appBounds = parentForm.Owner.RectangleToScreen(parentForm.Owner.ClientRectangle);
-            var inter = Rectangle.Intersect(workArea, appBounds);
-            if (!inter.IsEmpty && inter.Width >= 400 && inter.Height >= 300)
-            {
-                viewport = inter;
-            }
-        }
-
-        int popW = Math.Min(_config.DefaultWidth, viewport.Width - 24);
-        int targetH = Math.Min(_config.DefaultHeight, viewport.Height - 40);
+        int popW = Math.Min(_config.DefaultWidth, workArea.Width - 24);
+        int targetH = Math.Min(_config.DefaultHeight, workArea.Height - 40);
 
         var anchorScreen = anchorControl.RectangleToScreen(anchorControl.ClientRectangle);
-        if (anchorControl.Parent != null && anchorControl.Parent.Height <= 50)
-        {
-            var pScreen = anchorControl.Parent.RectangleToScreen(anchorControl.Parent.ClientRectangle);
-            if (pScreen.Bottom >= anchorScreen.Bottom)
-            {
-                anchorScreen = pScreen;
-            }
-        }
 
-        // Calculate available vertical space
-        int spaceBelow = viewport.Bottom - anchorScreen.Bottom - 8;
-        int spaceAbove = anchorScreen.Top - viewport.Top - 8;
+        // Calculate available vertical space within the display work area
+        int spaceBelow = workArea.Bottom - anchorScreen.Bottom - 8;
+        int spaceAbove = anchorScreen.Top - workArea.Top - 8;
 
         int top;
         int popH;
 
-        if (spaceBelow >= 140 || spaceBelow >= spaceAbove)
+        // Ensure at least 240px is available so records are never squished or cut off
+        const int minComfortableHeight = 240;
+
+        if (spaceBelow >= targetH)
         {
-            // Position directly below anchor
+            // Plenty of room below: open downwards with full target height
             top = anchorScreen.Bottom + 2;
-            popH = Math.Min(targetH, Math.Max(180, spaceBelow));
+            popH = targetH;
+        }
+        else if (spaceAbove >= targetH)
+        {
+            // Not enough room below, but plenty above: flip upwards!
+            popH = targetH;
+            top = anchorScreen.Top - popH - 2;
+        }
+        else if (spaceAbove > spaceBelow)
+        {
+            // More room above than below: flip upwards with max available height
+            popH = Math.Min(targetH, Math.Max(minComfortableHeight, spaceAbove));
+            top = anchorScreen.Top - popH - 2;
         }
         else
         {
-            // Position directly above anchor
-            popH = Math.Min(targetH, Math.Max(180, spaceAbove));
-            top = anchorScreen.Top - popH - 2;
+            // Open downwards with max available height
+            top = anchorScreen.Bottom + 2;
+            popH = Math.Min(targetH, Math.Max(minComfortableHeight, spaceBelow));
         }
 
-        // Horizontal positioning: align with anchor's right, staying inside parent form & viewport
+        // Horizontal positioning: align with anchor's right
         int left = anchorScreen.Right - popW;
 
-        if (parentForm != null)
-        {
-            var formScreen = parentForm.RectangleToScreen(parentForm.ClientRectangle);
-            if (popW <= formScreen.Width - 24)
-            {
-                // Align within parent form boundaries
-                if (left + popW > formScreen.Right - 12)
-                    left = formScreen.Right - 12 - popW;
-                if (left < formScreen.Left + 12)
-                    left = formScreen.Left + 12;
-            }
-        }
+        // Clamp to screen work area
+        if (left + popW > workArea.Right - 8)
+            left = workArea.Right - 8 - popW;
+        if (left < workArea.Left + 8)
+            left = workArea.Left + 8;
 
-        // Final clamp to viewport
-        if (left + popW > viewport.Right - 8)
-            left = viewport.Right - 8 - popW;
-        if (left < viewport.Left + 8)
-            left = viewport.Left + 8;
-
-        if (top + popH > viewport.Bottom - 8)
-            top = viewport.Bottom - 8 - popH;
-        if (top < viewport.Top + 8)
-            top = viewport.Top + 8;
+        if (top + popH > workArea.Bottom - 8)
+            top = workArea.Bottom - 8 - popH;
+        if (top < workArea.Top + 8)
+            top = workArea.Top + 8;
 
         Size = new Size(popW, popH);
         Location = new Point(left, top);
@@ -731,7 +741,12 @@ public class MoneyFlowLookupPopup : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
-    private void SelectCurrentItem()
+    public void HandleExternalKeyDown(KeyEventArgs e)
+    {
+        OnSearchKeyDown(_txtSearch, e);
+    }
+
+    public void SelectCurrentItem()
     {
         if (_lstItems.SelectedIndex >= 0 && _lstItems.SelectedIndex < _visibleItems.Count)
         {

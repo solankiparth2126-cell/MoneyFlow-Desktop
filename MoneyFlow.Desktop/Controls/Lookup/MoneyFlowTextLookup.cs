@@ -85,21 +85,59 @@ public class MoneyFlowTextLookup : UserControl
         _innerTextBox.TextChanged += async (s, e) =>
         {
             if (_suppressTextChange) return;
-            if (_isFocused && (_popup == null || !_popup.Visible))
+            if (_isFocused)
             {
-                // Typing text into field opens lookup with the typed query
-                await OpenLookupAsync(_innerTextBox.Text);
+                if (_popup == null || !_popup.Visible)
+                {
+                    // Typing text into field opens lookup with the typed query
+                    await OpenLookupAsync(_innerTextBox.Text);
+                }
+                else
+                {
+                    await _popup.ReloadDataAsync(_innerTextBox.Text);
+                }
             }
         };
 
         Controls.Add(_innerTextBox);
 
-        Click += (s, e) => _innerTextBox.Focus();
+        Click += async (s, e) =>
+        {
+            _innerTextBox.Focus();
+            if (_popup == null || !_popup.Visible)
+            {
+                await OpenLookupAsync();
+            }
+        };
         Paint += OnCustomPaint;
+        Resize += (s, e) => UpdatePadding();
+        UpdatePadding();
     }
 
     public bool AutoOpenOnFocus { get; set; } = true;
     public bool DrawBorder { get; set; } = true;
+
+    private bool _showDropdownArrow;
+    public bool ShowDropdownArrow
+    {
+        get => _showDropdownArrow;
+        set
+        {
+            _showDropdownArrow = value;
+            UpdatePadding();
+            Invalidate();
+        }
+    }
+
+    public Color BorderColor { get; set; } = ExecLedgerTheme.PrimaryBorder;
+    public Color FocusBorderColor { get; set; } = ExecLedgerTheme.SystemFocusBlue;
+    public int BorderRadius { get; set; }
+
+    private void UpdatePadding()
+    {
+        int topPad = Math.Max(2, (Height - _innerTextBox.PreferredHeight) / 2);
+        Padding = new Padding(8, topPad, _showDropdownArrow ? 24 : 8, 2);
+    }
 
     public void SetProvider(ILookupProvider provider, LookupConfig? config = null)
     {
@@ -221,27 +259,63 @@ public class MoneyFlowTextLookup : UserControl
         var g = e.Graphics;
         var rect = new Rectangle(0, 0, Width - 1, Height - 1);
 
-        // Background: strictly white (#FFFFFF)
-        using (var brush = new SolidBrush(Color.White))
-        {
-            g.FillRectangle(brush, rect);
-        }
-
-        // Border: #2563EB when focused, #CBD5E1 when idle
-        Color borderColor = _isFocused ? ExecLedgerTheme.SystemFocusBlue : ExecLedgerTheme.PrimaryBorder;
+        Color borderColor = _isFocused ? FocusBorderColor : BorderColor;
         int borderWidth = _isFocused ? 2 : 1;
 
-        using (var pen = new Pen(borderColor, borderWidth))
+        if (BorderRadius > 0)
         {
-            if (_isFocused)
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var path = CreateRoundedRectanglePath(rect, BorderRadius);
+            using var brush = new SolidBrush(Color.White);
+            g.FillPath(brush, path);
+            using var pen = new Pen(borderColor, borderWidth);
+            g.DrawPath(pen, path);
+        }
+        else
+        {
+            using (var brush = new SolidBrush(Color.White))
             {
-                g.DrawRectangle(pen, 1, 1, Width - 2, Height - 2);
+                g.FillRectangle(brush, rect);
             }
-            else
+
+            using (var pen = new Pen(borderColor, borderWidth))
             {
-                g.DrawRectangle(pen, rect);
+                if (_isFocused)
+                {
+                    g.DrawRectangle(pen, 1, 1, Width - 2, Height - 2);
+                }
+                else
+                {
+                    g.DrawRectangle(pen, rect);
+                }
             }
         }
+
+        if (ShowDropdownArrow)
+        {
+            int arrowX = Width - 18;
+            int arrowY = (Height - 4) / 2;
+            Point[] arrowPoints =
+            {
+                new(arrowX, arrowY),
+                new(arrowX + 8, arrowY),
+                new(arrowX + 4, arrowY + 5)
+            };
+            using var arrowBrush = new SolidBrush(Color.FromArgb(100, 116, 139));
+            g.FillPolygon(arrowBrush, arrowPoints);
+        }
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectanglePath(Rectangle rect, int radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        int d = radius * 2;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     public event KeyEventHandler? EditorKeyDown;
@@ -258,15 +332,38 @@ public class MoneyFlowTextLookup : UserControl
         OnKeyDown(e);
         if (e.Handled || e.SuppressKeyPress) return;
 
-        // 1. Enter Key Handling
-        if (e.KeyCode == Keys.Enter)
+        // Navigation when popup is visible
+        if (_popup != null && _popup.Visible)
         {
-            if (_popup != null && _popup.Visible)
+            if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.PageUp || e.KeyCode == Keys.PageDown)
             {
-                // Popup is visible; let the popup keyboard controller commit selection
+                _popup.HandleExternalKeyDown(e);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
                 return;
             }
 
+            if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab)
+            {
+                _popup.SelectCurrentItem();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Escape)
+            {
+                _suppressAutoOpenUntilLeave = true;
+                _popup.ClosePopup(isCancelled: true);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+        }
+
+        // 1. Enter Key Handling (when popup is closed)
+        if (e.KeyCode == Keys.Enter)
+        {
             e.Handled = true;
             e.SuppressKeyPress = true;
 
