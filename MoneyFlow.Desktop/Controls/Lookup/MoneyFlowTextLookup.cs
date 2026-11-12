@@ -54,9 +54,14 @@ public class MoneyFlowTextLookup : UserControl
             {
                 // Delay slightly to allow normal focus routing to complete
                 await Task.Yield();
-                if (_isFocused && (_popup == null || !_popup.Visible))
+                var parent = FindForm();
+                if (!IsDisposed && _isFocused && parent != null && !parent.IsDisposed && parent.Visible && (_popup == null || !_popup.Visible))
                 {
-                    await OpenLookupAsync();
+                    try
+                    {
+                        await OpenLookupAsync();
+                    }
+                    catch { }
                 }
             }
         };
@@ -94,6 +99,7 @@ public class MoneyFlowTextLookup : UserControl
     }
 
     public bool AutoOpenOnFocus { get; set; } = true;
+    public bool DrawBorder { get; set; } = true;
 
     public void SetProvider(ILookupProvider provider, LookupConfig? config = null)
     {
@@ -210,6 +216,8 @@ public class MoneyFlowTextLookup : UserControl
 
     private void OnCustomPaint(object? sender, PaintEventArgs e)
     {
+        if (!DrawBorder) return;
+
         var g = e.Graphics;
         var rect = new Rectangle(0, 0, Width - 1, Height - 1);
 

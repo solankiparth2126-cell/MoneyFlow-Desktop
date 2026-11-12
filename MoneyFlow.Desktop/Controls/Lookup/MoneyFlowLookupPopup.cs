@@ -114,7 +114,7 @@ public class MoneyFlowLookupPopup : Form
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 9.25F, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(10, 7),
+            Location = new Point(14, 7),
             BackColor = Color.Transparent
         };
         pnlTitle.Controls.Add(_lblTitle);
@@ -160,11 +160,12 @@ public class MoneyFlowLookupPopup : Form
             ForeColor = Color.FromArgb(100, 116, 139),
             Font = new Font("Segoe UI", 8F, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(10, 6)
+            Location = new Point(14, 6),
+            BackColor = Color.Transparent
         };
         pnlSub.Controls.Add(_lblRecordCount);
 
-        int rightX = Width - 12;
+        int rightX = Width - 14;
 
         if (_config.AllowShowMore)
         {
@@ -207,8 +208,13 @@ public class MoneyFlowLookupPopup : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Color.White,
-            Padding = new Padding(10, 5, 10, 5),
+            Padding = new Padding(14, 5, 14, 5),
             Margin = new Padding(0)
+        };
+        pnlFind.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(241, 245, 249), 1);
+            e.Graphics.DrawLine(pen, 0, pnlFind.Height - 1, pnlFind.Width, pnlFind.Height - 1);
         };
 
         var lblFindIcon = new Label
@@ -217,14 +223,15 @@ public class MoneyFlowLookupPopup : Form
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
             ForeColor = Color.FromArgb(71, 85, 105),
             AutoSize = true,
-            Location = new Point(10, 7)
+            Location = new Point(14, 7),
+            BackColor = Color.Transparent
         };
         pnlFind.Controls.Add(lblFindIcon);
 
         _txtSearch = new TextBox
         {
-            Location = new Point(54, 5),
-            Width = Width - 66,
+            Location = new Point(56, 5),
+            Width = Width - 70,
             Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
             ForeColor = ExecLedgerTheme.PrimaryText,
             BorderStyle = BorderStyle.FixedSingle,
@@ -247,11 +254,14 @@ public class MoneyFlowLookupPopup : Form
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             using var font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
             using var brush = new SolidBrush(Color.FromArgb(71, 85, 105));
-            g.DrawString(_config.DescriptionColumnHeader, font, brush, 12, 4);
+            g.DrawString(_config.DescriptionColumnHeader, font, brush, 14, 4);
 
             if (_config.ShowCodeColumn)
             {
-                int codeX = Width - 80;
+                int scrollbarWidth = SystemInformation.VerticalScrollBarWidth;
+                int rightMargin = scrollbarWidth + 12;
+                int codeHeaderWidth = TextRenderer.MeasureText(_config.CodeColumnHeader, font).Width;
+                int codeX = pnlCols.Width - rightMargin - codeHeaderWidth;
                 g.DrawString(_config.CodeColumnHeader, font, brush, codeX, 4);
             }
 
@@ -298,7 +308,8 @@ public class MoneyFlowLookupPopup : Form
             Font = new Font("Segoe UI", 7.5F),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
-            Location = new Point(10, 4)
+            Location = new Point(14, 4),
+            BackColor = Color.Transparent
         };
         pnlStatus.Controls.Add(_lblFilterStatus);
 
@@ -309,7 +320,8 @@ public class MoneyFlowLookupPopup : Form
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(Width - 110, 4)
+            Location = new Point(Width - 100, 4),
+            BackColor = Color.Transparent
         };
         pnlStatus.Controls.Add(_lblItemCounter);
 
@@ -320,16 +332,39 @@ public class MoneyFlowLookupPopup : Form
             BackColor = ExecLedgerTheme.PrimaryNavy,
             Margin = new Padding(0)
         };
-
-        var lblFooterHelp = new Label
+        _pnlFooter.Paint += (s, e) =>
         {
-            Text = "↑↓ Navigate   ENTER Select   ESC Close   ALT+C Create   ALT+M More",
-            Font = new Font("Segoe UI", 7.5F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(226, 232, 240),
-            AutoSize = true,
-            Location = new Point(10, 6)
+            var g = e.Graphics;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            var items = new (string Key, string Action)[]
+            {
+                ("↑↓", "Navigate"),
+                ("ENTER", "Select"),
+                ("ESC", "Close"),
+                ("ALT+C", "Create"),
+                ("ALT+M", "More")
+            };
+
+            using var fontKey = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var fontAction = new Font("Segoe UI", 7.5F, FontStyle.Regular);
+            using var brushKey = new SolidBrush(Color.FromArgb(147, 197, 253));
+            using var brushAction = new SolidBrush(Color.FromArgb(226, 232, 240));
+
+            int y = (_pnlFooter.Height - 16) / 2;
+            int x = 14;
+
+            foreach (var item in items)
+            {
+                g.DrawString(item.Key, fontKey, brushKey, x, y);
+                int kw = TextRenderer.MeasureText(item.Key, fontKey).Width;
+
+                g.DrawString(" " + item.Action, fontAction, brushAction, x + kw - 3, y);
+                int aw = TextRenderer.MeasureText(" " + item.Action, fontAction).Width;
+
+                x += kw + aw + 12;
+            }
         };
-        _pnlFooter.Controls.Add(lblFooterHelp);
 
         // Assemble Layout
         mainLayout.Controls.Add(pnlTitle, 0, 0);
@@ -348,54 +383,119 @@ public class MoneyFlowLookupPopup : Form
 
     public async Task LoadAndShowAsync(Control anchorControl, string? initialSearch = null)
     {
-        await ReloadDataAsync(initialSearch);
-        PositionNear(anchorControl);
+        if (anchorControl == null || anchorControl.IsDisposed) return;
+        var parentForm = anchorControl.FindForm();
+        if (parentForm == null || parentForm.IsDisposed) return;
 
-        if (!Visible)
+        try
         {
-            Show(anchorControl.FindForm());
+            await ReloadDataAsync(initialSearch);
+            if (anchorControl.IsDisposed || parentForm.IsDisposed) return;
+            PositionNear(anchorControl);
+
+            if (!Visible)
+            {
+                if (parentForm.Visible)
+                {
+                    Show(parentForm);
+                }
+                else
+                {
+                    Show();
+                }
+            }
+
+            _txtSearch.Focus();
+            if (!string.IsNullOrEmpty(initialSearch))
+            {
+                _txtSearch.Text = initialSearch;
+                _txtSearch.SelectionStart = _txtSearch.Text.Length;
+            }
         }
-
-        _txtSearch.Focus();
-        if (!string.IsNullOrEmpty(initialSearch))
+        catch
         {
-            _txtSearch.Text = initialSearch;
-            _txtSearch.SelectionStart = _txtSearch.Text.Length;
         }
     }
 
     public void PositionNear(Control anchorControl)
     {
-        var anchorScreen = anchorControl.PointToScreen(Point.Empty);
+        var parentForm = anchorControl.FindForm();
         var screen = Screen.FromControl(anchorControl);
         var workArea = screen.WorkingArea;
 
-        int popW = Width;
-        int popH = Height;
-
-        // Preferred: below anchor
-        int top = anchorScreen.Y + anchorControl.Height + 2;
-        if (top + popH > workArea.Bottom)
+        // Viewport: bounded by parent application window if present, otherwise screen working area
+        Rectangle viewport = workArea;
+        if (parentForm?.Owner != null && parentForm.Owner.Visible)
         {
-            // Position above if not enough space below
-            top = anchorScreen.Y - popH - 2;
+            var appBounds = parentForm.Owner.RectangleToScreen(parentForm.Owner.ClientRectangle);
+            var inter = Rectangle.Intersect(workArea, appBounds);
+            if (!inter.IsEmpty && inter.Width >= 400 && inter.Height >= 300)
+            {
+                viewport = inter;
+            }
         }
 
-        // Horizontal alignment
-        int left = anchorScreen.X;
-        if (left + popW > workArea.Right)
+        int popW = Math.Min(_config.DefaultWidth, viewport.Width - 24);
+        int targetH = Math.Min(_config.DefaultHeight, viewport.Height - 40);
+
+        var anchorScreen = anchorControl.RectangleToScreen(anchorControl.ClientRectangle);
+        if (anchorControl.Parent != null && anchorControl.Parent.Height <= 50)
         {
-            left = workArea.Right - popW - 6;
-        }
-        if (left < workArea.Left)
-        {
-            left = workArea.Left + 6;
+            var pScreen = anchorControl.Parent.RectangleToScreen(anchorControl.Parent.ClientRectangle);
+            if (pScreen.Bottom >= anchorScreen.Bottom)
+            {
+                anchorScreen = pScreen;
+            }
         }
 
-        // Clamp vertically
-        if (top < workArea.Top) top = workArea.Top + 6;
-        if (top + popH > workArea.Bottom) top = workArea.Bottom - popH - 6;
+        // Calculate available vertical space
+        int spaceBelow = viewport.Bottom - anchorScreen.Bottom - 8;
+        int spaceAbove = anchorScreen.Top - viewport.Top - 8;
 
+        int top;
+        int popH;
+
+        if (spaceBelow >= 140 || spaceBelow >= spaceAbove)
+        {
+            // Position directly below anchor
+            top = anchorScreen.Bottom + 2;
+            popH = Math.Min(targetH, Math.Max(180, spaceBelow));
+        }
+        else
+        {
+            // Position directly above anchor
+            popH = Math.Min(targetH, Math.Max(180, spaceAbove));
+            top = anchorScreen.Top - popH - 2;
+        }
+
+        // Horizontal positioning: align with anchor's right, staying inside parent form & viewport
+        int left = anchorScreen.Right - popW;
+
+        if (parentForm != null)
+        {
+            var formScreen = parentForm.RectangleToScreen(parentForm.ClientRectangle);
+            if (popW <= formScreen.Width - 24)
+            {
+                // Align within parent form boundaries
+                if (left + popW > formScreen.Right - 12)
+                    left = formScreen.Right - 12 - popW;
+                if (left < formScreen.Left + 12)
+                    left = formScreen.Left + 12;
+            }
+        }
+
+        // Final clamp to viewport
+        if (left + popW > viewport.Right - 8)
+            left = viewport.Right - 8 - popW;
+        if (left < viewport.Left + 8)
+            left = viewport.Left + 8;
+
+        if (top + popH > viewport.Bottom - 8)
+            top = viewport.Bottom - 8 - popH;
+        if (top < viewport.Top + 8)
+            top = viewport.Top + 8;
+
+        Size = new Size(popW, popH);
         Location = new Point(left, top);
     }
 
@@ -516,63 +616,68 @@ public class MoneyFlowLookupPopup : Form
 
         int textY = bgRect.Y + (bgRect.Height - 17) / 2;
 
-        // Left cursor arrow
-        int textX = bgRect.X + 8;
+        // Left selection arrow cursor
+        int curX = bgRect.X + 6;
         if (isSelected)
         {
             using var fontArrow = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             using var brushArrow = new SolidBrush(ExecLedgerTheme.SystemFocusBlue);
-            g.DrawString(">", fontArrow, brushArrow, textX, textY);
+            g.DrawString(">", fontArrow, brushArrow, curX, textY);
         }
-        textX += 12;
+        curX += 10;
 
         // Indentation for Hierarchy
         if (_config.HierarchyEnabled && item.Level > 0)
         {
-            textX += item.Level * 16;
+            curX += item.Level * 16;
             // Draw small indent guide line
             using var guidePen = new Pen(Color.FromArgb(203, 213, 225), 1);
-            g.DrawLine(guidePen, textX - 8, bgRect.Y, textX - 8, bgRect.Y + bgRect.Height);
-            g.DrawLine(guidePen, textX - 8, bgRect.Y + (bgRect.Height / 2), textX - 2, bgRect.Y + (bgRect.Height / 2));
+            g.DrawLine(guidePen, curX - 8, bgRect.Y, curX - 8, bgRect.Y + bgRect.Height);
+            g.DrawLine(guidePen, curX - 8, bgRect.Y + (bgRect.Height / 2), curX - 2, bgRect.Y + (bgRect.Height / 2));
         }
 
-        // Hierarchy indicator
-        if (item.HasChildren)
+        // Hierarchy indicator: keep fixed 14px slot so all names at the same level align identically
+        if (_config.HierarchyEnabled)
         {
-            using var fontGlyph = new Font("Segoe UI", 8F, FontStyle.Bold);
-            using var brushGlyph = new SolidBrush(Color.FromArgb(100, 116, 139));
-            string glyph = item.IsExpanded ? "▾" : "▸";
-            g.DrawString(glyph, fontGlyph, brushGlyph, textX, textY);
-            textX += 14;
-        }
-
-        // Name
-        using var fontName = new Font("Segoe UI", 9F, isSelected ? FontStyle.Bold : (item.IsSentinel ? FontStyle.Italic : FontStyle.Regular));
-        using var brushName = new SolidBrush(isSelected ? ExecLedgerTheme.PrimaryNavy : (item.IsSentinel ? Color.FromArgb(100, 116, 139) : ExecLedgerTheme.PrimaryText));
-        g.DrawString(item.Name, fontName, brushName, textX, textY);
-
-        // Subtitle (if space allows and provided)
-        int nameWidth = TextRenderer.MeasureText(item.Name, fontName).Width;
-        if (!string.IsNullOrEmpty(item.Subtitle))
-        {
-            int subX = textX + nameWidth + 8;
-            if (subX < Width - 120)
+            if (item.HasChildren)
             {
-                using var fontSub = new Font("Segoe UI", 8F, FontStyle.Regular);
-                using var brushSub = new SolidBrush(Color.FromArgb(148, 163, 184));
-                g.DrawString($"({item.Subtitle})", fontSub, brushSub, subX, textY + 1);
+                using var fontGlyph = new Font("Segoe UI", 8F, FontStyle.Bold);
+                using var brushGlyph = new SolidBrush(Color.FromArgb(100, 116, 139));
+                string glyph = item.IsExpanded ? "▾" : "▸";
+                g.DrawString(glyph, fontGlyph, brushGlyph, curX, textY);
             }
+            curX += 14;
         }
 
-        // Code Column
+        // Code Column: right-aligned with fixed right boundary clear of the scrollbar
+        int scrollbarWidth = SystemInformation.VerticalScrollBarWidth;
+        int rightMargin = scrollbarWidth + 12;
+        const int maxCodeWidth = 90;
+        int codeAreaRight = bgRect.Right - rightMargin;
+
         if (_config.ShowCodeColumn && !string.IsNullOrEmpty(item.Code))
         {
             using var fontCode = new Font("Segoe UI", 8.25F, FontStyle.Bold);
             using var brushCode = new SolidBrush(isSelected ? ExecLedgerTheme.SystemFocusBlue : Color.FromArgb(71, 85, 105));
             int codeWidth = TextRenderer.MeasureText(item.Code, fontCode).Width;
-            int codeX = Width - codeWidth - 16;
+            int codeX = codeAreaRight - codeWidth;
             g.DrawString(item.Code, fontCode, brushCode, codeX, textY);
         }
+
+        // Name: drawn once, clipped to available description width so it never overlaps the Code column
+        int maxNameWidth = (_config.ShowCodeColumn ? (codeAreaRight - maxCodeWidth - 8) : codeAreaRight) - curX;
+        if (maxNameWidth < 20) maxNameWidth = 20;
+
+        using var fontName = new Font("Segoe UI", 9F, isSelected ? FontStyle.Bold : (item.IsSentinel ? FontStyle.Italic : FontStyle.Regular));
+        using var brushName = new SolidBrush(isSelected ? ExecLedgerTheme.PrimaryNavy : (item.IsSentinel ? Color.FromArgb(100, 116, 139) : ExecLedgerTheme.PrimaryText));
+
+        var nameFormat = new StringFormat
+        {
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = StringFormatFlags.NoWrap
+        };
+        var nameRect = new RectangleF(curX, textY, maxNameWidth, 18);
+        g.DrawString(item.Name, fontName, brushName, nameRect, nameFormat);
     }
 
     private void OnSearchKeyDown(object? sender, KeyEventArgs e)
@@ -609,11 +714,32 @@ public class MoneyFlowLookupPopup : Form
         }
     }
 
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Tab || keyData == Keys.Enter)
+        {
+            SelectCurrentItem();
+            return true;
+        }
+
+        if (keyData == Keys.Escape)
+        {
+            ClosePopup(isCancelled: true);
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
     private void SelectCurrentItem()
     {
         if (_lstItems.SelectedIndex >= 0 && _lstItems.SelectedIndex < _visibleItems.Count)
         {
             SelectItem(_visibleItems[_lstItems.SelectedIndex]);
+        }
+        else if (_visibleItems.Count > 0)
+        {
+            SelectItem(_visibleItems[0]);
         }
     }
 

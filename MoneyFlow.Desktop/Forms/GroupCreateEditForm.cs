@@ -120,7 +120,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         Font = ExecLedgerTheme.UIRegular9;
         KeyPreview = true;
 
-        // ── 1. Top Header Bar (Full Width) ──
+        // ── 1. Top Header Bar (Full Width, Crisp ERP styling) ──
         headerPanel = new Panel
         {
             Dock = DockStyle.Top,
@@ -128,12 +128,22 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             BackColor = ExecLedgerTheme.PrimaryNavy // #1B365D
         };
 
+        var lblBrand = new Label
+        {
+            Text = "MONEYFLOW DESKTOP ERP",
+            Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(147, 197, 253), // #93C5FD
+            Location = new Point(24, 7),
+            AutoSize = true
+        };
+        headerPanel.Controls.Add(lblBrand);
+
         var lblTitle = new Label
         {
             Text = isEdit ? "ALTER GROUP" : "GROUP CREATION",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
             ForeColor = Color.White,
-            Location = new Point(24, 13),
+            Location = new Point(24, 21),
             AutoSize = true
         };
         headerPanel.Controls.Add(lblTitle);
@@ -156,7 +166,6 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         headerPanel.Controls.Add(lblShortcutHelp);
         headerPanel.Resize += (s, e) => PositionShortcutHelp();
         Controls.Add(headerPanel);
-        headerPanel.SendToBack(); // Docks to Top first before body fills, preventing overlap
 
         // ── 2. Scrollable Body ──
         pnlScroll = new Panel
@@ -167,7 +176,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             Padding = new Padding(24, 16, 24, 24)
         };
 
-        // Form Card (responsive width, content-hugging height to eliminate empty void)
+        // Form Card (responsive centered container, comfortable 780-840px width, content-hugging height)
         card = new Panel
         {
             BackColor = Color.White,
@@ -186,25 +195,35 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             Text = "Group Information",
             Location = new Point(28, 20),
             AutoSize = true,
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(27, 54, 93)
+            Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(15, 23, 42) // #0F172A
         };
         card.Controls.Add(lblSection);
 
+        var lblSectionSub = new Label
+        {
+            Text = isEdit ? "Modify group details, parent hierarchy, and accounting classification" : "Define group parameters, parent hierarchy, and classification",
+            Location = new Point(28, 41),
+            AutoSize = true,
+            Font = new Font("Segoe UI", 8.25F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(100, 116, 139) // Slate-500
+        };
+        card.Controls.Add(lblSectionSub);
+
         sepLine = new Panel
         {
-            Location = new Point(28, 50),
+            Location = new Point(28, 60),
             Height = 1,
             BackColor = Color.FromArgb(226, 232, 240)
         };
         card.Controls.Add(sepLine);
 
-        int curY = 64;
+        int curY = 74;
         int labelWidth = 290;
         int contentX = 28 + labelWidth + 4; // 322
 
-        // 1. Name *
-        txtGroupName = CreateActiveTextBox();
+        // 1. Name * (prominent primary identifier)
+        txtGroupName = CreateActiveTextBox(isProminent: true);
         txtGroupName.TextChanged += (s, e) =>
         {
             if (!_isInitializing) _isDirty = true;
@@ -218,7 +237,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         curY += 40;
 
         // 2. (alias)
-        txtAlias = CreateActiveTextBox();
+        txtAlias = CreateActiveTextBox(isProminent: false);
         txtAlias.TextChanged += (s, e) =>
         {
             if (!_isInitializing) _isDirty = true;
@@ -234,6 +253,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         // 3. Under
         cmbParentGroup = new MoneyFlowTextLookup { AutoOpenOnFocus = true };
         cmbParentGroup.SelectedValueChanged += OnParentGroupChanged;
+        cmbParentGroup.SelectionCommitted += (s, e) => MoveToNextField(2);
         cmbParentGroup.EditorKeyDown += (s, e) => HandleEditorKeyDown(2, e);
         cmbParentGroup.KeyDown += (s, e) => HandleEditorKeyDown(2, e);
         fldUnder = new MoneyFlowField("Under", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
@@ -245,6 +265,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
         // 4. Group behaves like a sub-ledger
         cmbSubLedger = CreateBinaryLookup("No");
+        cmbSubLedger.SelectionCommitted += (s, e) => MoveToNextField(3);
         cmbSubLedger.EditorKeyDown += (s, e) => HandleEditorKeyDown(3, e);
         cmbSubLedger.KeyDown += (s, e) => HandleEditorKeyDown(3, e);
         fldSubLedger = new MoneyFlowField("Group behaves like a sub-ledger", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
@@ -256,6 +277,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
         // 5. Nett Debit/Credit Balances for Reporting
         cmbNettBalances = CreateBinaryLookup("No");
+        cmbNettBalances.SelectionCommitted += (s, e) => MoveToNextField(4);
         cmbNettBalances.EditorKeyDown += (s, e) => HandleEditorKeyDown(4, e);
         cmbNettBalances.KeyDown += (s, e) => HandleEditorKeyDown(4, e);
         fldNettBalances = new MoneyFlowField("Nett Debit/Credit Balances for Reporting", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
@@ -267,6 +289,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
         // 6. Used for calculation
         cmbCalculation = CreateBinaryLookup("No");
+        cmbCalculation.SelectionCommitted += (s, e) => MoveToNextField(5);
         cmbCalculation.EditorKeyDown += (s, e) => HandleEditorKeyDown(5, e);
         cmbCalculation.KeyDown += (s, e) => HandleEditorKeyDown(5, e);
         fldCalculation = new MoneyFlowField("Used for calculation", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
@@ -276,7 +299,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         _fields.Add(fldCalculation);
         curY += 40;
 
-        // 7. Method to allocate when used in purchase invoice (multi-line label)
+        // 7. Method to allocate when used in purchase invoice
         cmbMethodToAllocate = new MoneyFlowTextLookup { AutoOpenOnFocus = true };
         var allocOptions = new[] { "Not Applicable", "Appropriate by Qty", "Appropriate by Value" };
         cmbMethodToAllocate.SetProvider(new ListLookupProvider<string>(allocOptions, x => x, x => x), new LookupConfig
@@ -285,14 +308,15 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             AllowClear = false
         });
         cmbMethodToAllocate.SelectedValue = "Not Applicable";
+        cmbMethodToAllocate.SelectionCommitted += (s, e) => MoveToNextField(6);
         cmbMethodToAllocate.EditorKeyDown += (s, e) => HandleEditorKeyDown(6, e);
         cmbMethodToAllocate.KeyDown += (s, e) => HandleEditorKeyDown(6, e);
-        fldMethodToAllocate = new MoneyFlowField("Method to allocate when used in purchase invoice", labelWidth, rowHeight: 46) { Location = new Point(28, curY) };
+        fldMethodToAllocate = new MoneyFlowField("Method to allocate when used in purchase invoice", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
         fldMethodToAllocate.SetEditor(cmbMethodToAllocate, () => cmbMethodToAllocate.SelectedValue?.ToString() ?? "Not Applicable");
         fldMethodToAllocate.Activated += (s, e) => SetActiveField(6);
         card.Controls.Add(fldMethodToAllocate);
         _fields.Add(fldMethodToAllocate);
-        curY += 50;
+        curY += 40;
 
         // 8. Nature
         cmbNature = new MoneyFlowTextLookup { AutoOpenOnFocus = true };
@@ -302,10 +326,11 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             AllowClear = false
         });
         cmbNature.SelectedValue = GroupNature.Assets;
+        cmbNature.SelectionCommitted += (s, e) => MoveToNextField(7);
         cmbNature.EditorKeyDown += (s, e) => HandleEditorKeyDown(7, e);
         cmbNature.KeyDown += (s, e) => HandleEditorKeyDown(7, e);
         fldNature = new MoneyFlowField("Nature", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
-        fldNature.SetEditor(cmbNature, () => cmbNature.SelectedValue?.ToString() ?? "Assets");
+        fldNature.SetEditor(cmbNature, () => cmbNature.SelectedItem?.Name ?? (cmbNature.SelectedValue is GroupNature gn ? gn.ToString() : (cmbNature.SelectedValue is int gi ? ((GroupNature)gi).ToString() : "Assets")));
         fldNature.Activated += (s, e) => SetActiveField(7);
         card.Controls.Add(fldNature);
         _fields.Add(fldNature);
@@ -313,6 +338,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
         // 9. Affects Gross / Net Profit / Loss
         cmbAffectsPL = CreateBinaryLookup("No");
+        cmbAffectsPL.SelectionCommitted += (s, e) => MoveToNextField(8);
         cmbAffectsPL.EditorKeyDown += (s, e) => HandleEditorKeyDown(8, e);
         cmbAffectsPL.KeyDown += (s, e) => HandleEditorKeyDown(8, e);
         fldAffectsPL = new MoneyFlowField("Affects Gross / Net Profit / Loss", labelWidth, rowHeight: 36) { Location = new Point(28, curY) };
@@ -321,6 +347,15 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         card.Controls.Add(fldAffectsPL);
         _fields.Add(fldAffectsPL);
         curY += 48;
+
+        // Separator line before action area
+        var footerSep = new Panel
+        {
+            Location = new Point(28, curY - 10),
+            Height = 1,
+            BackColor = Color.FromArgb(226, 232, 240)
+        };
+        card.Controls.Add(footerSep);
 
         // ── Actions: Save & Cancel ──
         int btnX = contentX; // Align buttons with input controls
@@ -337,6 +372,8 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             TabStop = true
         };
         btnSave.FlatAppearance.BorderSize = 0;
+        btnSave.FlatAppearance.MouseOverBackColor = Color.FromArgb(5, 150, 105);
+        btnSave.FlatAppearance.MouseDownBackColor = Color.FromArgb(4, 120, 87);
         btnSave.Click += async (s, e) => await SaveAsync();
         btnSave.KeyDown += OnButtonSaveKeyDown;
         card.Controls.Add(btnSave);
@@ -346,28 +383,35 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             Text = "Cancel (Esc)",
             Location = new Point(btnX + 195, curY),
             Size = new Size(120, 38),
-            BackColor = Color.FromArgb(226, 232, 240),
-            ForeColor = Color.FromArgb(30, 41, 59),
+            BackColor = Color.FromArgb(248, 250, 252),
+            ForeColor = Color.FromArgb(51, 65, 85),
             Font = ExecLedgerTheme.UIRegular9,
             FlatStyle = FlatStyle.Flat,
             Cursor = Cursors.Hand,
             TabStop = true
         };
-        btnCancel.FlatAppearance.BorderSize = 0;
+        btnCancel.FlatAppearance.BorderSize = 1;
+        btnCancel.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        btnCancel.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 232, 240);
+        btnCancel.FlatAppearance.MouseDownBackColor = Color.FromArgb(203, 213, 225);
         btnCancel.Click += (s, e) => HandleCancel();
         btnCancel.KeyDown += OnButtonCancelKeyDown;
         card.Controls.Add(btnCancel);
 
-        card.Height = curY + 38 + 24; // Content-hugging height to eliminate empty space
+        card.Height = curY + 38 + 24; // 442 + 38 + 24 = 504 (tight, content-hugging, no empty void)
 
         void UpdateCardLayout()
         {
-            int availableWidth = pnlScroll.ClientSize.Width - 48;
-            int cardWidth = Math.Max(780, availableWidth);
+            int availableWidth = pnlScroll.ClientSize.Width;
+            // Responsive centered container: 740px to 840px on desktop
+            int cardWidth = Math.Clamp(availableWidth - 48, 740, 840);
+            int cardX = Math.Max(24, (availableWidth - cardWidth) / 2);
+            card.Location = new Point(cardX, 16);
             card.Width = cardWidth;
             sepLine.Width = cardWidth - 56;
+            footerSep.Width = cardWidth - 56;
 
-            int editorW = Math.Clamp(cardWidth - contentX - 40, 350, 520);
+            int editorW = Math.Clamp(cardWidth - contentX - 36, 360, 480);
             foreach (var fld in _fields)
             {
                 fld.Width = cardWidth - 56;
@@ -379,6 +423,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         pnlScroll.Resize += (s, e) => UpdateCardLayout();
         pnlScroll.Controls.Add(card);
         Controls.Add(pnlScroll);
+        headerPanel.SendToBack();
 
         UpdateCardLayout();
         PositionShortcutHelp();
@@ -393,14 +438,14 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         };
     }
 
-    private static TextBox CreateActiveTextBox()
+    private static TextBox CreateActiveTextBox(bool isProminent = false)
     {
         return new TextBox
         {
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            Font = new Font("Segoe UI", isProminent ? 10F : 9.5F, isProminent ? FontStyle.Bold : FontStyle.Regular),
             BackColor = Color.White,
             ForeColor = Color.FromArgb(15, 23, 42),
-            BorderStyle = BorderStyle.FixedSingle
+            BorderStyle = BorderStyle.None
         };
     }
 
@@ -469,6 +514,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             _fields[i].SetActive(false);
         }
         _activeFieldIndex = -1;
+        ActiveControl = btnSave;
         btnSave.Focus();
     }
 
@@ -620,6 +666,89 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             HandleCancel();
             return;
         }
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Escape)
+        {
+            HandleCancel();
+            return true;
+        }
+
+        // 1. Shift+Tab or Shift+Enter -> Previous Field
+        if (keyData == (Keys.Tab | Keys.Shift) || keyData == (Keys.Enter | Keys.Shift))
+        {
+            if (ActiveControl == btnCancel)
+            {
+                FocusSaveButton();
+                return true;
+            }
+            if (ActiveControl == btnSave)
+            {
+                MoveToPreviousField(_fields.Count);
+                return true;
+            }
+            if (_activeFieldIndex >= 0)
+            {
+                MoveToPreviousField(_activeFieldIndex);
+                return true;
+            }
+        }
+
+        // 2. Tab -> Next Field
+        if (keyData == Keys.Tab)
+        {
+            if (_activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+            {
+                var curEditor = _fields[_activeFieldIndex].Editor;
+                if (curEditor is MoneyFlowTextLookup lookup && lookup.IsPopupOpen)
+                {
+                    lookup.CloseLookup();
+                }
+
+                MoveToNextField(_activeFieldIndex);
+                return true;
+            }
+
+            if (ActiveControl == btnSave)
+            {
+                btnCancel.Focus();
+                return true;
+            }
+
+            if (ActiveControl == btnCancel)
+            {
+                SetActiveField(0);
+                return true;
+            }
+        }
+
+        // 3. Plain Enter on active field editor -> advance to next field
+        if (keyData == Keys.Enter && !keyData.HasFlag(Keys.Alt) && !keyData.HasFlag(Keys.Control))
+        {
+            if (_activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+            {
+                var curEditor = _fields[_activeFieldIndex].Editor;
+                if (curEditor is MoneyFlowTextLookup lookup && lookup.IsPopupOpen)
+                {
+                    // Let popup handle Enter to select item
+                    return base.ProcessCmdKey(ref msg, keyData);
+                }
+
+                if (_activeFieldIndex == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
+                {
+                    MessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    SetActiveField(0);
+                    return true;
+                }
+
+                MoveToNextField(_activeFieldIndex);
+                return true;
+            }
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private async void LoadParentGroupsAndDataAsync()
@@ -870,17 +999,6 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
     {
         HandleCancel();
         return true;
-    }
-
-    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
-    {
-        if (keyData == Keys.Escape)
-        {
-            HandleCancel();
-            return true;
-        }
-
-        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private void OnFormKeyDown(object? sender, KeyEventArgs e)

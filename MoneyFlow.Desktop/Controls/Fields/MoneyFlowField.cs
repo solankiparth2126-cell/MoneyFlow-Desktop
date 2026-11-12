@@ -8,85 +8,109 @@ namespace MoneyFlow.Desktop.Controls.Fields;
 
 /// <summary>
 /// Professional accounting field row for MoneyFlow.
-/// Follows the strict Tally-style active/inactive visual requirement:
-/// - Inactive: Displays only plain label and text value without any textbox chrome/borders.
-/// - Active: Hides the plain text label and displays the real white textbox editor with blue focus border.
-/// - Value Alignment: The display value and active editor text align at the exact same horizontal position.
+/// Follows modern ERP accounting active/inactive visual design:
+/// - Inactive: Displays clean label and crisp display text without textbox chrome.
+/// - Active: Hides display label and shows active editor with clear focus ring.
+/// - Value Alignment: Display value and active editor align at the exact same horizontal position.
+/// - Read-Only distinction: Derived/disabled fields display an inherited indicator badge.
 /// </summary>
 public class MoneyFlowField : Panel
 {
     private readonly Label _lblTitle;
     private readonly Label _lblColon;
     private readonly Label _lblDisplay;
+    private readonly Label _lblBadge;
     private readonly Panel _editorContainer;
     private Control? _editor;
     private Func<string>? _valueGetter;
     private bool _isActive;
+    private readonly int _labelWidth;
+    private readonly int _contentX;
 
     public event EventHandler? Activated;
     public event EventHandler? Deactivated;
 
-    public MoneyFlowField(string labelText, int labelWidth = 280, int rowHeight = 38)
+    public MoneyFlowField(string labelText, int labelWidth = 290, int rowHeight = 36)
     {
+        _labelWidth = labelWidth;
+        _contentX = labelWidth + 4;
+
         Size = new Size(820, rowHeight);
         MinimumSize = new Size(600, rowHeight);
         BackColor = Color.Transparent;
-        Margin = new Padding(0, 2, 0, 2);
+        Margin = new Padding(0, 1, 0, 1);
 
-        // 1. Label Column (wraps long labels cleanly without overlapping)
+        // 1. Label Column (clean modern typography, vertical centering, no text clipping)
         _lblTitle = new Label
         {
             Text = labelText,
-            Location = new Point(4, 8),
-            Size = new Size(labelWidth - 20, rowHeight - 8),
+            Location = new Point(4, 4),
+            Size = new Size(labelWidth - 18, rowHeight - 6),
             Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(15, 23, 42),
-            TextAlign = ContentAlignment.TopLeft,
+            ForeColor = Color.FromArgb(51, 65, 85), // Slate-700 #334155
+            TextAlign = ContentAlignment.MiddleLeft,
             AutoEllipsis = false
         };
         Controls.Add(_lblTitle);
 
-        // 2. Colon separator
+        // 2. Colon separator (perfectly aligned and vertically centered)
         _lblColon = new Label
         {
             Text = ":",
             Location = new Point(labelWidth - 14, 8),
             Size = new Size(12, 20),
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(71, 85, 105),
+            Font = new Font("Segoe UI", 9.25F, FontStyle.Bold),
+            ForeColor = Color.FromArgb(100, 116, 139), // Slate-500 #64748B
             TextAlign = ContentAlignment.TopCenter
         };
         Controls.Add(_lblColon);
 
-        int contentX = labelWidth + 4;
-
-        // 3. Inactive Plain Text Display Value (Aligned at contentX + 6 for matching editor text padding)
+        // 3. Inactive Plain Text Display Value (Aligned at contentX + 7 for matching editor text padding)
         _lblDisplay = new Label
         {
-            Location = new Point(contentX + 7, 8),
+            Location = new Point(_contentX + 7, 8),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9.25F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(15, 23, 42),
+            Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+            ForeColor = Color.FromArgb(15, 23, 42), // Slate-900 #0F172A
             BackColor = Color.Transparent,
             Visible = true,
             Cursor = Cursors.IBeam
         };
-        _lblDisplay.Click += (s, e) => SetActive(true);
+        _lblDisplay.Click += (s, e) => { if (Enabled) SetActive(true); };
         Controls.Add(_lblDisplay);
 
-        // 4. Editor Container (hosts the active input control)
+        // 4. Read-Only / Inherited badge for disabled fields
+        _lblBadge = new Label
+        {
+            Location = new Point(_contentX + 180, 9),
+            AutoSize = true,
+            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            ForeColor = Color.FromArgb(148, 163, 184), // Slate-400
+            BackColor = Color.Transparent,
+            Text = "(inherited from parent)",
+            Visible = false
+        };
+        Controls.Add(_lblBadge);
+
+        // 5. Editor Container (hosts the active input control with focus ring)
         _editorContainer = new Panel
         {
-            Location = new Point(contentX, 3),
-            Size = new Size(480, 32),
-            BackColor = Color.Transparent,
+            Location = new Point(_contentX, 3),
+            Size = new Size(480, 30),
+            BackColor = Color.White,
+            Padding = new Padding(2),
             Visible = false
+        };
+        _editorContainer.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(37, 99, 235), 2); // SystemFocusBlue focus ring
+            e.Graphics.DrawRectangle(pen, 0, 0, _editorContainer.Width - 1, _editorContainer.Height - 1);
         };
         Controls.Add(_editorContainer);
 
-        // Clicking row focuses editor
-        Click += (s, e) => SetActive(true);
-        _lblTitle.Click += (s, e) => SetActive(true);
+        // Clicking row focuses editor when enabled
+        Click += (s, e) => { if (Enabled) SetActive(true); };
+        _lblTitle.Click += (s, e) => { if (Enabled) SetActive(true); };
     }
 
     public string LabelText
@@ -137,15 +161,23 @@ public class MoneyFlowField : Panel
         base.OnEnabledChanged(e);
         if (_lblTitle != null)
         {
-            _lblTitle.ForeColor = Enabled ? Color.FromArgb(15, 23, 42) : Color.FromArgb(148, 163, 184);
+            _lblTitle.ForeColor = Enabled ? Color.FromArgb(51, 65, 85) : Color.FromArgb(148, 163, 184);
         }
         if (_lblColon != null)
         {
-            _lblColon.ForeColor = Enabled ? Color.FromArgb(71, 85, 105) : Color.FromArgb(148, 163, 184);
+            _lblColon.ForeColor = Enabled ? Color.FromArgb(100, 116, 139) : Color.FromArgb(148, 163, 184);
         }
         if (_lblDisplay != null)
         {
             _lblDisplay.ForeColor = Enabled ? Color.FromArgb(15, 23, 42) : Color.FromArgb(100, 116, 139);
+        }
+        if (_lblBadge != null)
+        {
+            _lblBadge.Visible = !Enabled;
+            if (!Enabled && _lblDisplay != null)
+            {
+                _lblBadge.Location = new Point(_lblDisplay.Location.X + _lblDisplay.Width + 8, 9);
+            }
         }
     }
 
@@ -158,6 +190,7 @@ public class MoneyFlowField : Panel
         if (_isActive)
         {
             _lblDisplay.Visible = false;
+            _lblBadge.Visible = false;
             _editorContainer.Visible = true;
             _editorContainer.BringToFront();
 
@@ -193,6 +226,12 @@ public class MoneyFlowField : Panel
             _lblDisplay.Visible = true;
             _lblDisplay.BringToFront();
 
+            if (!Enabled && _lblBadge != null)
+            {
+                _lblBadge.Visible = true;
+                _lblBadge.Location = new Point(_lblDisplay.Location.X + _lblDisplay.Width + 8, 9);
+            }
+
             Deactivated?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -201,5 +240,15 @@ public class MoneyFlowField : Panel
     {
         string val = _valueGetter != null ? _valueGetter() : string.Empty;
         _lblDisplay.Text = string.IsNullOrWhiteSpace(val) ? "-" : val;
+
+        if (_lblBadge != null && !Enabled)
+        {
+            _lblBadge.Location = new Point(_lblDisplay.Location.X + _lblDisplay.Width + 8, 9);
+            _lblBadge.Visible = true;
+        }
+        else if (_lblBadge != null && Enabled)
+        {
+            _lblBadge.Visible = false;
+        }
     }
 }

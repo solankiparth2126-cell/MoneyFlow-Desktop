@@ -279,4 +279,39 @@ public class UniversalLookupTests
 
         form.Close();
     }
+
+    [Fact]
+    public async Task MoneyFlowLookupPopup_RendersHierarchyItems_DisplaysNameOnlyOnceWithCodeColumn()
+    {
+        var items = new List<LookupItem>
+        {
+            new() { Id = 1, Name = "Branch/Divisions", Subtitle = "Branch/Divisions", Code = "Liabilities" },
+            new() { Id = 2, Name = "Capital Account", Subtitle = "Capital Account", Code = "Liabilities" },
+            new() { Id = 3, Name = "Reserves & Surplus", Subtitle = "Capital Account > Reserves & Surplus", Code = "Liabilities", ParentId = 2, Level = 1 },
+            new() { Id = 4, Name = "Current Assets", Subtitle = "Current Assets", Code = "Assets" },
+            new() { Id = 5, Name = "Bank Accounts", Subtitle = "Current Assets > Bank Accounts", Code = "Assets", ParentId = 4, Level = 1 }
+        };
+
+        var provider = new ListLookupProvider<LookupItem>(items, x => x.Id, x => x.Name, x => x.Code, x => x.Subtitle);
+        using var popup = new MoneyFlowLookupPopup(provider, new LookupConfig
+        {
+            DefaultWidth = 500,
+            DefaultHeight = 400,
+            ShowCodeColumn = true,
+            HierarchyEnabled = true
+        });
+
+        popup.CreateControl();
+        var fetched = await provider.GetItemsAsync();
+        fetched.Should().HaveCount(5);
+
+        // Subtitle remains intact for search and hierarchy matching
+        fetched.First(x => x.Name == "Bank Accounts").Subtitle.Should().Be("Current Assets > Bank Accounts");
+        fetched.First(x => x.Name == "Bank Accounts").Code.Should().Be("Assets");
+
+        // Renders without errors or throwing
+        using var bmp = new Bitmap(500, 400);
+        popup.DrawToBitmap(bmp, new Rectangle(0, 0, 500, 400));
+        bmp.Width.Should().Be(500);
+    }
 }

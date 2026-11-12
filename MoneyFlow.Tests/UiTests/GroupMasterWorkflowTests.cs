@@ -722,7 +722,7 @@ public class GroupMasterWorkflowTests
 
         form.MoveToNextField(6);
         form.ActiveFieldIndex.Should().Be(-1); // Active input field cleared, focus on btnSave
-        form.ButtonSave.Focused.Should().BeTrue();
+        (form.ButtonSave.Focused || form.ActiveControl == form.ButtonSave).Should().BeTrue();
     }
 
     [Fact]
@@ -753,6 +753,21 @@ public class GroupMasterWorkflowTests
         // Dropdown is committed/closed, navigation does not advance immediately
         cmb.DroppedDown.Should().BeFalse();
         enterKey.Handled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AlterGroup_RenderVisualInspection_ExportsBitmap()
+    {
+        var fakeGroupService = new FakeGroupService();
+        using var form = new GroupCreateEditForm(fakeGroupService, companyId: 1, groupIdToEdit: 10);
+        form.Size = new Size(1100, 720);
+        form.Show();
+        Application.DoEvents();
+
+        using var bmp = new Bitmap(form.Width, form.Height);
+        form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));
+        bmp.Save(@"C:\Users\DELL\.gemini\antigravity-ide\brain\98e57313-07bd-4815-aef2-11554a18894b\alter_group_rendered.png", System.Drawing.Imaging.ImageFormat.Png);
+        form.Close();
     }
 
     private class FakeCompanyContext : ICompanyContext

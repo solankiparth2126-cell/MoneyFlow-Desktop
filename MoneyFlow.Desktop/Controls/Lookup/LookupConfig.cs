@@ -13,8 +13,8 @@ public class LookupConfig
     public bool HierarchyEnabled { get; set; }
     public bool AllowClear { get; set; }
     public string ClearItemText { get; set; } = "◆ Not Applicable";
-    public int DefaultWidth { get; set; } = 540;
-    public int DefaultHeight { get; set; } = 420;
+    public int DefaultWidth { get; set; } = 480;
+    public int DefaultHeight { get; set; } = 340;
     public string DescriptionColumnHeader { get; set; } = "Description";
     public string CodeColumnHeader { get; set; } = "Code";
     public bool ShowCodeColumn { get; set; } = true;
