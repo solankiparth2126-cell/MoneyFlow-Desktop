@@ -31,11 +31,7 @@ public class VoucherLayoutTests
         services.AddLogging();
         services.AddDbContext<AppDbContext>(options =>
             options.UseInMemoryDatabase("VoucherLayoutTestDb_" + Guid.NewGuid().ToString()));
-<<<<<<< Updated upstream
         services.AddStorageServices(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MF_VoucherTests_" + Guid.NewGuid().ToString("N")));
-=======
-        services.AddDatabaseServices(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
->>>>>>> Stashed changes
         services.AddDataRepositories();
         services.AddDomainServices();
         services.AddNavigationServices();
@@ -52,19 +48,7 @@ public class VoucherLayoutTests
         }).GetAwaiter().GetResult();
 
         var dbContext = provider.GetRequiredService<AppDbContext>();
-        var fy = dbContext.FinancialYears.FirstOrDefault(f => f.CompanyId == company.CompanyId);
-        if (fy == null)
-        {
-            fy = new Core.Entities.FinancialYear
-            {
-                CompanyId = company.CompanyId,
-                YearName = "2026-2027",
-                StartDate = new DateTime(2026, 4, 1),
-                EndDate = new DateTime(2027, 3, 31)
-            };
-            dbContext.FinancialYears.Add(fy);
-            dbContext.SaveChanges();
-        }
+        var fy = dbContext.FinancialYears.First(f => f.CompanyId == company.CompanyId);
 
         var compContext = provider.GetRequiredService<ICompanyContext>();
         compContext.SetActiveCompany(company, fy);

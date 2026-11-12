@@ -5,7 +5,6 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Desktop.Dialogs;
 using MoneyFlow.Desktop.Forms;
-using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Navigation;
 
@@ -18,7 +17,6 @@ public class NavigationService : INavigationService
     private readonly ICompanyContext _companyContext;
     private readonly ICompanyService _companyService;
     private readonly IUserContext _userContext;
-    private IMainContentHost? _host;
 
     public NavigationService(
         IFormFactory formFactory,
@@ -30,11 +28,6 @@ public class NavigationService : INavigationService
         _companyContext = companyContext ?? throw new ArgumentNullException(nameof(companyContext));
         _companyService = companyService ?? throw new ArgumentNullException(nameof(companyService));
         _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
-    }
-
-    public void RegisterHost(IMainContentHost host)
-    {
-        _host = host;
     }
 
     // --- Context Preconditions ---
@@ -67,32 +60,20 @@ public class NavigationService : INavigationService
     {
         using var form = _formFactory.Create<CompanyListForm>();
         ShowModal(form, owner);
-
-        if (form.CreateCompanyRequested)
-        {
-            OpenCreateCompany(owner);
-        }
     }
 
     public void OpenCreateCompany(IWin32Window? owner = null)
     {
-        var form = _formFactory.Create<CompanyCreateEditForm>();
-        form.FormClosed += (s, e) =>
-        {
-            if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
-            {
-                OpenCompanyList(owner);
-            }
-        };
-        NavigateTo(form, owner);
+        using var form = _formFactory.Create<CompanyCreateEditForm>();
+        ShowModal(form, owner);
     }
 
     public void OpenAlterCompany(IWin32Window? owner = null)
     {
         if (!EnsureCompanyOpen(owner)) return;
 
-        var form = _formFactory.Create<CompanyCreateEditForm>(_companyContext.CurrentCompany!.CompanyId);
-        NavigateTo(form, owner);
+        using var form = _formFactory.Create<CompanyCreateEditForm>(_companyContext.CurrentCompany!.CompanyId);
+        ShowModal(form, owner);
     }
 
     public void CloseActiveCompany(IWin32Window? owner = null)
@@ -113,7 +94,6 @@ public class NavigationService : INavigationService
         if (confirm == DialogResult.Yes)
         {
             _companyService.CloseCompany();
-            OpenCompanyList(owner);
         }
     }
 
@@ -135,10 +115,16 @@ public class NavigationService : INavigationService
     }
 
     private INavigationHost? _host;
+    private IMainContentHost? _mainContentHost;
 
     public void RegisterHost(INavigationHost host)
     {
         _host = host;
+    }
+
+    public void RegisterHost(IMainContentHost host)
+    {
+        _mainContentHost = host;
     }
 
     public void UnregisterHost(INavigationHost host)
@@ -481,37 +467,22 @@ public class NavigationService : INavigationService
         }
     }
 
-    private void NavigateTo(Form form, IWin32Window? owner = null)
-    {
-        var host = _host ?? (owner as IMainContentHost) ?? Application.OpenForms.OfType<IMainContentHost>().FirstOrDefault();
-        if (host != null)
-        {
-            host.ShowView(form);
-        }
-        else
-        {
-            ShowModal(form, owner);
-        }
-    }
-
     private static void ShowModal(Form form, IWin32Window? owner)
     {
-        try
-        {
-            FitFormToScreen(form, owner);
-            if (owner != null) form.ShowDialog(owner);
-            else form.ShowDialog();
-        }
-        finally
-        {
-            form.Dispose();
-        }
+        FitFormToScreen(form, owner);
+        if (owner != null) form.ShowDialog(owner);
+        else form.ShowDialog();
     }
 
     private static void FitFormToScreen(Form form, IWin32Window? owner)
     {
         try
         {
+            var screen = owner is Control c ? Screen.FromControl(c) : (Screen.FromControl(form) ?? Screen.PrimaryScreen);
+            if (screen == null) return;
+
+            var workArea = screen.WorkingArea;
+
             // Full-screen desktop ERP voucher forms open maximized within the usable work area
             if (form.WindowState == FormWindowState.Maximized || form is BaseVoucherForm)
             {
@@ -519,16 +490,27 @@ public class NavigationService : INavigationService
                 return;
             }
 
-            int minW = form.MinimumSize.Width > 0 ? form.MinimumSize.Width : 600;
-            int minH = form.MinimumSize.Height > 0 ? form.MinimumSize.Height : 380;
+            int maxW = Math.Max(600, workArea.Width - 32);
+            int maxH = Math.Max(400, workArea.Height - 48);
 
-            ScreenFittingManager.FitDialogToWorkArea(
-                form,
-                idealWidth: form.Width,
-                idealHeight: form.Height,
-                minWidth: minW,
-                minHeight: minH,
-                owner: owner);
+            if (form.Width > maxW || form.Height > maxH)
+            {
+                form.Width = Math.Min(form.Width, maxW);
+                form.Height = Math.Min(form.Height, maxH);
+                form.AutoScroll = true;
+            }
+
+            if (owner is Form ownerForm && ownerForm.WindowState != FormWindowState.Minimized)
+            {
+                form.StartPosition = FormStartPosition.Manual;
+                int targetX = Math.Clamp(ownerForm.Left + (ownerForm.Width - form.Width) / 2, workArea.Left, Math.Max(workArea.Left, workArea.Right - form.Width));
+                int targetY = Math.Clamp(ownerForm.Top + (ownerForm.Height - form.Height) / 2, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - form.Height));
+                form.Location = new Point(targetX, targetY);
+            }
+            else
+            {
+                form.StartPosition = FormStartPosition.CenterScreen;
+            }
         }
         catch
         {

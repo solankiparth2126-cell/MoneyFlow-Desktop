@@ -3,19 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.DTOs;
-using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Interfaces;
-using MoneyFlow.Data.Repositories;
-using GroupEntity = MoneyFlow.Core.Entities.Group;
-using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
+using MoneyFlow.Data;
 
 namespace MoneyFlow.Services.Search;
 
 public class SearchService : ISearchService
 {
-    private readonly ICompanyDataStore _dataStore;
+    private readonly AppDbContext _context;
     private readonly ILogger<SearchService> _logger;
 
     private static readonly List<(string Title, string Keywords, string Subtitle, string Target)> NavigationCatalog = new()
@@ -47,23 +45,15 @@ public class SearchService : ISearchService
         ("Settings & Configuration (F11)", "settings configuration preferences options defaults theme date format printer backup path lock date", "System and company accounting configuration and preferences", "Settings")
     };
 
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public SearchService(
-        ICompanyDataStore? dataStore = null,
-        ILogger<SearchService>? logger = null)
-    {
-        _dataStore = dataStore!;
-        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SearchService>.Instance;
-    }
-
-    internal SearchService(
-        MoneyFlow.Data.AppDbContext context,
+        AppDbContext context,
         ILogger<SearchService> logger)
-        : this((ICompanyDataStore)null!, logger)
     {
+        _context = context;
+        _logger = logger;
     }
 
-    public Task<IReadOnlyList<GlobalSearchResultDto>> SearchAsync(
+    public async Task<IReadOnlyList<GlobalSearchResultDto>> SearchAsync(
         int companyId,
         string query,
         GlobalSearchCategory category = GlobalSearchCategory.All,
@@ -75,6 +65,7 @@ public class SearchService : ISearchService
 
         if (string.IsNullOrWhiteSpace(cleanQuery))
         {
+            // If query is empty, return default navigation screens
             if (category == GlobalSearchCategory.All || category == GlobalSearchCategory.Navigation)
             {
                 foreach (var nav in NavigationCatalog.Take(maxResults))
@@ -88,7 +79,7 @@ public class SearchService : ISearchService
                     });
                 }
             }
-            return Task.FromResult<IReadOnlyList<GlobalSearchResultDto>>(results);
+            return results;
         }
 
         var lowerQuery = cleanQuery.ToLowerInvariant();
@@ -112,29 +103,26 @@ public class SearchService : ISearchService
             results.AddRange(matchedNavs);
         }
 
-        var groups = _dataStore.GetEntityList<GroupEntity>().ToDictionary(g => g.GroupId);
-
         // 2. Ledgers Search
         if (category == GlobalSearchCategory.All || category == GlobalSearchCategory.Ledger)
         {
-            var matchedLedgers = _dataStore.GetEntityList<LedgerEntity>()
+            var matchedLedgers = await _context.Ledgers
+                .AsNoTracking()
+                .Include(l => l.Group)
                 .Where(l => l.CompanyId == companyId && l.IsActive &&
                             (l.LedgerName.ToLower().Contains(lowerQuery) ||
-                             (groups.TryGetValue(l.GroupId, out var g) && g.GroupName.ToLower().Contains(lowerQuery))))
+                             (l.Group != null && l.Group.GroupName.ToLower().Contains(lowerQuery))))
                 .OrderBy(l => l.LedgerName)
                 .Take(maxResults)
-                .Select(l =>
+                .Select(l => new GlobalSearchResultDto
                 {
-                    groups.TryGetValue(l.GroupId, out var grp);
-                    return new GlobalSearchResultDto
-                    {
-                        Category = GlobalSearchCategory.Ledger,
-                        EntityId = l.LedgerId,
-                        Title = l.LedgerName,
-                        Subtitle = $"Group: {grp?.GroupName ?? "—"} | Opening: ₹{l.OpeningBalance:N2} {l.OpeningBalanceType}",
-                        Amount = l.OpeningBalance
-                    };
-                });
+                    Category = GlobalSearchCategory.Ledger,
+                    EntityId = l.LedgerId,
+                    Title = l.LedgerName,
+                    Subtitle = $"Group: {(l.Group != null ? l.Group.GroupName : "—")} | Opening: ₹{l.OpeningBalance:N2} {l.OpeningBalanceType}",
+                    Amount = l.OpeningBalance
+                })
+                .ToListAsync(ct);
 
             results.AddRange(matchedLedgers);
         }
@@ -142,25 +130,23 @@ public class SearchService : ISearchService
         // 3. Stock Items Search
         if (category == GlobalSearchCategory.All || category == GlobalSearchCategory.StockItem)
         {
-            var units = _dataStore.GetEntityList<Unit>().ToDictionary(u => u.UnitId);
-            var matchedStockItems = _dataStore.GetEntityList<StockItem>()
+            var matchedStockItems = await _context.StockItems
+                .AsNoTracking()
+                .Include(s => s.Unit)
                 .Where(s => s.CompanyId == companyId && s.IsActive &&
                             (s.ItemName.ToLower().Contains(lowerQuery) ||
-                             (s.UnitId.HasValue && units.TryGetValue(s.UnitId.Value, out var u) && u.UnitName.ToLower().Contains(lowerQuery))))
+                             (s.Unit != null && s.Unit.UnitName.ToLower().Contains(lowerQuery))))
                 .OrderBy(s => s.ItemName)
                 .Take(maxResults)
-                .Select(s =>
+                .Select(s => new GlobalSearchResultDto
                 {
-                    string unitName = s.UnitId.HasValue && units.TryGetValue(s.UnitId.Value, out var unt) ? unt.UnitName : "—";
-                    return new GlobalSearchResultDto
-                    {
-                        Category = GlobalSearchCategory.StockItem,
-                        EntityId = s.StockItemId,
-                        Title = s.ItemName,
-                        Subtitle = $"Unit: {unitName} | Qty: {s.OpeningQuantity:N2} @ ₹{s.OpeningRate:N2}",
-                        Amount = s.OpeningValue
-                    };
-                });
+                    Category = GlobalSearchCategory.StockItem,
+                    EntityId = s.StockItemId,
+                    Title = s.ItemName,
+                    Subtitle = $"Unit: {(s.Unit != null ? s.Unit.UnitName : "—")} | Qty: {s.OpeningQuantity:N2} @ ₹{s.OpeningRate:N2}",
+                    Amount = s.OpeningValue
+                })
+                .ToListAsync(ct);
 
             results.AddRange(matchedStockItems);
         }
@@ -168,37 +154,60 @@ public class SearchService : ISearchService
         // 4. Vouchers Search
         if (category == GlobalSearchCategory.All || category == GlobalSearchCategory.Voucher)
         {
-            var voucherTypes = _dataStore.GetEntityList<VoucherType>().ToDictionary(vt => vt.VoucherTypeId);
-            var entries = _dataStore.GetEntityList<VoucherEntry>().GroupBy(e => e.VoucherId).ToDictionary(g => g.Key, g => g.ToList());
+            var voucherQuery = _context.Vouchers
+                .AsNoTracking()
+                .Include(v => v.VoucherType)
+                .Include(v => v.VoucherEntries)
+                    .ThenInclude(e => e.Ledger)
+                .Where(v => v.CompanyId == companyId && !v.IsDeleted);
 
-            var matchedVouchers = _dataStore.GetEntityList<Voucher>()
-                .Where(v => v.CompanyId == companyId && !v.IsDeleted &&
-                            (v.VoucherNumber.ToLower().Contains(lowerQuery) ||
-                             (!string.IsNullOrEmpty(v.Narration) && v.Narration.ToLower().Contains(lowerQuery)) ||
-                             (!string.IsNullOrEmpty(v.ReferenceNumber) && v.ReferenceNumber.ToLower().Contains(lowerQuery)) ||
-                             (parsedAmount.HasValue && entries.TryGetValue(v.VoucherId, out var ve) && ve.Any(e => e.Debit == parsedAmount.Value || e.Credit == parsedAmount.Value))))
+            if (parsedAmount.HasValue)
+            {
+                voucherQuery = voucherQuery.Where(v =>
+                    v.VoucherNumber.ToLower().Contains(lowerQuery) ||
+                    (v.ReferenceNumber != null && v.ReferenceNumber.ToLower().Contains(lowerQuery)) ||
+                    (v.Narration != null && v.Narration.ToLower().Contains(lowerQuery)) ||
+                    v.VoucherEntries.Any(e => e.Debit == parsedAmount.Value || e.Credit == parsedAmount.Value));
+            }
+            else
+            {
+                voucherQuery = voucherQuery.Where(v =>
+                    v.VoucherNumber.ToLower().Contains(lowerQuery) ||
+                    (v.ReferenceNumber != null && v.ReferenceNumber.ToLower().Contains(lowerQuery)) ||
+                    (v.Narration != null && v.Narration.ToLower().Contains(lowerQuery)) ||
+                    v.VoucherEntries.Any(e => e.Narration != null && e.Narration.ToLower().Contains(lowerQuery)) ||
+                    v.VoucherEntries.Any(e => e.Ledger != null && e.Ledger.LedgerName.ToLower().Contains(lowerQuery)));
+            }
+
+            var vouchers = await voucherQuery
                 .OrderByDescending(v => v.VoucherDate)
+                .ThenByDescending(v => v.VoucherId)
                 .Take(maxResults)
-                .Select(v =>
-                {
-                    voucherTypes.TryGetValue(v.VoucherTypeId, out var vt);
-                    entries.TryGetValue(v.VoucherId, out var vEntries);
-                    decimal totalAmt = vEntries?.Sum(e => e.Debit) ?? 0m;
-                    return new GlobalSearchResultDto
-                    {
-                        Category = GlobalSearchCategory.Voucher,
-                        EntityId = v.VoucherId,
-                        Title = $"{vt?.Name ?? "Voucher"} #{v.VoucherNumber}",
-                        Subtitle = $"{v.VoucherDate:dd-MMM-yyyy} | {v.Narration} | ₹{totalAmt:N2}",
-                        Date = v.VoucherDate,
-                        Amount = totalAmt
-                    };
-                });
+                .ToListAsync(ct);
 
-            results.AddRange(matchedVouchers);
+            foreach (var v in vouchers)
+            {
+                decimal totalAmount = v.VoucherEntries.Sum(e => e.Debit);
+                var parties = v.VoucherEntries
+                    .Select(e => e.Ledger?.LedgerName ?? "Account")
+                    .Distinct()
+                    .ToList();
+
+                string partyText = parties.Count > 0 ? string.Join(", ", parties) : "—";
+                string typeName = v.VoucherType?.Name ?? "Voucher";
+
+                results.Add(new GlobalSearchResultDto
+                {
+                    Category = GlobalSearchCategory.Voucher,
+                    EntityId = v.VoucherId,
+                    Title = $"{v.VoucherNumber} ({typeName})",
+                    Subtitle = $"Date: {v.VoucherDate:dd-MMM-yyyy} | Particulars: {partyText} | Narration: {v.Narration}",
+                    Amount = totalAmount,
+                    Date = v.VoucherDate
+                });
+            }
         }
 
-        IReadOnlyList<GlobalSearchResultDto> finalResults = results.Take(maxResults).ToList();
-        return Task.FromResult(finalResults);
+        return results.Take(maxResults).ToList();
     }
 }

@@ -3,61 +3,42 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Data;
 using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
+using GroupEntity = MoneyFlow.Core.Entities.Group;
 
 namespace MoneyFlow.Services.Ledger;
 
 public class LedgerService : ILedgerService
 {
+    private readonly AppDbContext _context;
     private readonly ILedgerRepository _ledgerRepo;
     private readonly IGroupRepository _groupRepo;
     private readonly ICompanyRepository _companyRepo;
-    private readonly IRepository<VoucherEntry> _voucherEntryRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<LedgerService> _logger;
 
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public LedgerService(
+        AppDbContext context,
         ILedgerRepository ledgerRepo,
         IGroupRepository groupRepo,
         ICompanyRepository companyRepo,
-        IRepository<VoucherEntry> voucherEntryRepo,
         IUnitOfWork unitOfWork,
         ILogger<LedgerService> logger)
     {
+        _context = context;
         _ledgerRepo = ledgerRepo;
         _groupRepo = groupRepo;
         _companyRepo = companyRepo;
-        _voucherEntryRepo = voucherEntryRepo;
         _unitOfWork = unitOfWork;
         _logger = logger;
-    }
-
-    public LedgerService(
-        ILedgerRepository ledgerRepo,
-        IGroupRepository groupRepo,
-        ICompanyRepository companyRepo,
-        IUnitOfWork unitOfWork,
-        ILogger<LedgerService> logger)
-        : this(ledgerRepo, groupRepo, companyRepo, null!, unitOfWork, logger)
-    {
-    }
-
-    internal LedgerService(
-        MoneyFlow.Data.AppDbContext context,
-        ILedgerRepository ledgerRepo,
-        IGroupRepository groupRepo,
-        ICompanyRepository companyRepo,
-        IUnitOfWork unitOfWork,
-        ILogger<LedgerService> logger)
-        : this(ledgerRepo, groupRepo, companyRepo, null!, unitOfWork, logger)
-    {
     }
 
     public async Task<LedgerEntity> CreateLedgerAsync(int companyId, LedgerCreateDto dto, CancellationToken ct = default)
@@ -78,18 +59,22 @@ public class LedgerService : ILedgerService
             throw new InvalidOperationException("The specified group does not belong to the active company.");
         }
 
-        string trimmedName = dto.LedgerName.Trim();
-        bool nameExists = await _ledgerRepo.LedgerNameExistsAsync(companyId, trimmedName, null, ct);
+        if (dto.OpeningBalance < 0)
+        {
+            throw new ArgumentException("Opening balance cannot be negative.", nameof(dto.OpeningBalance));
+        }
+
+        var nameExists = await _ledgerRepo.LedgerNameExistsAsync(companyId, dto.LedgerName.Trim(), null, ct);
         if (nameExists)
         {
-            throw new InvalidOperationException($"A ledger with the name '{trimmedName}' already exists in this company.");
+            throw new InvalidOperationException($"A ledger named '{dto.LedgerName.Trim()}' already exists in this company.");
         }
 
         var ledger = new LedgerEntity
         {
             CompanyId = companyId,
             GroupId = dto.GroupId,
-            LedgerName = trimmedName,
+            LedgerName = dto.LedgerName.Trim(),
             OpeningBalance = dto.OpeningBalance,
             OpeningBalanceType = dto.OpeningBalanceType,
             Address = dto.Address?.Trim() ?? string.Empty,
@@ -103,14 +88,14 @@ public class LedgerService : ILedgerService
             BankAccountNumber = dto.BankAccountNumber?.Trim() ?? string.Empty,
             IFSC = dto.IFSC?.Trim().ToUpperInvariant() ?? string.Empty,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.Now
         };
 
         await _ledgerRepo.AddAsync(ledger, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        _logger.LogInformation("Created ledger '{LedgerName}' (ID: {LedgerId}) under group '{GroupName}' for company {CompanyId}",
-            ledger.LedgerName, ledger.LedgerId, group.GroupName, companyId);
+        _logger.LogInformation("Created ledger '{LedgerName}' (ID: {LedgerId}) for Company {CompanyId} under Group '{GroupName}'",
+            ledger.LedgerName, ledger.LedgerId, companyId, group.GroupName);
 
         return ledger;
     }
@@ -118,7 +103,7 @@ public class LedgerService : ILedgerService
     public async Task<LedgerEntity> UpdateLedgerAsync(LedgerUpdateDto dto, CancellationToken ct = default)
     {
         var ledger = await _ledgerRepo.GetByIdAsync(dto.LedgerId, ct)
-            ?? throw new KeyNotFoundException($"Ledger with ID {dto.LedgerId} not found.");
+            ?? throw new ArgumentException($"Ledger with ID {dto.LedgerId} does not exist.", nameof(dto.LedgerId));
 
         if (string.IsNullOrWhiteSpace(dto.LedgerName))
         {
@@ -130,18 +115,22 @@ public class LedgerService : ILedgerService
 
         if (group.CompanyId != ledger.CompanyId)
         {
-            throw new InvalidOperationException("The specified group does not belong to the active company.");
+            throw new InvalidOperationException("The specified group does not belong to this company.");
         }
 
-        string trimmedName = dto.LedgerName.Trim();
-        bool nameExists = await _ledgerRepo.LedgerNameExistsAsync(ledger.CompanyId, trimmedName, dto.LedgerId, ct);
+        if (dto.OpeningBalance < 0)
+        {
+            throw new ArgumentException("Opening balance cannot be negative.", nameof(dto.OpeningBalance));
+        }
+
+        var nameExists = await _ledgerRepo.LedgerNameExistsAsync(ledger.CompanyId, dto.LedgerName.Trim(), ledger.LedgerId, ct);
         if (nameExists)
         {
-            throw new InvalidOperationException($"Another ledger with the name '{trimmedName}' already exists in this company.");
+            throw new InvalidOperationException($"A ledger named '{dto.LedgerName.Trim()}' already exists in this company.");
         }
 
         ledger.GroupId = dto.GroupId;
-        ledger.LedgerName = trimmedName;
+        ledger.LedgerName = dto.LedgerName.Trim();
         ledger.OpeningBalance = dto.OpeningBalance;
         ledger.OpeningBalanceType = dto.OpeningBalanceType;
         ledger.Address = dto.Address?.Trim() ?? string.Empty;
@@ -155,7 +144,7 @@ public class LedgerService : ILedgerService
         ledger.BankAccountNumber = dto.BankAccountNumber?.Trim() ?? string.Empty;
         ledger.IFSC = dto.IFSC?.Trim().ToUpperInvariant() ?? string.Empty;
         ledger.IsActive = dto.IsActive;
-        ledger.UpdatedAt = DateTime.UtcNow;
+        ledger.UpdatedAt = DateTime.Now;
 
         _ledgerRepo.Update(ledger);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -175,7 +164,7 @@ public class LedgerService : ILedgerService
             throw new InvalidOperationException($"Cannot delete reserved accounting ledger '{ledger.LedgerName}'.");
         }
 
-        var hasVouchers = await _voucherEntryRepo
+        var hasVouchers = await _context.VoucherEntries
             .AnyAsync(ve => ve.LedgerId == ledgerId, ct);
 
         if (hasVouchers)
@@ -198,7 +187,11 @@ public class LedgerService : ILedgerService
 
     public async Task<LedgerDetailDto?> GetLedgerDetailsAsync(int ledgerId, CancellationToken ct = default)
     {
-        var ledger = await _ledgerRepo.GetWithGroupAsync(ledgerId, ct);
+        var ledger = await _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .FirstOrDefaultAsync(l => l.LedgerId == ledgerId, ct);
+
         if (ledger == null) return null;
 
         return new LedgerDetailDto
@@ -233,8 +226,10 @@ public class LedgerService : ILedgerService
         int? groupId = null,
         CancellationToken ct = default)
     {
-        var allLedgers = await _ledgerRepo.GetByCompanyIdAsync(companyId, ct);
-        IEnumerable<LedgerEntity> query = allLedgers;
+        var query = _context.Ledgers
+            .AsNoTracking()
+            .Include(l => l.Group)
+            .Where(l => l.CompanyId == companyId);
 
         if (groupId.HasValue)
         {
@@ -248,7 +243,7 @@ public class LedgerService : ILedgerService
                                      (l.Group != null && l.Group.GroupName.ToLower().Contains(term)));
         }
 
-        var list = query
+        var list = await query
             .OrderBy(l => l.LedgerName)
             .Select(l => new LedgerSummaryDto
             {
@@ -261,10 +256,15 @@ public class LedgerService : ILedgerService
                 OpeningBalanceType = l.OpeningBalanceType,
                 IsActive = l.IsActive
             })
-            .ToList();
+            .ToListAsync(ct);
 
         // Resolve full hierarchy path for each ledger
-        var allGroups = await _groupRepo.GetByCompanyIdAsync(companyId, ct);
+        var allGroups = await _context.Groups
+            .AsNoTracking()
+            .Where(g => g.CompanyId == companyId)
+            .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
+            .ToListAsync(ct);
+
         var groupMap = allGroups.ToDictionary(g => g.GroupId);
         var pathCache = new Dictionary<int, string>();
 

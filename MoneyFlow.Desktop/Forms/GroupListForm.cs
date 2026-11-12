@@ -8,10 +8,7 @@ using System.Windows.Forms;
 using Guna.UI2.WinForms;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
-<<<<<<< Updated upstream
 using MoneyFlow.Desktop.Controls.Panels;
-=======
->>>>>>> Stashed changes
 using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
 
@@ -868,58 +865,7 @@ public class GroupListForm : Form, IBackNavigable
         }
         else if (e.KeyCode == Keys.Delete)
         {
-<<<<<<< Updated upstream
             if (ButtonDelete.Enabled)
-=======
-            e.Handled = true;
-            _ = DeleteSelectedNodeAsync();
-        }
-    }
-
-    private void CreateGroup()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        int? parentId = null;
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel && sel.IsGroup)
-        {
-            parentId = sel.Id;
-        }
-
-        using var form = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, null, parentId);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadAccountHierarchyAsync();
-        }
-    }
-
-    private void CreateGroupUnderSelectedNode() => CreateGroup();
-
-    private void CreateLedgerUnderSelectedGroup()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        int? groupId = null;
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel)
-        {
-            groupId = sel.IsGroup ? sel.Id : sel.ParentGroupId;
-        }
-
-        using var form = new LedgerCreateEditForm(_ledgerService, _groupService, _companyContext.CurrentCompany.CompanyId, null, groupId);
-        if (form.ShowDialog(this) == DialogResult.OK)
-        {
-            LoadAccountHierarchyAsync();
-        }
-    }
-
-    private void AlterSelectedNode()
-    {
-        if (_companyContext.CurrentCompany == null) return;
-
-        if (tvAccounts.SelectedNode?.Tag is AccountHierarchyNodeDto sel)
-        {
-            if (sel.IsGroup)
->>>>>>> Stashed changes
             {
                 e.Handled = true;
                 _ = DeleteSelectedGroupAsync();

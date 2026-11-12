@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.Constants;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
+using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
-<<<<<<< Updated upstream
 using System.IO;
 using System.Text.Json;
 using MoneyFlow.Data.Storage;
@@ -16,51 +16,35 @@ using SecurityMode = MoneyFlow.Data.Encryption.SecurityMode;
 using Group = MoneyFlow.Core.Entities.Group;
 using FinancialYear = MoneyFlow.Core.Entities.FinancialYear;
 using Ledger = MoneyFlow.Core.Entities.Ledger;
-=======
->>>>>>> Stashed changes
 
 namespace MoneyFlow.Services.Company;
 
 public class CompanyService : ICompanyService
 {
-    private readonly ICompanyManager _companyManager;
     private readonly ICompanyRepository _companyRepo;
-    private readonly ICompanyContext _companyContext;
+    private readonly IFinancialYearRepository _financialYearRepo;
+    private readonly IGroupRepository _groupRepo;
+    private readonly ILedgerRepository _ledgerRepo;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<CompanyService> _logger;
     private readonly CompanySession? _companySession;
     private readonly SystemConfiguration? _systemConfig;
     private readonly StorageEngine? _storageEngine;
-    private readonly CompanyManager? _companyManager;
-
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public CompanyService(
-        ICompanyManager companyManager,
-        ICompanyRepository companyRepo,
-        ICompanyContext companyContext,
-        IUnitOfWork unitOfWork,
-        ILogger<CompanyService> logger)
-    {
-        _companyManager = companyManager;
-        _companyRepo = companyRepo;
-        _companyContext = companyContext;
-        _unitOfWork = unitOfWork;
-        _logger = logger;
-    }
+    private readonly MoneyFlow.Data.Storage.CompanyManager? _companyManager;
 
     public CompanyService(
         ICompanyRepository companyRepo,
-        IFinancialYearRepository fyRepo,
+        IFinancialYearRepository financialYearRepo,
         IGroupRepository groupRepo,
         ILedgerRepository ledgerRepo,
         IUnitOfWork unitOfWork,
         ICompanyContext companyContext,
-<<<<<<< Updated upstream
         ILogger<CompanyService> logger,
         CompanySession? companySession = null,
         SystemConfiguration? systemConfig = null,
         StorageEngine? storageEngine = null,
-        CompanyManager? companyManager = null)
+        MoneyFlow.Data.Storage.CompanyManager? companyManager = null)
     {
         _companyRepo = companyRepo;
         _financialYearRepo = financialYearRepo;
@@ -73,33 +57,22 @@ public class CompanyService : ICompanyService
         _systemConfig = systemConfig;
         _storageEngine = storageEngine;
         _companyManager = companyManager;
-=======
-        ILogger<CompanyService> logger)
-        : this(CreateDefaultCompanyManager(companyRepo, companyContext), companyRepo, companyContext, unitOfWork, logger)
-    {
-    }
-
-    private static ICompanyManager CreateDefaultCompanyManager(ICompanyRepository companyRepo, ICompanyContext companyContext)
-    {
-        var crypto = new MoneyFlow.Data.Storage.CompanyDataCrypto();
-        var storageEngine = new MoneyFlow.Data.Storage.CompanyStorageEngine(crypto);
-        var dataStore = (companyRepo as MoneyFlow.Data.Repositories.FileCompanyRepository)?.DataStore ?? new MoneyFlow.Data.Repositories.CompanyDataStore(storageEngine);
-        var migrationManager = new MoneyFlow.Services.Migration.MigrationManager(storageEngine, Microsoft.Extensions.Logging.Abstractions.NullLogger<MoneyFlow.Services.Migration.MigrationManager>.Instance);
-        var journalManager = new MoneyFlow.Data.Storage.JournalManager(storageEngine);
-        var transactionManager = new MoneyFlow.Data.Storage.TransactionManager(journalManager);
-        return new CompanyManager(storageEngine, dataStore, companyContext, migrationManager, transactionManager, Microsoft.Extensions.Logging.Abstractions.NullLogger<CompanyManager>.Instance);
->>>>>>> Stashed changes
     }
 
     public async Task<Core.Entities.Company> CreateCompanyAsync(CompanyCreateDto dto, CancellationToken ct = default)
     {
-        string pwd = dto.Password ?? string.Empty;
-        var summary = await _companyManager.CreateCompanyAsync(dto, pwd, ct);
+        if (string.IsNullOrWhiteSpace(dto.CompanyName))
+        {
+            throw new ArgumentException("Company name is required.", nameof(dto.CompanyName));
+        }
 
-        // Open newly created company
-        await _companyManager.OpenCompanyAsync(summary.CompanyNumber, pwd, ct);
+        string trimmedName = dto.CompanyName.Trim();
+        bool nameExists = await _companyRepo.AnyAsync(c => c.CompanyName.ToLower() == trimmedName.ToLower(), ct);
+        if (nameExists)
+        {
+            throw new InvalidOperationException($"A company with the name '{trimmedName}' already exists.");
+        }
 
-<<<<<<< Updated upstream
         using var tx = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
@@ -285,9 +258,6 @@ public class CompanyService : ICompanyService
             _logger.LogError(ex, "Failed to create company: {CompanyName}", dto.CompanyName);
             throw;
         }
-=======
-        return _companyContext.CurrentCompany!;
->>>>>>> Stashed changes
     }
 
     public async Task<Core.Entities.Company> UpdateCompanyAsync(CompanyUpdateDto dto, CancellationToken ct = default)
@@ -296,9 +266,10 @@ public class CompanyService : ICompanyService
             ?? throw new KeyNotFoundException($"Company with ID {dto.CompanyId} not found.");
 
         string trimmedName = dto.CompanyName.Trim();
-        if (company.CompanyName != trimmedName)
+        bool nameExists = await _companyRepo.AnyAsync(c => c.CompanyName.ToLower() == trimmedName.ToLower() && c.CompanyId != dto.CompanyId, ct);
+        if (nameExists)
         {
-            await _companyManager.RenameCompanyAsync(company.CompanyNumber, trimmedName, ct);
+            throw new InvalidOperationException($"Another company with the name '{trimmedName}' already exists.");
         }
 
         company.CompanyName = trimmedName;
@@ -310,11 +281,36 @@ public class CompanyService : ICompanyService
         company.Phone = dto.Phone?.Trim() ?? string.Empty;
         company.Currency = string.IsNullOrWhiteSpace(dto.Currency) ? "₹" : dto.Currency.Trim();
         company.IsActive = dto.IsActive;
+        if (!string.IsNullOrWhiteSpace(dto.CompanyNumber))
+        {
+            company.CompanyNumber = dto.CompanyNumber.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(dto.DataDirectory))
+        {
+            company.DataDirectory = dto.DataDirectory.Trim();
+            try { Directory.CreateDirectory(company.DataDirectory); } catch { }
+        }
+        if (dto.RemovePassword)
+        {
+            company.PasswordHash = null;
+            company.PasswordSalt = null;
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.NewPassword))
+        {
+            var (h, s) = HashPassword(dto.NewPassword.Trim());
+            company.PasswordHash = h;
+            company.PasswordSalt = s;
+        }
         company.AutoBackupOnExit = dto.AutoBackupOnExit;
-        company.UpdatedAt = DateTime.UtcNow;
+        company.UpdatedAt = DateTime.Now;
 
         _companyRepo.Update(company);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (_companyContext.CurrentCompany?.CompanyId == company.CompanyId)
+        {
+            _companyContext.SetActiveCompany(company, _companyContext.CurrentFinancialYear);
+        }
 
         return company;
     }
@@ -326,7 +322,6 @@ public class CompanyService : ICompanyService
 
     public async Task<IReadOnlyList<CompanySummaryDto>> GetAllCompaniesAsync(CancellationToken ct = default)
     {
-<<<<<<< Updated upstream
         var result = new List<CompanySummaryDto>();
         var seenCompanyNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -527,48 +522,56 @@ public class CompanyService : ICompanyService
 
         return result.OrderBy(c => c.CompanyName).ToList();
     }
-=======
-        if (_companyManager != null)
-        {
-            var list = await _companyManager.GetCompaniesAsync(ct);
-            if (list != null)
-            {
-                return list;
-            }
-        }
->>>>>>> Stashed changes
 
-        if (_companyRepo != null)
-        {
-            var companies = await _companyRepo.GetAllAsync(ct);
-            if (companies != null)
-            {
-                return companies.Select(c => new CompanySummaryDto
-                {
-                    CompanyId = c.CompanyId,
-                    CompanyNumber = c.CompanyNumber ?? $"COMP-{c.CompanyId:D4}",
-                    CompanyName = c.CompanyName,
-                    FinancialYearFrom = c.CreatedAt,
-                    BooksBeginningFrom = c.CreatedAt,
-                    Currency = c.Currency ?? "₹",
-                    IsActive = c.IsActive
-                }).ToList();
-            }
-        }
+    public async Task<bool> VerifyCompanyPasswordAsync(int companyId, string password, CancellationToken ct = default)
+    {
+        var company = await _companyRepo.GetByIdAsync(companyId, ct);
+        if (company == null) return false;
+        if (!company.IsPasswordProtected) return true;
+        if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(company.PasswordSalt) || string.IsNullOrEmpty(company.PasswordHash)) return false;
+        return VerifyHash(password, company.PasswordHash, company.PasswordSalt);
+    }
 
-        return Array.Empty<CompanySummaryDto>();
+    private static (string Hash, string Salt) HashPassword(string password)
+    {
+        byte[] saltBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+        string salt = Convert.ToBase64String(saltBytes);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, saltBytes, 10000, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        byte[] hashBytes = pbkdf2.GetBytes(32);
+        string hash = Convert.ToBase64String(hashBytes);
+        return (hash, salt);
+    }
+
+    private static bool VerifyHash(string password, string storedHash, string storedSalt)
+    {
+        byte[] saltBytes = Convert.FromBase64String(storedSalt);
+        using var pbkdf2 = new System.Security.Cryptography.Rfc2898DeriveBytes(password, saltBytes, 10000, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        byte[] hashBytes = pbkdf2.GetBytes(32);
+        string computedHash = Convert.ToBase64String(hashBytes);
+        return string.Equals(computedHash, storedHash, StringComparison.Ordinal);
     }
 
     public async Task<bool> DeleteCompanyAsync(int companyId, CancellationToken ct = default)
     {
         var company = await _companyRepo.GetByIdAsync(companyId, ct);
-        string compId = company?.CompanyNumber ?? $"COMP-{companyId:D4}";
-        return await _companyManager.DeleteCompanyAsync(compId, true, ct);
+        if (company == null) return false;
+
+        // Soft delete
+        company.IsActive = false;
+        company.UpdatedAt = DateTime.Now;
+        _companyRepo.Update(company);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        if (_companyContext.CurrentCompany?.CompanyId == companyId)
+        {
+            _companyContext.CloseCompany();
+        }
+
+        return true;
     }
 
-    public Task<bool> OpenCompanyAsync(int companyId, CancellationToken ct = default)
+    public async Task<bool> OpenCompanyAsync(int companyId, CancellationToken ct = default)
     {
-<<<<<<< Updated upstream
         // Try finding from active session first
         var company = await _companyRepo.GetByIdAsync(companyId, ct);
 
@@ -658,32 +661,115 @@ public class CompanyService : ICompanyService
         }
 
         return true;
-=======
-        return OpenCompanyAsync(companyId, "MyERP_Default_Secret_2026", ct);
-    }
-
-    public async Task<bool> OpenCompanyAsync(int companyId, string password, CancellationToken ct = default)
-    {
-        var companies = await _companyManager.GetCompaniesAsync(ct);
-        var target = companies.FirstOrDefault(c => c.CompanyId == companyId);
-        string compId = target?.CompanyNumber ?? $"COMP-{companyId:D4}";
-
-        string pwd = string.IsNullOrEmpty(password) ? "MyERP_Default_Secret_2026" : password;
-        return await _companyManager.OpenCompanyAsync(compId, pwd, ct);
-    }
-
-    public async Task<bool> VerifyCompanyPasswordAsync(int companyId, string password, CancellationToken ct = default)
-    {
-        var companies = await _companyManager.GetCompaniesAsync(ct);
-        var target = companies.FirstOrDefault(c => c.CompanyId == companyId);
-        string compId = target?.CompanyNumber ?? $"COMP-{companyId:D4}";
-
-        return await _companyManager.VerifyPasswordAsync(compId, password, ct);
->>>>>>> Stashed changes
     }
 
     public void CloseCompany()
     {
         _companyContext.CloseCompany();
+    }
+
+    private async Task<Dictionary<string, MoneyFlow.Core.Entities.Group>> SeedDefaultGroupsAsync(int companyId, CancellationToken ct)
+    {
+        var groupsMap = new Dictionary<string, MoneyFlow.Core.Entities.Group>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Seed 15 Primary Groups
+        foreach (var pgDef in PredefinedAccountingGroups.PrimaryGroups)
+        {
+            var pg = new MoneyFlow.Core.Entities.Group
+            {
+                CompanyId = companyId,
+                GroupName = pgDef.Name,
+                Nature = pgDef.Nature,
+                PrimaryGroup = true,
+                ParentGroupId = null,
+                AffectProfitLoss = pgDef.AffectProfitLoss,
+                IsPredefined = true,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            await _groupRepo.AddAsync(pg, ct);
+            groupsMap[pg.GroupName] = pg;
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        // 2. Seed 13 Sub-Groups
+        foreach (var sgDef in PredefinedAccountingGroups.SubGroups)
+        {
+            if (string.IsNullOrEmpty(sgDef.ParentGroupName) || !groupsMap.TryGetValue(sgDef.ParentGroupName, out var parentGroup))
+            {
+                _logger.LogWarning("Parent group '{ParentGroupName}' not found for sub-group '{SubGroupName}'.", sgDef.ParentGroupName, sgDef.Name);
+                continue;
+            }
+
+            var sg = new MoneyFlow.Core.Entities.Group
+            {
+                CompanyId = companyId,
+                GroupName = sgDef.Name,
+                Nature = sgDef.Nature,
+                PrimaryGroup = false,
+                ParentGroupId = parentGroup.GroupId,
+                AffectProfitLoss = sgDef.AffectProfitLoss,
+                IsPredefined = true,
+                IsActive = true,
+                CreatedAt = DateTime.Now
+            };
+
+            await _groupRepo.AddAsync(sg, ct);
+            groupsMap[sg.GroupName] = sg;
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Seeded 28 predefined accounting groups (15 Primary + 13 Sub-Groups) for Company ID {CompanyId}.", companyId);
+        return groupsMap;
+    }
+
+    private async Task SeedDefaultLedgersAsync(int companyId, Dictionary<string, MoneyFlow.Core.Entities.Group> groupsMap, CancellationToken ct)
+    {
+        // Real predefined / reserved accounting ledgers only (DO NOT create Groups as Ledgers!)
+        var defaultLedgers = new List<(string Name, string GroupName)>
+        {
+            ("Cash", "Cash-in-hand"),
+            ("Profit & Loss A/c", "Capital Account"),
+            ("Sales", "Sales Accounts"),
+            ("Purchase", "Purchase Accounts")
+        };
+
+        foreach (var (name, groupName) in defaultLedgers)
+        {
+            // Support lookup with fallback for casing / variations
+            MoneyFlow.Core.Entities.Group? group = null;
+            if (!groupsMap.TryGetValue(groupName, out group))
+            {
+                if (groupName.Equals("Cash-in-hand", StringComparison.OrdinalIgnoreCase))
+                {
+                    groupsMap.TryGetValue("Cash-in-Hand", out group);
+                }
+            }
+
+            if (group != null)
+            {
+                var ledger = new MoneyFlow.Core.Entities.Ledger
+                {
+                    CompanyId = companyId,
+                    GroupId = group.GroupId,
+                    LedgerName = name,
+                    OpeningBalance = 0m,
+                    OpeningBalanceType = BalanceType.Debit,
+                    IsActive = true,
+                    CreatedAt = DateTime.Now
+                };
+                await _ledgerRepo.AddAsync(ledger, ct);
+            }
+            else
+            {
+                _logger.LogWarning("Cannot seed default ledger '{LedgerName}' because group '{GroupName}' was not found.", name, groupName);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        _logger.LogInformation("Seeded canonical default ledgers (Cash, Profit & Loss A/c, Sales, Purchase) for Company ID {CompanyId}.", companyId);
     }
 }

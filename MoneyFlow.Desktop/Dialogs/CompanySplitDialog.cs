@@ -43,22 +43,20 @@ public class CompanySplitDialog : Form
     private void InitializeComponent()
     {
         this.Text = "Split Company Data — Financial Year-End Rollover";
+        this.Size = new Size(580, 520);
+        this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
         this.Font = ExecLedgerTheme.UIRegular9;
 
-<<<<<<< Updated upstream
         var appIcon = ExecLedgerIcons.GetAppIcon();
         if (appIcon != null)
         {
             this.Icon = appIcon;
             this.ShowIcon = true;
         }
-=======
-        ScreenFittingManager.FitDialogToWorkArea(this, 580, 520, 520, 420);
->>>>>>> Stashed changes
 
         var headerPanel = new Panel
         {

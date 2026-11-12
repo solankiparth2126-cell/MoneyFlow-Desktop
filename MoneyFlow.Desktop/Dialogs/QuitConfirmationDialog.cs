@@ -54,7 +54,6 @@ public class QuitConfirmationDialog : Form
     public static bool ShowQuitDialog(IWin32Window? owner, string? companyName = null, string? snapshotPath = null)
     {
         using var dlg = new QuitConfirmationDialog(companyName, snapshotPath);
-        ScreenFittingManager.FitDialogToWorkArea(dlg, 540, 200, 480, 180, owner);
         return dlg.ShowDialog(owner) == DialogResult.Yes;
     }
 
@@ -62,12 +61,13 @@ public class QuitConfirmationDialog : Form
     {
         AutoScaleMode = AutoScaleMode.None;
         Text = "Quit — MoneyFlow Desktop ERP";
+        Size = new Size(540, 200);
+        StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.None;
         BackColor = Color.FromArgb(11, 39, 66); // Outer border tint
         KeyPreview = true;
         DoubleBuffered = true;
 
-<<<<<<< Updated upstream
         var appIcon = ExecLedgerIcons.GetAppIcon();
         if (appIcon != null)
         {
@@ -82,9 +82,6 @@ public class QuitConfirmationDialog : Form
             ShadowColor = Color.FromArgb(15, 23, 42),
             BorderRadius = 8
         };
-=======
-        ScreenFittingManager.FitDialogToWorkArea(this, 540, 200, 480, 180);
->>>>>>> Stashed changes
 
         // Main Card Container (Rounded 8px)
         var card = new Guna2Panel

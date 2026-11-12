@@ -13,43 +13,22 @@ using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
 using Microsoft.EntityFrameworkCore;
 
-using GroupEntity = MoneyFlow.Core.Entities.Group;
-using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
-using MoneyFlow.Data.Repositories;
-
 namespace MoneyFlow.Services.ImportExport;
 
 public class ImportExportService : IImportExportService
 {
-<<<<<<< Updated upstream
     private readonly AppDataContext _context;
-=======
-    private readonly ICompanyDataStore _dataStore;
->>>>>>> Stashed changes
     private readonly IUnitOfWork _uow;
     private readonly ILogger<ImportExportService> _logger;
 
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public ImportExportService(
-<<<<<<< Updated upstream
         AppDataContext context,
-=======
->>>>>>> Stashed changes
-        IUnitOfWork uow,
-        ILogger<ImportExportService> logger,
-        ICompanyDataStore? dataStore = null)
-    {
-        _dataStore = dataStore!;
-        _uow = uow;
-        _logger = logger;
-    }
-
-    internal ImportExportService(
-        MoneyFlow.Data.AppDbContext context,
         IUnitOfWork uow,
         ILogger<ImportExportService> logger)
-        : this(uow, logger, null)
     {
+        _context = context;
+        _uow = uow;
+        _logger = logger;
     }
 
     public Task<string> GenerateTemplateCsvAsync(ImportEntityType entityType)
@@ -143,23 +122,15 @@ public class ImportExportService : IImportExportService
         int drCrIdx = FindColumnIndex(header, "Dr/Cr", "Type", "Balance Type");
         int descIdx = FindColumnIndex(header, "Description", "Narration", "Note");
 
-<<<<<<< Updated upstream
         var existingGroups = await _context.Groups
             
-=======
-        var existingGroups = _dataStore.GetEntityList<GroupEntity>()
->>>>>>> Stashed changes
             .Where(g => g.CompanyId == companyId && g.IsActive)
-            .ToDictionary(g => g.GroupName.ToLowerInvariant(), g => g);
+            .ToDictionaryAsync(g => g.GroupName.ToLowerInvariant(), g => g, ct);
 
-<<<<<<< Updated upstream
         var existingLedgers = await _context.Ledgers
             
-=======
-        var existingLedgers = _dataStore.GetEntityList<LedgerEntity>()
->>>>>>> Stashed changes
             .Where(l => l.CompanyId == companyId)
-            .ToDictionary(l => l.LedgerName.ToLowerInvariant(), l => l);
+            .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
         var processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -285,23 +256,15 @@ public class ImportExportService : IImportExportService
         int rateIdx = FindColumnIndex(header, "Opening Rate", "Rate", "Price");
         int descIdx = FindColumnIndex(header, "Description", "Narration", "Note");
 
-<<<<<<< Updated upstream
         var existingUnits = await _context.Units
             
-=======
-        var existingUnits = _dataStore.GetEntityList<Unit>()
->>>>>>> Stashed changes
             .Where(u => u.CompanyId == companyId && u.IsActive)
-            .ToDictionary(u => u.UnitName.ToLowerInvariant(), u => u);
+            .ToDictionaryAsync(u => u.UnitName.ToLowerInvariant(), u => u, ct);
 
-<<<<<<< Updated upstream
         var existingItems = await _context.StockItems
             
-=======
-        var existingItems = _dataStore.GetEntityList<StockItem>()
->>>>>>> Stashed changes
             .Where(s => s.CompanyId == companyId)
-            .ToDictionary(s => s.ItemName.ToLowerInvariant(), s => s);
+            .ToDictionaryAsync(s => s.ItemName.ToLowerInvariant(), s => s, ct);
 
         var processedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -424,32 +387,19 @@ public class ImportExportService : IImportExportService
         int amtIdx = FindColumnIndex(header, "Amount", "Total Amount");
         int narrIdx = FindColumnIndex(header, "Narration", "Remarks");
 
-<<<<<<< Updated upstream
         var existingLedgers = await _context.Ledgers
             
-=======
-        var existingLedgers = _dataStore.GetEntityList<LedgerEntity>()
->>>>>>> Stashed changes
             .Where(l => l.CompanyId == companyId && l.IsActive)
-            .ToDictionary(l => l.LedgerName.ToLowerInvariant(), l => l);
+            .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
-<<<<<<< Updated upstream
         var existingVouchers = await _context.Vouchers
             
-=======
-        var existingVouchers = _dataStore.GetEntityList<Voucher>()
->>>>>>> Stashed changes
             .Where(v => v.CompanyId == companyId && !v.IsDeleted)
-            .ToDictionary(v => v.VoucherNumber.ToLowerInvariant(), v => v);
+            .ToDictionaryAsync(v => v.VoucherNumber.ToLowerInvariant(), v => v, ct);
 
-<<<<<<< Updated upstream
         var voucherTypes = await _context.VoucherTypes
             
             .ToDictionaryAsync(t => t.Name.ToLowerInvariant(), t => t, ct);
-=======
-        var voucherTypes = _dataStore.GetEntityList<VoucherType>()
-            .ToDictionary(t => t.Name.ToLowerInvariant(), t => t);
->>>>>>> Stashed changes
 
         var processedNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -591,16 +541,6 @@ public class ImportExportService : IImportExportService
             return result;
         }
 
-<<<<<<< Updated upstream
-=======
-        IDbTransactionContext? transaction = null;
-        try
-        {
-            transaction = await _uow.BeginTransactionAsync(ct);
-        }
-        catch { }
-
->>>>>>> Stashed changes
         try
         {
             switch (entityType)
@@ -640,13 +580,13 @@ public class ImportExportService : IImportExportService
         ImportExecutionResultDto result,
         CancellationToken ct)
     {
-        var groups = _dataStore.GetEntityList<GroupEntity>()
+        var groups = await _context.Groups
             .Where(g => g.CompanyId == companyId && g.IsActive)
-            .ToDictionary(g => g.GroupName.ToLowerInvariant(), g => g);
+            .ToDictionaryAsync(g => g.GroupName.ToLowerInvariant(), g => g, ct);
 
-        var existingLedgers = _dataStore.GetEntityList<LedgerEntity>()
+        var existingLedgers = await _context.Ledgers
             .Where(l => l.CompanyId == companyId)
-            .ToDictionary(l => l.LedgerName.ToLowerInvariant(), l => l);
+            .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
         foreach (var row in preview.Rows)
         {
@@ -680,10 +620,8 @@ public class ImportExportService : IImportExportService
             }
             else
             {
-                int nextLId = _dataStore.GetEntityList<LedgerEntity>().Count > 0 ? _dataStore.GetEntityList<LedgerEntity>().Max(l => l.LedgerId) + 1 : 1;
-                var newLedger = new LedgerEntity
+                var newLedger = new Core.Entities.Ledger
                 {
-                    LedgerId = nextLId,
                     CompanyId = companyId,
                     GroupId = group.GroupId,
                     LedgerName = name,
@@ -692,11 +630,7 @@ public class ImportExportService : IImportExportService
                     IsActive = true,
                     CreatedAt = DateTime.Now
                 };
-<<<<<<< Updated upstream
                 _context.Add(newLedger);
-=======
-                _dataStore.GetEntityList<LedgerEntity>().Add(newLedger);
->>>>>>> Stashed changes
                 result.InsertedCount++;
             }
         }
@@ -709,13 +643,13 @@ public class ImportExportService : IImportExportService
         ImportExecutionResultDto result,
         CancellationToken ct)
     {
-        var units = _dataStore.GetEntityList<Unit>()
+        var units = await _context.Units
             .Where(u => u.CompanyId == companyId && u.IsActive)
-            .ToDictionary(u => u.UnitName.ToLowerInvariant(), u => u);
+            .ToDictionaryAsync(u => u.UnitName.ToLowerInvariant(), u => u, ct);
 
-        var existingItems = _dataStore.GetEntityList<StockItem>()
+        var existingItems = await _context.StockItems
             .Where(s => s.CompanyId == companyId)
-            .ToDictionary(s => s.ItemName.ToLowerInvariant(), s => s);
+            .ToDictionaryAsync(s => s.ItemName.ToLowerInvariant(), s => s, ct);
 
         foreach (var row in preview.Rows)
         {
@@ -750,10 +684,8 @@ public class ImportExportService : IImportExportService
             }
             else
             {
-                int nextSId = _dataStore.GetEntityList<StockItem>().Count > 0 ? _dataStore.GetEntityList<StockItem>().Max(s => s.StockItemId) + 1 : 1;
                 var newItem = new StockItem
                 {
-                    StockItemId = nextSId,
                     CompanyId = companyId,
                     ItemName = name,
                     UnitId = unit.UnitId,
@@ -763,11 +695,7 @@ public class ImportExportService : IImportExportService
                     IsActive = true,
                     CreatedAt = DateTime.Now
                 };
-<<<<<<< Updated upstream
                 _context.Add(newItem);
-=======
-                _dataStore.GetEntityList<StockItem>().Add(newItem);
->>>>>>> Stashed changes
                 result.InsertedCount++;
             }
         }
@@ -780,21 +708,17 @@ public class ImportExportService : IImportExportService
         ImportExecutionResultDto result,
         CancellationToken ct)
     {
-        var ledgers = _dataStore.GetEntityList<LedgerEntity>()
+        var ledgers = await _context.Ledgers
             .Where(l => l.CompanyId == companyId && l.IsActive)
-            .ToDictionary(l => l.LedgerName.ToLowerInvariant(), l => l);
+            .ToDictionaryAsync(l => l.LedgerName.ToLowerInvariant(), l => l, ct);
 
-        var voucherTypes = _dataStore.GetEntityList<VoucherType>()
-            .ToDictionary(t => t.Name.ToLowerInvariant(), t => t);
+        var voucherTypes = await _context.VoucherTypes
+            .ToDictionaryAsync(t => t.Name.ToLowerInvariant(), t => t, ct);
 
-<<<<<<< Updated upstream
         var existingVouchers = await _context.Vouchers
             
-=======
-        var existingVouchers = _dataStore.GetEntityList<Voucher>()
->>>>>>> Stashed changes
             .Where(v => v.CompanyId == companyId && !v.IsDeleted)
-            .ToDictionary(v => v.VoucherNumber.ToLowerInvariant(), v => v);
+            .ToDictionaryAsync(v => v.VoucherNumber.ToLowerInvariant(), v => v, ct);
 
         foreach (var row in preview.Rows)
         {
@@ -830,25 +754,16 @@ public class ImportExportService : IImportExportService
                     existing.ReferenceNumber = refNo;
                     existing.Narration = narr;
 
-<<<<<<< Updated upstream
                     _context.RemoveRange(existing.VoucherEntries);
                     existing.VoucherEntries.Add(new VoucherEntry { VoucherId = existing.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
                     existing.VoucherEntries.Add(new VoucherEntry { VoucherId = existing.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
-=======
-                    _dataStore.GetEntityList<VoucherEntry>().RemoveAll(ve => ve.VoucherId == existing.VoucherId);
-                    int nextVEId = _dataStore.GetEntityList<VoucherEntry>().Count > 0 ? _dataStore.GetEntityList<VoucherEntry>().Max(ve => ve.VoucherEntryId) + 1 : 1;
-                    _dataStore.GetEntityList<VoucherEntry>().Add(new VoucherEntry { VoucherEntryId = nextVEId++, VoucherId = existing.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
-                    _dataStore.GetEntityList<VoucherEntry>().Add(new VoucherEntry { VoucherEntryId = nextVEId++, VoucherId = existing.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
->>>>>>> Stashed changes
                     result.UpdatedCount++;
                 }
             }
             else
             {
-                int nextVId = _dataStore.GetEntityList<Voucher>().Count > 0 ? _dataStore.GetEntityList<Voucher>().Max(v => v.VoucherId) + 1 : 1;
                 var voucher = new Voucher
                 {
-                    VoucherId = nextVId,
                     CompanyId = companyId,
                     VoucherTypeId = vchType.VoucherTypeId,
                     VoucherNumber = vchNo,
@@ -858,19 +773,11 @@ public class ImportExportService : IImportExportService
                     IsDeleted = false,
                     CreatedAt = DateTime.Now
                 };
-<<<<<<< Updated upstream
                 _context.Add(voucher);
                 await _context.SaveChangesAsync(ct);
 
                 _context.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
                 _context.Add(new VoucherEntry { VoucherId = voucher.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
-=======
-                _dataStore.GetEntityList<Voucher>().Add(voucher);
-
-                int nextVEId2 = _dataStore.GetEntityList<VoucherEntry>().Count > 0 ? _dataStore.GetEntityList<VoucherEntry>().Max(ve => ve.VoucherEntryId) + 1 : 1;
-                _dataStore.GetEntityList<VoucherEntry>().Add(new VoucherEntry { VoucherEntryId = nextVEId2++, VoucherId = voucher.VoucherId, LedgerId = drLedger.LedgerId, Debit = amt, Credit = 0m, Narration = narr });
-                _dataStore.GetEntityList<VoucherEntry>().Add(new VoucherEntry { VoucherEntryId = nextVEId2++, VoucherId = voucher.VoucherId, LedgerId = crLedger.LedgerId, Debit = 0m, Credit = amt, Narration = narr });
->>>>>>> Stashed changes
                 result.InsertedCount++;
             }
         }
@@ -881,24 +788,12 @@ public class ImportExportService : IImportExportService
         switch (options.EntityType)
         {
             case ImportEntityType.Ledgers:
-<<<<<<< Updated upstream
                 var ledgers = await _context.Ledgers
                     
                     
                     .Where(l => l.CompanyId == companyId && l.IsActive)
                     .OrderBy(l => l.LedgerName)
                     .ToListAsync();
-=======
-                var allGroups = _dataStore.GetEntityList<GroupEntity>().ToDictionary(g => g.GroupId);
-                var ledgers = _dataStore.GetEntityList<LedgerEntity>()
-                    .Where(l => l.CompanyId == companyId && l.IsActive)
-                    .OrderBy(l => l.LedgerName)
-                    .ToList();
-                foreach (var l in ledgers)
-                {
-                    if (l.Group == null && allGroups.TryGetValue(l.GroupId, out var grp)) l.Group = grp;
-                }
->>>>>>> Stashed changes
 
                 if (options.Format == ExportFormat.Json)
                 {
@@ -931,24 +826,12 @@ public class ImportExportService : IImportExportService
                 }
 
             case ImportEntityType.StockItems:
-<<<<<<< Updated upstream
                 var items = _context.StockItems
                     
                     
                     .Where(s => s.CompanyId == companyId && s.IsActive)
                     .OrderBy(s => s.ItemName)
                     .ToList();
-=======
-                var allUnits = _dataStore.GetEntityList<Unit>().ToDictionary(u => u.UnitId);
-                var items = _dataStore.GetEntityList<StockItem>()
-                    .Where(s => s.CompanyId == companyId && s.IsActive)
-                    .OrderBy(s => s.ItemName)
-                    .ToList();
-                foreach (var s in items)
-                {
-                    if (s.Unit == null && s.UnitId.HasValue && allUnits.TryGetValue(s.UnitId.Value, out var unt)) s.Unit = unt;
-                }
->>>>>>> Stashed changes
 
                 if (options.Format == ExportFormat.Json)
                 {
@@ -983,42 +866,20 @@ public class ImportExportService : IImportExportService
                 }
 
             case ImportEntityType.Vouchers:
-<<<<<<< Updated upstream
                 var query = _context.Vouchers
                     
                     
                     
                         
-=======
-                var allTypes = _dataStore.GetEntityList<VoucherType>().ToDictionary(vt => vt.VoucherTypeId);
-                var allLedgersDict = _dataStore.GetEntityList<LedgerEntity>().ToDictionary(l => l.LedgerId);
-                var allEntries = _dataStore.GetEntityList<VoucherEntry>();
-
-                var q = _dataStore.GetEntityList<Voucher>()
->>>>>>> Stashed changes
                     .Where(v => v.CompanyId == companyId && !v.IsDeleted);
 
-                if (options.FromDate.HasValue) q = q.Where(v => v.VoucherDate >= options.FromDate.Value);
-                if (options.ToDate.HasValue) q = q.Where(v => v.VoucherDate <= options.ToDate.Value);
+                if (options.FromDate.HasValue) query = query.Where(v => v.VoucherDate >= options.FromDate.Value);
+                if (options.ToDate.HasValue) query = query.Where(v => v.VoucherDate <= options.ToDate.Value);
 
-                var vouchers = q
+                var vouchers = await query
                     .OrderBy(v => v.VoucherDate)
                     .ThenBy(v => v.VoucherId)
-<<<<<<< Updated upstream
                     .ToListAsync();
-=======
-                    .ToList();
-
-                foreach (var v in vouchers)
-                {
-                    if (v.VoucherType == null && allTypes.TryGetValue(v.VoucherTypeId, out var vt)) v.VoucherType = vt;
-                    if (v.VoucherEntries.Count == 0) v.VoucherEntries = allEntries.Where(e => e.VoucherId == v.VoucherId).ToList();
-                    foreach (var e in v.VoucherEntries)
-                    {
-                        if (e.Ledger == null && allLedgersDict.TryGetValue(e.LedgerId, out var lg)) e.Ledger = lg;
-                    }
-                }
->>>>>>> Stashed changes
 
                 if (options.Format == ExportFormat.Json)
                 {

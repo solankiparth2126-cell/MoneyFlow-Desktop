@@ -12,6 +12,7 @@ using MoneyFlow.Data.Repositories;
 using MoneyFlow.Data.Storage;
 using MoneyFlow.Services.Company;
 using Xunit;
+using CompanyManager = MoneyFlow.Data.Storage.CompanyManager;
 
 namespace MoneyFlow.Tests.AccountingTests;
 

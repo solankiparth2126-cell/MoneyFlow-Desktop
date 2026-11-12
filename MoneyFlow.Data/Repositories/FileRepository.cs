@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-<<<<<<< Updated upstream
 using System.Threading;
 using System.Threading.Tasks;
 using MoneyFlow.Core.Interfaces;
@@ -24,7 +23,7 @@ public class FileRepository<T> : IRepository<T> where T : class
         Session = session ?? throw new ArgumentNullException(nameof(session));
     }
 
-    protected CompanyDataStore Store
+    protected MoneyFlow.Data.Storage.CompanyDataStore Store
     {
         get
         {
@@ -190,99 +189,5 @@ public class FileRepository<T> : IRepository<T> where T : class
             ((Core.Entities.AppSetting)(object)entity).SettingId = nextId;
         else if (type == typeof(Core.Entities.BackupHistory))
             ((Core.Entities.BackupHistory)(object)entity).BackupHistoryId = nextId;
-=======
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-using MoneyFlow.Core.Interfaces;
-
-namespace MoneyFlow.Data.Repositories;
-
-public class FileRepository<T> : IRepository<T> where T : class
-{
-    public ICompanyDataStore DataStore { get; }
-
-    public FileRepository(ICompanyDataStore dataStore)
-    {
-        DataStore = dataStore;
-    }
-
-    protected List<T> List => DataStore.GetEntityList<T>();
-
-    private static readonly PropertyInfo? IdProperty = typeof(T).GetProperty($"{typeof(T).Name}Id")
-                                                     ?? typeof(T).GetProperty("Id");
-
-    private static int GetId(T entity)
-    {
-        if (IdProperty == null) return 0;
-        object? val = IdProperty.GetValue(entity);
-        return val is int i ? i : 0;
-    }
-
-    private static void SetId(T entity, int id)
-    {
-        if (IdProperty != null && IdProperty.CanWrite)
-        {
-            IdProperty.SetValue(entity, id);
-        }
-    }
-
-    public virtual Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
-    {
-        var item = List.FirstOrDefault(e => GetId(e) == id);
-        return Task.FromResult(item);
-    }
-
-    public virtual Task<IReadOnlyList<T>> GetAllAsync(CancellationToken ct = default)
-    {
-        IReadOnlyList<T> result = List.ToList();
-        return Task.FromResult(result);
-    }
-
-    public virtual Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
-    {
-        var compiled = predicate.Compile();
-        IReadOnlyList<T> result = List.Where(compiled).ToList();
-        return Task.FromResult(result);
-    }
-
-    public virtual Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken ct = default)
-    {
-        var compiled = predicate.Compile();
-        bool result = List.Any(compiled);
-        return Task.FromResult(result);
-    }
-
-    public virtual Task AddAsync(T entity, CancellationToken ct = default)
-    {
-        if (GetId(entity) == 0 && IdProperty != null)
-        {
-            int maxId = List.Count > 0 ? List.Max(e => GetId(e)) : 0;
-            SetId(entity, maxId + 1);
-        }
-
-        List.Add(entity);
-        return Task.CompletedTask;
-    }
-
-    public virtual void Update(T entity)
-    {
-        int id = GetId(entity);
-        int idx = List.FindIndex(e => GetId(e) == id);
-        if (idx >= 0)
-        {
-            List[idx] = entity;
-        }
-    }
-
-    public virtual void Delete(T entity)
-    {
-        int id = GetId(entity);
-        int idx = List.FindIndex(e => GetId(e) == id);
-        if (idx >= 0)
-        {
-            List.RemoveAt(idx);
-        }
->>>>>>> Stashed changes
     }
 }

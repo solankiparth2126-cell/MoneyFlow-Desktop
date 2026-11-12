@@ -30,22 +30,20 @@ public class CompanyPasswordPromptDialog : Form
     private void InitializeComponent()
     {
         this.Text = "Tally Vault — Company Security";
+        this.Size = new Size(460, 260);
+        this.StartPosition = FormStartPosition.CenterParent;
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.BackColor = Color.FromArgb(245, 247, 250);
         this.Font = ExecLedgerTheme.UIRegular9;
 
-<<<<<<< Updated upstream
         var appIcon = ExecLedgerIcons.GetAppIcon();
         if (appIcon != null)
         {
             this.Icon = appIcon;
             this.ShowIcon = true;
         }
-=======
-        ScreenFittingManager.FitDialogToWorkArea(this, 460, 260, 400, 220);
->>>>>>> Stashed changes
 
         var headerPanel = new Panel
         {

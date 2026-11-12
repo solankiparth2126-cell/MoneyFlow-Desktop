@@ -3,47 +3,36 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.DTOs;
-using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
-using MoneyFlow.Data.Repositories;
-using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
+using MoneyFlow.Data;
 
 namespace MoneyFlow.Services.Accounting;
 
 public class BankReconciliationService : IBankReconciliationService
 {
-    private readonly ICompanyDataStore _dataStore;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
     private readonly ILogger<BankReconciliationService> _logger;
 
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public BankReconciliationService(
-        ICompanyDataStore dataStore,
-        IUnitOfWork unitOfWork,
-        ILogger<BankReconciliationService> logger)
+    public BankReconciliationService(AppDbContext context, ILogger<BankReconciliationService> logger)
     {
-        _dataStore = dataStore;
-        _unitOfWork = unitOfWork;
+        _context = context;
         _logger = logger;
     }
 
-    internal BankReconciliationService(MoneyFlow.Data.AppDbContext context, ILogger<BankReconciliationService> logger)
-        : this((ICompanyDataStore)null!, null!, logger)
-    {
-    }
-
-    public Task<BankReconciliationReportDto> GetBankReconciliationDataAsync(
+    public async Task<BankReconciliationReportDto> GetBankReconciliationDataAsync(
         int companyId,
         int bankLedgerId,
         DateTime fromDate,
         DateTime toDate,
         CancellationToken ct = default)
     {
-        var bankLedger = _dataStore.GetEntityList<LedgerEntity>()
-            .FirstOrDefault(l => l.LedgerId == bankLedgerId && l.CompanyId == companyId)
+        var bankLedger = await _context.Ledgers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.LedgerId == bankLedgerId && l.CompanyId == companyId, ct)
             ?? throw new ArgumentException($"Bank Ledger with ID {bankLedgerId} not found in active company.", nameof(bankLedgerId));
 
         // 1. Calculate Balance as per Company Books as of toDate
@@ -51,68 +40,82 @@ public class BankReconciliationService : IBankReconciliationService
             ? bankLedger.OpeningBalance
             : -bankLedger.OpeningBalance;
 
-        var vouchers = _dataStore.GetEntityList<Voucher>()
-            .Where(v => v.CompanyId == companyId && !v.IsDeleted && v.VoucherDate.Date <= toDate.Date)
-            .ToDictionary(v => v.VoucherId);
-
-        var voucherTypes = _dataStore.GetEntityList<VoucherType>().ToDictionary(vt => vt.VoucherTypeId);
-        var ledgers = _dataStore.GetEntityList<LedgerEntity>().ToDictionary(l => l.LedgerId);
-
-        var priorEntries = _dataStore.GetEntityList<VoucherEntry>()
-            .Where(ve => ve.LedgerId == bankLedgerId && vouchers.ContainsKey(ve.VoucherId))
-            .ToList();
+        var priorEntries = await _context.VoucherEntries
+            .AsNoTracking()
+            .Include(ve => ve.Voucher)
+            .Where(ve => ve.LedgerId == bankLedgerId
+                      && ve.Voucher != null
+                      && ve.Voucher.CompanyId == companyId
+                      && !ve.Voucher.IsDeleted
+                      && ve.Voucher.VoucherDate.Date <= toDate.Date)
+            .ToListAsync(ct);
 
         decimal bookDebit = priorEntries.Sum(e => e.Debit);
         decimal bookCredit = priorEntries.Sum(e => e.Credit);
         decimal balanceAsPerCompanyBooks = netOpening + bookDebit - bookCredit;
 
-        // 2. Select transactions in period OR uncleared prior transactions
+        // 2. Select transactions: transactions in period OR uncleared prior transactions
         var relevantEntries = priorEntries
-            .Where(e => vouchers[e.VoucherId].VoucherDate.Date >= fromDate.Date || e.BankDate == null || e.BankDate > toDate.Date)
-            .OrderBy(e => vouchers[e.VoucherId].VoucherDate)
-            .ThenBy(e => vouchers[e.VoucherId].VoucherNumber)
+            .Where(e => e.Voucher!.VoucherDate.Date >= fromDate.Date || e.BankDate == null || e.BankDate > toDate.Date)
+            .OrderBy(e => e.Voucher!.VoucherDate)
             .ToList();
 
-        var lines = new List<BankTransactionItemDto>();
+        // Voucher IDs to load counter entries for particulars
+        var voucherIds = relevantEntries.Select(e => e.VoucherId).Distinct().ToList();
+        var allVoucherEntries = await _context.VoucherEntries
+            .AsNoTracking()
+            .Include(ve => ve.Ledger)
+            .Include(ve => ve.Voucher)
+                .ThenInclude(v => v!.VoucherType)
+            .Where(ve => voucherIds.Contains(ve.VoucherId))
+            .ToListAsync(ct);
+
+        var transactions = new List<BankTransactionItemDto>();
         decimal chequesDepositedNotCleared = 0m;
         decimal chequesIssuedNotPresented = 0m;
 
         foreach (var entry in relevantEntries)
         {
-            var v = vouchers[entry.VoucherId];
-            var allVoucherEntries = _dataStore.GetEntityList<VoucherEntry>().Where(e => e.VoucherId == v.VoucherId).ToList();
-            var counterpartEntry = allVoucherEntries.FirstOrDefault(e => e.LedgerId != bankLedgerId);
-            string particulars = "Self / Transfer";
-            if (counterpartEntry != null && ledgers.TryGetValue(counterpartEntry.LedgerId, out var cpLedger))
+            // Find opposite ledger name for particulars
+            var otherEntries = allVoucherEntries
+                .Where(ve => ve.VoucherId == entry.VoucherId && ve.VoucherEntryId != entry.VoucherEntryId)
+                .ToList();
+
+            string particulars = otherEntries.Count == 1
+                ? otherEntries[0].Ledger?.LedgerName ?? "(Opposite Account)"
+                : otherEntries.Count > 1
+                    ? $"As per details ({otherEntries[0].Ledger?.LedgerName} & others)"
+                    : entry.Narration;
+
+            if (string.IsNullOrWhiteSpace(particulars))
             {
-                particulars = cpLedger.LedgerName;
+                particulars = entry.Voucher?.Narration ?? "Bank Transaction";
             }
 
-            voucherTypes.TryGetValue(v.VoucherTypeId, out var vt);
-
-            bool clearedAsOfToDate = entry.BankDate.HasValue && entry.BankDate.Value.Date <= toDate.Date;
-            if (!clearedAsOfToDate)
+            // Amounts not reflected as of toDate:
+            bool notClearedInBank = !entry.BankDate.HasValue || entry.BankDate.Value.Date > toDate.Date;
+            if (notClearedInBank)
             {
                 if (entry.Debit > 0) chequesDepositedNotCleared += entry.Debit;
                 if (entry.Credit > 0) chequesIssuedNotPresented += entry.Credit;
             }
 
-            lines.Add(new BankTransactionItemDto
+            transactions.Add(new BankTransactionItemDto
             {
                 VoucherEntryId = entry.VoucherEntryId,
-                VoucherId = v.VoucherId,
-                VoucherDate = v.VoucherDate,
+                VoucherId = entry.VoucherId,
+                VoucherNumber = entry.Voucher?.VoucherNumber ?? string.Empty,
+                VoucherDate = entry.Voucher?.VoucherDate ?? DateTime.Today,
+                VoucherTypeName = entry.Voucher?.VoucherType?.Name ?? "Voucher",
                 Particulars = particulars,
-                VoucherTypeName = vt?.Name ?? "Voucher",
-                VoucherNumber = v.VoucherNumber,
+                InstrumentNumber = entry.InstrumentNumber,
                 Debit = entry.Debit,
                 Credit = entry.Credit,
-                InstrumentNumber = string.IsNullOrWhiteSpace(entry.InstrumentNumber) ? v.ReferenceNumber : entry.InstrumentNumber,
                 BankDate = entry.BankDate
             });
         }
 
-        var report = new BankReconciliationReportDto
+        return new BankReconciliationReportDto
         {
             CompanyId = companyId,
             BankLedgerId = bankLedgerId,
@@ -122,27 +125,20 @@ public class BankReconciliationService : IBankReconciliationService
             BalanceAsPerCompanyBooks = balanceAsPerCompanyBooks,
             ChequesDepositedNotCleared = chequesDepositedNotCleared,
             ChequesIssuedNotPresented = chequesIssuedNotPresented,
-            Transactions = lines
+            Transactions = transactions
         };
-
-        return Task.FromResult(report);
-    }
-
-    public async Task<bool> SetBankDateAsync(int voucherEntryId, DateTime? bankDate, CancellationToken ct = default)
-    {
-        var entry = _dataStore.GetEntityList<VoucherEntry>().FirstOrDefault(e => e.VoucherEntryId == voucherEntryId);
-        if (entry == null) return false;
-
-        entry.BankDate = bankDate;
-        await _unitOfWork.SaveChangesAsync(ct);
-        return true;
     }
 
     public async Task<bool> UpdateBankClearanceAsync(int companyId, List<BankClearanceUpdateDto> updates, CancellationToken ct = default)
     {
         if (updates == null || updates.Count == 0) return true;
 
-        var entries = _dataStore.GetEntityList<VoucherEntry>();
+        var entryIds = updates.Select(u => u.VoucherEntryId).Distinct().ToList();
+        var entries = await _context.VoucherEntries
+            .Include(e => e.Voucher)
+            .Where(e => entryIds.Contains(e.VoucherEntryId) && e.Voucher!.CompanyId == companyId)
+            .ToListAsync(ct);
+
         var updateMap = updates.ToDictionary(u => u.VoucherEntryId);
 
         foreach (var entry in entries)
@@ -157,8 +153,8 @@ public class BankReconciliationService : IBankReconciliationService
             }
         }
 
-        await _unitOfWork.SaveChangesAsync(ct);
-        _logger.LogInformation("Updated bank clearance for {Count} entries in Company {CompanyId}.", updates.Count, companyId);
+        await _context.SaveChangesAsync(ct);
+        _logger.LogInformation("Updated bank clearance for {Count} entries in Company {CompanyId}.", entries.Count, companyId);
         return true;
     }
 }

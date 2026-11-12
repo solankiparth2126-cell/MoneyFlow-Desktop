@@ -3,19 +3,18 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Data;
 
 namespace MoneyFlow.Services.Settings;
 
 public class SettingsService : ISettingsService
 {
-    private readonly IRepository<AppSetting> _settingRepo;
-    private readonly ICompanyRepository _companyRepo;
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
     private ApplicationSettingsDto? _cachedSettings;
 
     // Setting key constants
@@ -35,26 +34,16 @@ public class SettingsService : ISettingsService
     public const string KeyTheme = "Appearance.Theme";
     public const string KeyGridDensity = "Appearance.GridDensity";
 
-    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
-    public SettingsService(
-        IRepository<AppSetting> settingRepo,
-        ICompanyRepository companyRepo,
-        IUnitOfWork unitOfWork)
+    public SettingsService(AppDbContext context)
     {
-        _settingRepo = settingRepo;
-        _companyRepo = companyRepo;
-        _unitOfWork = unitOfWork;
-    }
-
-    internal SettingsService(MoneyFlow.Data.AppDbContext context)
-        : this(new MoneyFlow.Data.Repositories.Repository<AppSetting>(context), new MoneyFlow.Data.Repositories.CompanyRepository(context), new MoneyFlow.Data.Repositories.UnitOfWork(context))
-    {
+        _context = context;
     }
 
     public async Task<ApplicationSettingsDto> GetSettingsAsync()
     {
-        var allSettings = await _settingRepo.GetAllAsync();
-        var settingsDict = allSettings.ToDictionary(s => s.SettingKey, s => s.SettingValue, StringComparer.OrdinalIgnoreCase);
+        var settingsDict = await _context.Settings
+            .AsNoTracking()
+            .ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue, StringComparer.OrdinalIgnoreCase);
 
         var dto = new ApplicationSettingsDto();
 
@@ -62,7 +51,7 @@ public class SettingsService : ISettingsService
         if (settingsDict.TryGetValue(KeyDefaultCompanyId, out var compIdStr) && int.TryParse(compIdStr, out var compId))
         {
             dto.DefaultCompanyId = compId;
-            var comp = await _companyRepo.GetByIdAsync(compId);
+            var comp = await _context.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.CompanyId == compId);
             dto.DefaultCompanyName = comp?.CompanyName;
         }
 
@@ -124,7 +113,7 @@ public class SettingsService : ISettingsService
             { KeyGridDensity, (settings.GridDensity, "Data grid display density") }
         };
 
-        var existingList = await _settingRepo.GetAllAsync();
+        var existingList = await _context.Settings.ToListAsync();
         var existingDict = existingList.ToDictionary(s => s.SettingKey, StringComparer.OrdinalIgnoreCase);
 
         foreach (var kvp in entries)
@@ -133,42 +122,43 @@ public class SettingsService : ISettingsService
             {
                 existing.SettingValue = kvp.Value.Value;
                 existing.Description = kvp.Value.Description;
-                _settingRepo.Update(existing);
             }
             else
             {
-                var newSetting = new AppSetting
+                _context.Settings.Add(new AppSetting
                 {
                     SettingKey = kvp.Key,
                     SettingValue = kvp.Value.Value,
                     Description = kvp.Value.Description
-                };
-                await _settingRepo.AddAsync(newSetting);
+                });
             }
         }
 
-        await _unitOfWork.SaveChangesAsync();
+        await _context.SaveChangesAsync();
         _cachedSettings = settings;
     }
 
     public async Task<string?> GetSettingValueAsync(string key, string? defaultValue = null)
     {
-        var setting = (await _settingRepo.FindAsync(s => s.SettingKey.ToLower() == key.ToLower())).FirstOrDefault();
+        var setting = await _context.Settings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.SettingKey == key);
+
         return setting?.SettingValue ?? defaultValue;
     }
 
     public async Task SetSettingValueAsync(string key, string value, string? description = null)
     {
-        var existing = (await _settingRepo.FindAsync(s => s.SettingKey.ToLower() == key.ToLower())).FirstOrDefault();
-        if (existing != null)
+        var setting = await _context.Settings.FirstOrDefaultAsync(s => s.SettingKey == key);
+        if (setting != null)
         {
-            existing.SettingValue = value;
-            if (description != null) existing.Description = description;
-            _settingRepo.Update(existing);
+            setting.SettingValue = value;
+            if (!string.IsNullOrEmpty(description))
+                setting.Description = description;
         }
         else
         {
-            await _settingRepo.AddAsync(new AppSetting
+            _context.Settings.Add(new AppSetting
             {
                 SettingKey = key,
                 SettingValue = value,
@@ -176,7 +166,8 @@ public class SettingsService : ISettingsService
             });
         }
 
-        await _unitOfWork.SaveChangesAsync();
+        await _context.SaveChangesAsync();
+        _cachedSettings = null; // Invalidate cache
     }
 
     public async Task<bool> IsDateLockedAsync(DateTime date)
@@ -222,10 +213,8 @@ public class SettingsService : ISettingsService
 
     private static bool GetBool(Dictionary<string, string> dict, string key, bool defaultValue)
     {
-        if (dict.TryGetValue(key, out var val) && bool.TryParse(val, out var parsed))
-        {
-            return parsed;
-        }
+        if (dict.TryGetValue(key, out var val) && bool.TryParse(val, out var result))
+            return result;
         return defaultValue;
     }
 }

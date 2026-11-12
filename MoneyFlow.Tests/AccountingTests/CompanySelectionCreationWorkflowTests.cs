@@ -6,11 +6,13 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Data.Encryption;
 using MoneyFlow.Data.Repositories;
 using MoneyFlow.Data.Storage;
 using MoneyFlow.Services.Company;
 using MoneyFlow.Services.Migration;
 using Xunit;
+using CompanyManager = MoneyFlow.Services.Company.CompanyManager;
 
 namespace MoneyFlow.Tests.AccountingTests;
 
@@ -27,9 +29,7 @@ namespace MoneyFlow.Tests.AccountingTests;
 public class CompanySelectionCreationWorkflowTests : IDisposable
 {
     private readonly string _testTempDir;
-    private readonly CompanyStorageEngine _storageEngine;
     private readonly CompanyContext _companyContext;
-    private readonly CompanyManager _companyManager;
     private readonly CompanyService _companyService;
 
     public CompanySelectionCreationWorkflowTests()
@@ -37,32 +37,38 @@ public class CompanySelectionCreationWorkflowTests : IDisposable
         _testTempDir = Path.Combine(Path.GetTempPath(), "MoneyFlowTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testTempDir);
 
-        var crypto = new CompanyDataCrypto();
-        _storageEngine = new CompanyStorageEngine(crypto, _testTempDir);
-        var dataStore = new CompanyDataStore(_storageEngine);
+        var storageEngine = new StorageEngine();
+        var keyManager = new KeyManager();
+        var session = new CompanySession(storageEngine, keyManager);
+        var uow = new FileUnitOfWork(session);
+        var companyRepo = new FileCompanyRepository(session);
+        var fyRepo = new FileFinancialYearRepository(session);
+        var groupRepo = new FileGroupRepository(session);
+        var ledgerRepo = new FileLedgerRepository(session);
         _companyContext = new CompanyContext();
+        var logger = NullLogger<CompanyService>.Instance;
 
-        var migrationManager = new MigrationManager(_storageEngine, NullLogger<MigrationManager>.Instance);
-        var journalManager = new JournalManager(_storageEngine);
-        var transactionManager = new TransactionManager(journalManager);
-
-        _companyManager = new CompanyManager(
-            _storageEngine,
-            dataStore,
-            _companyContext,
-            migrationManager,
-            transactionManager,
-            NullLogger<CompanyManager>.Instance);
-
-        var fileRepo = new FileCompanyRepository(dataStore);
-        var uow = new FileUnitOfWork(dataStore, transactionManager);
+        var systemConfig = new SystemConfiguration
+        {
+            CompanyDataPath = _testTempDir,
+            CurrencySymbol = "₹",
+            CurrencyCode = "INR",
+            Country = "India"
+        };
+        var companyManager = new MoneyFlow.Data.Storage.CompanyManager(_testTempDir, storageEngine, keyManager);
 
         _companyService = new CompanyService(
-            _companyManager,
-            fileRepo,
-            _companyContext,
+            companyRepo,
+            fyRepo,
+            groupRepo,
+            ledgerRepo,
             uow,
-            NullLogger<CompanyService>.Instance);
+            _companyContext,
+            logger,
+            session,
+            systemConfig,
+            storageEngine,
+            companyManager);
     }
 
     public void Dispose()

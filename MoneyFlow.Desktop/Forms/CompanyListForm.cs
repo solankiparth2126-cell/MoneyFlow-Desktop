@@ -12,7 +12,6 @@ using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data.Storage;
 using MoneyFlow.Desktop.Dialogs;
-using MoneyFlow.Desktop.Navigation;
 using MoneyFlow.Desktop.Styling;
 
 namespace MoneyFlow.Desktop.Forms;
@@ -90,14 +89,12 @@ public class CompanyListForm : Form
     private Label lblTitle = null!;
     private Label lblTitleSeparator = null!;
     private Label lblSubtitle = null!;
-    private Guna2Button btnMaxRestoreHeader = null!;
     private Guna2Button btnCloseHeader = null!;
 
     // Data Path Controls
     private Label lblDataPathTitle = null!;
     private Guna2TextBox txtDataPath = null!;
     private Guna2Button btnSelectDrive = null!;
-    private Guna2Button btnCreateCompany = null!;
 
     // Search Controls
     private Label lblSearchPrompt = null!;
@@ -107,14 +104,8 @@ public class CompanyListForm : Form
     private Guna2Button lblCtrlFBadge = null!;
     private Guna2Button btnClearSearch = null!;
 
-<<<<<<< Updated upstream
     // Left Directory Card Controls
     private Guna2Panel pnlLeftCard = null!;
-=======
-    // Data Grid & Empty State
-    private DataGridView gridCompanies = null!;
-    private Panel pnlEmptyState = null!;
->>>>>>> Stashed changes
 
     // Right Company Grid Card Controls
     private Panel pnlRightCardWrapper = null!;
@@ -127,39 +118,25 @@ public class CompanyListForm : Form
     private Guna2Button btnCancel = null!;
 
     // State
-<<<<<<< Updated upstream
     private string _currentDataPath = string.Empty;
     private SystemConfiguration? _systemConfig;
-=======
-    private string _currentDataPath = MoneyFlow.Core.Common.CompanyPathConfiguration.ResolveCompaniesPath();
->>>>>>> Stashed changes
     private List<CompanySummaryDto> _allCompanies = new();
     private List<CompanyGridRowItem> _gridRows = new();
-    private readonly ICompanyStorageEngine? _storageEngine;
 
     public bool CompanySelected { get; private set; }
-<<<<<<< Updated upstream
     private bool _isExiting;
-=======
-    public bool CreateCompanyRequested { get; private set; }
->>>>>>> Stashed changes
 
     public CompanyListForm(
         ICompanyService companyService,
         ICompanyContext companyContext,
         ICompanySplitService? companySplitService = null,
         IBackupRestoreService? backupRestoreService = null,
-<<<<<<< Updated upstream
         SystemConfiguration? systemConfig = null)
-=======
-        ICompanyStorageEngine? storageEngine = null)
->>>>>>> Stashed changes
     {
         _companyService = companyService ?? throw new ArgumentNullException(nameof(companyService));
         _companyContext = companyContext ?? throw new ArgumentNullException(nameof(companyContext));
         _companySplitService = companySplitService;
         _backupRestoreService = backupRestoreService;
-<<<<<<< Updated upstream
         _systemConfig = systemConfig;
 
         // Resolve data path dynamically from config/environment without hardcoding
@@ -175,17 +152,6 @@ public class CompanyListForm : Form
         if (!_currentDataPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
         {
             _currentDataPath += Path.DirectorySeparatorChar;
-=======
-        _storageEngine = storageEngine;
-
-        if (storageEngine != null)
-        {
-            _currentDataPath = storageEngine.GetCompaniesRootDirectory();
-        }
-        else
-        {
-            _currentDataPath = MoneyFlow.Core.Common.CompanyPathConfiguration.ResolveCompaniesPath();
->>>>>>> Stashed changes
         }
 
         if (!Directory.Exists(_currentDataPath))
@@ -197,33 +163,17 @@ public class CompanyListForm : Form
         LoadCompaniesAsync();
     }
 
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            const int CS_DROPSHADOW = 0x00020000;
-            CreateParams cp = base.CreateParams;
-            cp.ClassStyle |= CS_DROPSHADOW;
-            return cp;
-        }
-    }
-
     private void InitializeComponent()
     {
-<<<<<<< Updated upstream
         Text = "Select Company";
         Size = new Size(1100, 660);
         MinimumSize = new Size(980, 560);
         StartPosition = FormStartPosition.CenterParent;
-=======
-        Text = "Select Company / Entity Directory";
->>>>>>> Stashed changes
         FormBorderStyle = FormBorderStyle.None;
         BackColor = Color.FromArgb(246, 250, 254); // Clean ERP background #F6FAFE
         KeyPreview = true;
         DoubleBuffered = true;
 
-<<<<<<< Updated upstream
         var appIcon = ExecLedgerIcons.GetAppIcon();
         if (appIcon != null)
         {
@@ -237,9 +187,6 @@ public class CompanyListForm : Form
             TargetForm = this,
             ShadowColor = Color.FromArgb(15, 23, 42)
         };
-=======
-        ScreenFittingManager.FitDialogToWorkArea(this, 1140, 620, 880, 460);
->>>>>>> Stashed changes
 
         // 1. Build Top Title Bar (60px Deep Navy)
         BuildTitleBarSection();
@@ -256,7 +203,6 @@ public class CompanyListForm : Form
         // 5. Build Main Content (Left Directory Card 28% + Right Grid Card 72%)
         BuildMainContentSection();
 
-<<<<<<< Updated upstream
         // Add controls in docking layout order
         Controls.Add(pnlMainContent);
         Controls.Add(pnlBottomBar);
@@ -265,23 +211,6 @@ public class CompanyListForm : Form
         Controls.Add(pnlTitleBar);
 
         pnlMainContent.BringToFront();
-=======
-        // ═══════════════════════════════════════════════════════════
-        //  3. DATA GRID & EMPTY STATE (Fill between Top and Footer)
-        // ═══════════════════════════════════════════════════════════
-        BuildDataGrid();
-        BuildEmptyState();
-
-        // Assembly
-        pnlDialogCard.Controls.Add(gridCompanies);   // Fill
-        pnlDialogCard.Controls.Add(pnlEmptyState);   // Fill
-        pnlDialogCard.Controls.Add(pnlFooter);       // Bottom
-        pnlDialogCard.Controls.Add(pnlTopContainer); // Top
-        gridCompanies.BringToFront();
-
-        pnlTopContainer.Resize += (s, e) => LayoutTopSections();
-        LayoutTopSections();
->>>>>>> Stashed changes
 
         Shown += (s, e) => txtSearch.Focus();
         KeyDown += OnFormKeyDown;
@@ -358,31 +287,7 @@ public class CompanyListForm : Form
         lblSubtitle.MouseDown += Header_MouseDown;
         pnlTitleBar.Controls.Add(lblSubtitle);
 
-<<<<<<< Updated upstream
         // Window Close Button: ONLY Close button on the right (No minimize, No maximize)
-=======
-        pnlHeader.DoubleClick += (s, e) => ToggleMaximize();
-        lblTitle.DoubleClick += (s, e) => ToggleMaximize();
-        lblSubtitle.DoubleClick += (s, e) => ToggleMaximize();
-
-        // Maximize / Restore Button
-        btnMaxRestoreHeader = new Guna2Button
-        {
-            Text = "🗖",
-            Size = new Size(36, 32),
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(203, 213, 225),
-            FillColor = Color.Transparent,
-            BorderThickness = 0,
-            BorderRadius = 2,
-            Cursor = Cursors.Hand,
-            HoverState = { FillColor = Color.FromArgb(17, 50, 80), ForeColor = Color.White }
-        };
-        btnMaxRestoreHeader.Click += (s, e) => ToggleMaximize();
-        pnlHeader.Controls.Add(btnMaxRestoreHeader);
-
-        // Close Button
->>>>>>> Stashed changes
         btnCloseHeader = new Guna2Button
         {
             Text = "✕",
@@ -400,15 +305,9 @@ public class CompanyListForm : Form
 
         pnlTitleBar.Resize += (s, e) =>
         {
-<<<<<<< Updated upstream
             btnCloseHeader.Location = new Point(pnlTitleBar.Width - btnCloseHeader.Width, 0);
             lblTitleSeparator.Location = new Point(lblTitle.Right + 8, 19);
             lblSubtitle.Location = new Point(lblTitleSeparator.Right + 8, 19);
-=======
-            btnCloseHeader.Location = new Point(pnlHeader.Width - 42, 10);
-            btnMaxRestoreHeader.Visible = TopLevel;
-            btnMaxRestoreHeader.Location = new Point(btnCloseHeader.Left - 38, 10);
->>>>>>> Stashed changes
         };
     }
 
@@ -447,11 +346,7 @@ public class CompanyListForm : Form
         txtDataPath = new Guna2TextBox
         {
             Text = _currentDataPath,
-<<<<<<< Updated upstream
             Font = new Font("Consolas", 9.5F, FontStyle.Regular),
-=======
-            Font = new Font("Consolas", 8.75F, FontStyle.Regular),
->>>>>>> Stashed changes
             ForeColor = Color.FromArgb(30, 41, 59),
             FillColor = Color.White,
             BorderColor = Color.FromArgb(201, 220, 236),
@@ -464,73 +359,27 @@ public class CompanyListForm : Form
 
         btnSelectDrive = new Guna2Button
         {
-<<<<<<< Updated upstream
             Text = "📁  Select Path (F3)",
             Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
             ForeColor = Color.FromArgb(11, 39, 66),
-=======
-            Text = "📁 Select from ▾",
-            Font = new Font("Segoe UI", 8F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(30, 41, 59),
->>>>>>> Stashed changes
             FillColor = Color.White,
             BorderColor = Color.FromArgb(201, 220, 236),
             BorderThickness = 1,
-<<<<<<< Updated upstream
             BorderRadius = 6,
             Size = new Size(180, 40),
-=======
-            BorderRadius = 4,
-            Size = new Size(125, 28),
->>>>>>> Stashed changes
             Cursor = Cursors.Hand,
             HoverState = { FillColor = Color.FromArgb(240, 247, 255), BorderColor = Color.FromArgb(148, 163, 184) }
         };
-
-        var cmsSelectFrom = new ContextMenuStrip();
-        var itemCreate = new ToolStripMenuItem("Create Company", null, (s, e) => OpenCreateCompany()) { ShortcutKeys = Keys.Alt | Keys.C, ShowShortcutKeys = true };
-        var itemRemote = new ToolStripMenuItem("Select Remote Company", null, (s, e) => MessageBox.Show(this, "Remote company connection is available in Enterprise edition.", "Remote Company", MessageBoxButtons.OK, MessageBoxIcon.Information));
-        var itemPath = new ToolStripMenuItem("Specify Path", null, (s, e) => SelectDataPath());
-        var itemDrive = new ToolStripMenuItem("Select from Drive", null, (s, e) => SelectDataPath());
-
-        cmsSelectFrom.Items.Add(itemCreate);
-        cmsSelectFrom.Items.Add(itemRemote);
-        cmsSelectFrom.Items.Add(itemPath);
-        cmsSelectFrom.Items.Add(itemDrive);
-
-        btnSelectDrive.Click += (s, e) =>
-        {
-            cmsSelectFrom.Show(btnSelectDrive, new Point(0, btnSelectDrive.Height));
-        };
+        btnSelectDrive.Click += (s, e) => SelectDataPath();
         pnlDataPath.Controls.Add(btnSelectDrive);
-
-        btnCreateCompany = new Guna2Button
-        {
-            Text = "+ Create Company",
-            Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-            ForeColor = Color.White,
-            FillColor = Color.FromArgb(2, 132, 199),
-            BorderRadius = 4,
-            Size = new Size(135, 28),
-            Cursor = Cursors.Hand,
-            HoverState = { FillColor = Color.FromArgb(3, 105, 161) }
-        };
-        btnCreateCompany.Click += (s, e) => OpenCreateCompany();
-        pnlDataPath.Controls.Add(btnCreateCompany);
 
         pnlDataPath.Resize += (s, e) =>
         {
-<<<<<<< Updated upstream
             int y = (pnlDataPath.Height - 40) / 2;
             btnSelectDrive.Location = new Point(pnlDataPath.Width - 20 - btnSelectDrive.Width, y);
             lblDataPathTitle.Location = new Point(20, (pnlDataPath.Height - lblDataPathTitle.Height) / 2);
             txtDataPath.Location = new Point(lblDataPathTitle.Right + 18, y);
             txtDataPath.Width = Math.Max(200, btnSelectDrive.Left - txtDataPath.Left - 14);
-=======
-            btnCreateCompany.Location = new Point(pnlDataPath.Width - btnCreateCompany.Width - 14, 8);
-            btnSelectDrive.Location = new Point(btnCreateCompany.Left - btnSelectDrive.Width - 8, 8);
-            txtDataPath.Width = Math.Max(180, btnSelectDrive.Left - txtDataPath.Left - 10);
->>>>>>> Stashed changes
         };
     }
 
@@ -825,97 +674,7 @@ public class CompanyListForm : Form
         rowSelectPath.BringToFront();
     }
 
-<<<<<<< Updated upstream
     private Guna2Panel CreateActionRow(string icon, string title, string shortcut, Action onClick)
-=======
-    // ═══════════════════════════════════════════════════════════════
-    //  EMPTY STATE & COMPANY CREATION LAUNCHER
-    // ═══════════════════════════════════════════════════════════════
-    private void BuildEmptyState()
-    {
-        pnlEmptyState = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.White,
-            Visible = false
-        };
-
-        var pnlCenter = new Panel
-        {
-            Size = new Size(460, 220),
-            BackColor = Color.Transparent
-        };
-
-        var lblIcon = new Label
-        {
-            Text = "🏢",
-            Font = new Font("Segoe UI", 28F),
-            ForeColor = Color.FromArgb(148, 163, 184),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Top,
-            Height = 50
-        };
-        pnlCenter.Controls.Add(lblIcon);
-
-        var lblHeader = new Label
-        {
-            Text = "No Company Found",
-            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Top,
-            Height = 30
-        };
-        pnlCenter.Controls.Add(lblHeader);
-
-        var lblSub = new Label
-        {
-            Text = "Create your first company to start using MoneyFlow ERP.",
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-            ForeColor = Color.FromArgb(100, 116, 139),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Dock = DockStyle.Top,
-            Height = 35
-        };
-        pnlCenter.Controls.Add(lblSub);
-
-        var btnCreateEmpty = new Guna2Button
-        {
-            Text = "+ Create Company",
-            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            ForeColor = Color.White,
-            FillColor = Color.FromArgb(2, 132, 199),
-            BorderRadius = 4,
-            Size = new Size(165, 36),
-            Cursor = Cursors.Hand,
-            HoverState = { FillColor = Color.FromArgb(3, 105, 161) }
-        };
-        btnCreateEmpty.Location = new Point((pnlCenter.Width - btnCreateEmpty.Width) / 2, 130);
-        btnCreateEmpty.Click += (s, e) => OpenCreateCompany();
-        pnlCenter.Controls.Add(btnCreateEmpty);
-
-        pnlEmptyState.Controls.Add(pnlCenter);
-        pnlEmptyState.Resize += (s, e) =>
-        {
-            pnlCenter.Location = new Point(
-                Math.Max(0, (pnlEmptyState.Width - pnlCenter.Width) / 2),
-                Math.Max(0, (pnlEmptyState.Height - pnlCenter.Height) / 2)
-            );
-        };
-    }
-
-    private void OpenCreateCompany()
-    {
-        CreateCompanyRequested = true;
-        DialogResult = DialogResult.OK;
-        Close();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  DATA GRID (3 Clean Columns, Completely Borderless, Vector Icons)
-    // ═══════════════════════════════════════════════════════════════
-    private void BuildDataGrid()
->>>>>>> Stashed changes
     {
         var rowPanel = new Guna2Panel
         {
@@ -1439,11 +1198,10 @@ public class CompanyListForm : Form
     // ═══════════════════════════════════════════════════════════════
     //  DATA LOADING & FILTERING (NO HARDCODED/SAMPLE DATA)
     // ═══════════════════════════════════════════════════════════════
-    private async void LoadCompaniesAsync(int? selectCompanyId = null)
+    private async void LoadCompaniesAsync()
     {
         try
         {
-<<<<<<< Updated upstream
             var list = new List<CompanySummaryDto>();
             try
             {
@@ -1539,66 +1297,29 @@ public class CompanyListForm : Form
 
             _allCompanies = list;
             ApplyFilter();
-=======
-            var companies = await _companyService.GetAllCompaniesAsync();
-            _allCompanies = companies?.ToList() ?? new List<CompanySummaryDto>();
-            ApplyFilter(selectCompanyId);
->>>>>>> Stashed changes
         }
         catch
         {
-<<<<<<< Updated upstream
             ApplyFilter();
-=======
-            Serilog.Log.Warning(ex, "Failed to load companies in CompanyListForm.");
-            if (IsHandleCreated && Visible)
-            {
-                MessageBox.Show(this, $"Failed to load companies: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
->>>>>>> Stashed changes
         }
     }
 
-    private void ApplyFilter(int? selectCompanyId = null)
+    private void ApplyFilter()
     {
         string query = txtSearch.Text.Trim();
         btnClearSearch.Visible = !string.IsNullOrEmpty(query);
         _gridRows.Clear();
 
-        if (_allCompanies.Count == 0)
-        {
-            gridCompanies.Visible = false;
-            pnlEmptyState.Visible = true;
-            pnlEmptyState.BringToFront();
-            lblMatchCount.Text = "0 MATCHES FOUND";
-            return;
-        }
-
-        gridCompanies.Visible = true;
-        pnlEmptyState.Visible = false;
-        gridCompanies.BringToFront();
-
-        int targetSelectId = selectCompanyId ?? _companyContext.CurrentCompany?.CompanyId ?? 0;
+        int currentCompanyId = _companyContext.CurrentCompany?.CompanyId ?? 0;
 
         foreach (var c in _allCompanies)
         {
-<<<<<<< Updated upstream
             if (string.IsNullOrWhiteSpace(c.CompanyName) || c.CompanyName.Trim() == "010000")
                 continue;
 
             bool isCurrent = c.CompanyId == currentCompanyId;
             string periodStr = c.PeriodDisplay; // Dynamically calculated from c.FinancialYearFrom
             string codeStr = string.IsNullOrWhiteSpace(c.CompanyNumber) ? string.Empty : $"({c.CompanyNumber})";
-=======
-            bool isCurrent = c.CompanyId == targetSelectId || (targetSelectId == 0 && index == 0);
-
-            string periodStr = "1-Apr-26 to 31-Mar-27";
-            if (c.FinancialYearFrom != default)
-            {
-                var end = c.FinancialYearFrom.AddYears(1).AddDays(-1);
-                periodStr = $"{c.FinancialYearFrom:d-MMM-yy} to {end:d-MMM-yy}";
-            }
->>>>>>> Stashed changes
 
             var rowItem = new CompanyGridRowItem
             {
@@ -1607,25 +1328,16 @@ public class CompanyListForm : Form
                 CompanyNumber = codeStr,
                 FinancialPeriod = periodStr,
                 Currency = c.Currency,
-<<<<<<< Updated upstream
                 Status = isCurrent ? "ACTIVE / LOADED" : (c.IsActive ? "Available" : "Inactive"),
-=======
-                Status = isCurrent ? "ACTIVE / LOADED" : "Available",
->>>>>>> Stashed changes
                 LastSynchronized = "",
                 IsPasswordProtected = c.IsPasswordProtected,
                 IsCurrentDefault = isCurrent,
                 CompanyDto = c
             };
 
-<<<<<<< Updated upstream
-=======
-            // If empty query or query matches company name, entity code, or entity id
->>>>>>> Stashed changes
             if (string.IsNullOrWhiteSpace(query)
                 || c.CompanyName.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || c.CompanyNumber.Contains(query, StringComparison.OrdinalIgnoreCase)
-                || c.CompanyId.ToString().Contains(query, StringComparison.OrdinalIgnoreCase))
+                || c.CompanyNumber.Contains(query, StringComparison.OrdinalIgnoreCase))
             {
                 _gridRows.Add(rowItem);
             }
@@ -1653,7 +1365,6 @@ public class CompanyListForm : Form
         else
             lblMatchCount.Text = $"{matchCount} MATCHES FOUND";
 
-<<<<<<< Updated upstream
         lblMatchCount.Location = new Point(pnlSearch.Width - 20 - lblMatchCount.Width, 6);
 
         // Keep gridCompanies ALWAYS visible so the navy header is never hidden
@@ -1665,24 +1376,11 @@ public class CompanyListForm : Form
         }
 
         // Select first or default active row
-=======
-        // Select target or first row
->>>>>>> Stashed changes
         if (gridCompanies.Rows.Count > 0)
         {
-            int targetIdx = -1;
-            if (selectCompanyId.HasValue)
-            {
-                targetIdx = _gridRows.FindIndex(x => x.CompanyId == selectCompanyId.Value);
-            }
-
-            if (targetIdx < 0)
-            {
-                targetIdx = _gridRows.FindIndex(x => x.IsCurrentDefault);
-            }
-
+            int defaultIdx = _gridRows.FindIndex(x => x.IsCurrentDefault);
             gridCompanies.ClearSelection();
-            int selectIdx = targetIdx >= 0 ? targetIdx : 0;
+            int selectIdx = defaultIdx >= 0 ? defaultIdx : 0;
             gridCompanies.Rows[selectIdx].Selected = true;
             gridCompanies.CurrentCell = gridCompanies.Rows[selectIdx].Cells[1];
         }
@@ -1775,7 +1473,6 @@ public class CompanyListForm : Form
 
     private async void SelectCompany(int companyId)
     {
-<<<<<<< Updated upstream
         var comp = _allCompanies.FirstOrDefault(c => c.CompanyId == companyId);
         if (comp == null && _allCompanies.Count > 0)
         {
@@ -1785,12 +1482,6 @@ public class CompanyListForm : Form
         if (comp == null) return;
 
         if (comp.IsPasswordProtected)
-=======
-        int targetId = companyId;
-        var comp = _allCompanies.FirstOrDefault(c => c.CompanyId == targetId);
-        string pwd = string.Empty;
-        if (comp != null && comp.IsPasswordProtected)
->>>>>>> Stashed changes
         {
             using var pwdDlg = new CompanyPasswordPromptDialog(comp.CompanyName, comp.CompanyNumber);
             bool verified = false;
@@ -1801,12 +1492,7 @@ public class CompanyListForm : Form
                     return;
                 }
 
-<<<<<<< Updated upstream
                 bool valid = await _companyService.VerifyCompanyPasswordAsync(companyId, pwdDlg.EnteredPassword);
-=======
-                pwd = pwdDlg.EnteredPassword;
-                bool valid = await _companyService.VerifyCompanyPasswordAsync(targetId, pwd);
->>>>>>> Stashed changes
                 if (valid)
                 {
                     verified = true;
@@ -1818,12 +1504,7 @@ public class CompanyListForm : Form
             }
         }
 
-<<<<<<< Updated upstream
         try
-=======
-        bool ok = await _companyService.OpenCompanyAsync(targetId, pwd);
-        if (ok)
->>>>>>> Stashed changes
         {
             bool ok = await _companyService.OpenCompanyAsync(companyId);
             if (!ok)
@@ -1859,7 +1540,6 @@ public class CompanyListForm : Form
         }
         catch (Exception)
         {
-<<<<<<< Updated upstream
             var company = new Core.Entities.Company
             {
                 CompanyId = comp.CompanyId,
@@ -1886,73 +1566,7 @@ public class CompanyListForm : Form
             CompanySelected = true;
             DialogResult = DialogResult.OK;
             Close();
-=======
-            MessageBox.Show("Unable to open selected company.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-    }
-
-    private void SelectDataPath()
-    {
-        using var fbd = new FolderBrowserDialog
-        {
-            Description = "Select Company Data Directory",
-            SelectedPath = _currentDataPath,
-            ShowNewFolderButton = true
-        };
-
-        if (fbd.ShowDialog(this) == DialogResult.OK)
-        {
-            _currentDataPath = MoneyFlow.Core.Common.CompanyPathConfiguration.EnsureTrailingSeparator(fbd.SelectedPath);
-            txtDataPath.Text = _currentDataPath;
-            MoneyFlow.Core.Common.CompanyPathConfiguration.ConfiguredCompaniesPath = _currentDataPath;
-            LoadCompaniesAsync();
-        }
-    }
-
-    private void NavigateUpDirectory()
-    {
-        try
-        {
-            var parent = Directory.GetParent(_currentDataPath.TrimEnd('\\'));
-            if (parent != null)
-            {
-                _currentDataPath = parent.FullName + "\\";
-                txtDataPath.Text = _currentDataPath;
-                MoneyFlow.Core.Common.CompanyPathConfiguration.ConfiguredCompaniesPath = _currentDataPath;
-                LoadCompaniesAsync();
-            }
->>>>>>> Stashed changes
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    //  FORM CLOSING ENFORCEMENT (Mandatory Company Selection Guard)
-    // ═══════════════════════════════════════════════════════════════
-    protected override void OnFormClosing(FormClosingEventArgs e)
-    {
-        if (CreateCompanyRequested)
-        {
-            base.OnFormClosing(e);
-            return;
-        }
-
-        if (!CompanySelected && (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null))
-        {
-            bool exitApp = NoCompanySelectedDialog.ShowDialog(this);
-            if (exitApp)
-            {
-                CompanySelected = false;
-                DialogResult = DialogResult.Abort;
-                ThreadPool.QueueUserWorkItem(_ => Environment.Exit(0));
-            }
-            else
-            {
-                e.Cancel = true;
-                return;
-            }
-        }
-
-        base.OnFormClosing(e);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1960,7 +1574,6 @@ public class CompanyListForm : Form
     // ═══════════════════════════════════════════════════════════════
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-<<<<<<< Updated upstream
         // Ctrl+F -> Search
         if (keyData == (Keys.Control | Keys.F))
         {
@@ -1983,11 +1596,6 @@ public class CompanyListForm : Form
         if (keyData == Keys.F12)
         {
             OpenStartupConfiguration();
-=======
-        if (keyData == (Keys.Alt | Keys.C))
-        {
-            OpenCreateCompany();
->>>>>>> Stashed changes
             return true;
         }
 
@@ -2124,7 +1732,6 @@ public class CompanyListForm : Form
         }
     }
 
-<<<<<<< Updated upstream
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         if (CompanySelected || _isExiting || Disposing || IsDisposed)
@@ -2173,36 +1780,6 @@ public class CompanyListForm : Form
             });
         }
     }
-=======
-    private void ToggleMaximize()
-    {
-        WindowState = (WindowState == FormWindowState.Maximized) ? FormWindowState.Normal : FormWindowState.Maximized;
-        UpdateMaxRestoreButton();
-    }
-
-    private void UpdateMaxRestoreButton()
-    {
-        if (btnMaxRestoreHeader != null)
-        {
-            btnMaxRestoreHeader.Text = (WindowState == FormWindowState.Maximized) ? "🗗" : "🗖";
-        }
-    }
-
-    protected override void OnResize(EventArgs e)
-    {
-        base.OnResize(e);
-        UpdateMaxRestoreButton();
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == ScreenFittingManager.WM_GETMINMAXINFO)
-        {
-            ScreenFittingManager.HandleGetMinMaxInfo(m.HWnd, m.LParam, 880, 460);
-        }
-        base.WndProc(ref m);
-    }
->>>>>>> Stashed changes
 }
 
 /// <summary>
