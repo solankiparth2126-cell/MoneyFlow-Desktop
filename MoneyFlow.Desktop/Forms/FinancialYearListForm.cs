@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using MoneyFlow.Desktop.Styling;
 using Guna.UI2.WinForms;
 using MoneyFlow.Core.Interfaces;
+using MoneyFlow.Desktop.Navigation;
 
 namespace MoneyFlow.Desktop.Forms;
 

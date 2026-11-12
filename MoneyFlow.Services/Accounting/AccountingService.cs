@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MoneyFlow.Core.DTOs;
 using MoneyFlow.Core.Entities;
 using MoneyFlow.Core.Enums;
 using MoneyFlow.Core.Interfaces;
 using MoneyFlow.Data;
+using MoneyFlow.Data.Repositories;
 using LedgerEntity = MoneyFlow.Core.Entities.Ledger;
 using GroupEntity = MoneyFlow.Core.Entities.Group;
 using FinancialYearEntity = MoneyFlow.Core.Entities.FinancialYear;
@@ -18,16 +18,46 @@ namespace MoneyFlow.Services.Accounting;
 
 public class AccountingService : IAccountingService
 {
-    private readonly AppDbContext _context;
     private readonly IVoucherRepository _voucherRepo;
     private readonly ILedgerRepository _ledgerRepo;
     private readonly IFinancialYearRepository _fyRepo;
     private readonly ICompanyRepository _companyRepo;
+    private readonly ICompanyDataStore _dataStore;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AccountingService> _logger;
     private static readonly SemaphoreSlim _asyncLock = new(1, 1);
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public AccountingService(
+        IVoucherRepository voucherRepo,
+        ILedgerRepository ledgerRepo,
+        IFinancialYearRepository fyRepo,
+        ICompanyRepository companyRepo,
+        ICompanyDataStore dataStore,
+        IUnitOfWork unitOfWork,
+        ILogger<AccountingService> logger)
+    {
+        _voucherRepo = voucherRepo;
+        _ledgerRepo = ledgerRepo;
+        _fyRepo = fyRepo;
+        _companyRepo = companyRepo;
+        _dataStore = dataStore;
+        _unitOfWork = unitOfWork;
+        _logger = logger;
+    }
+
+    public AccountingService(
+        IVoucherRepository voucherRepo,
+        ILedgerRepository ledgerRepo,
+        IFinancialYearRepository fyRepo,
+        ICompanyRepository companyRepo,
+        IUnitOfWork unitOfWork,
+        ILogger<AccountingService> logger)
+        : this(voucherRepo, ledgerRepo, fyRepo, companyRepo, ExtractDataStore(voucherRepo), unitOfWork, logger)
+    {
+    }
+
+    internal AccountingService(
         AppDbContext context,
         IVoucherRepository voucherRepo,
         ILedgerRepository ledgerRepo,
@@ -35,15 +65,18 @@ public class AccountingService : IAccountingService
         ICompanyRepository companyRepo,
         IUnitOfWork unitOfWork,
         ILogger<AccountingService> logger)
+        : this(voucherRepo, ledgerRepo, fyRepo, companyRepo, unitOfWork, logger)
     {
-        _context = context;
-        _voucherRepo = voucherRepo;
-        _ledgerRepo = ledgerRepo;
-        _fyRepo = fyRepo;
-        _companyRepo = companyRepo;
-        _unitOfWork = unitOfWork;
-        _logger = logger;
     }
+
+    private static ICompanyDataStore ExtractDataStore(IVoucherRepository voucherRepo)
+    {
+        if (voucherRepo is FileVoucherRepository fvr)
+            return fvr.DataStore;
+        return null!;
+    }
+
+    private List<T> GetEntities<T>() where T : class => _dataStore?.GetEntityList<T>() ?? new List<T>();
 
     public VoucherValidationResult ValidateVoucher(VoucherCreateDto dto, DateTime? fyStartDate = null, DateTime? fyEndDate = null)
     {
@@ -140,10 +173,10 @@ public class AccountingService : IAccountingService
 
                 // Validate all referenced ledgers belong to this company
                 var ledgerIds = dto.Entries.Select(e => e.LedgerId).Distinct().ToList();
-                var ledgers = await _context.Ledgers
+                var ledgers = GetEntities<LedgerEntity>()
                     .Where(l => ledgerIds.Contains(l.LedgerId) && l.CompanyId == companyId && l.IsActive)
                     .Select(l => l.LedgerId)
-                    .ToListAsync(ct);
+                    .ToList();
 
                 if (ledgers.Count != ledgerIds.Count)
                 {
@@ -151,7 +184,7 @@ public class AccountingService : IAccountingService
                 }
 
                 // Validate Contra vouchers are strictly between Cash and Bank accounts
-                var voucherType = await _context.VoucherTypes.FirstOrDefaultAsync(vt => vt.VoucherTypeId == dto.VoucherTypeId, ct);
+                var voucherType = GetEntities<VoucherType>().FirstOrDefault(vt => vt.VoucherTypeId == dto.VoucherTypeId);
                 if (voucherType?.Type == VoucherTypeEnum.Contra)
                 {
                     var cashBankLedgers = await GetCashAndBankLedgersAsync(companyId, ct);
@@ -247,36 +280,31 @@ public class AccountingService : IAccountingService
         await _asyncLock.WaitAsync(ct);
         try
         {
-            var ledger = await _context.Ledgers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(l => l.LedgerId == ledgerId && l.CompanyId == companyId, ct)
+            var ledger = GetEntities<LedgerEntity>()
+                .FirstOrDefault(l => l.LedgerId == ledgerId && l.CompanyId == companyId)
                 ?? throw new ArgumentException($"Ledger with ID {ledgerId} does not exist in this company.", nameof(ledgerId));
 
             decimal initialNet = ledger.OpeningBalanceType == BalanceType.Debit
                 ? ledger.OpeningBalance
                 : -ledger.OpeningBalance;
 
-            var entriesQuery = _context.VoucherEntries
-                .AsNoTracking()
-                .Where(ve => ve.LedgerId == ledgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId);
+            var companyVouchers = GetEntities<Voucher>()
+                .Where(v => v.CompanyId == companyId && !v.IsDeleted);
 
             if (asOfDate.HasValue)
             {
                 var endOfDay = asOfDate.Value.Date.AddDays(1).AddTicks(-1);
-                entriesQuery = entriesQuery.Where(ve => ve.Voucher!.VoucherDate <= endOfDay);
+                companyVouchers = companyVouchers.Where(v => v.VoucherDate <= endOfDay);
             }
 
-            var totals = await entriesQuery
-                .GroupBy(_ => 1)
-                .Select(g => new
-                {
-                    TotalDebit = g.Sum(x => x.Debit),
-                    TotalCredit = g.Sum(x => x.Credit)
-                })
-                .FirstOrDefaultAsync(ct);
+            var validVoucherIds = companyVouchers.Select(v => v.VoucherId).ToHashSet();
 
-            decimal totalDebit = totals?.TotalDebit ?? 0m;
-            decimal totalCredit = totals?.TotalCredit ?? 0m;
+            var entries = GetEntities<VoucherEntry>()
+                .Where(ve => ve.LedgerId == ledgerId && validVoucherIds.Contains(ve.VoucherId))
+                .ToList();
+
+            decimal totalDebit = entries.Sum(x => x.Debit);
+            decimal totalCredit = entries.Sum(x => x.Credit);
 
             decimal netClosing = initialNet + totalDebit - totalCredit;
 
@@ -300,49 +328,41 @@ public class AccountingService : IAccountingService
 
     public async Task<LedgerStatementDto> GetLedgerStatementAsync(int companyId, int ledgerId, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
     {
-        var ledger = await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
-            .FirstOrDefaultAsync(l => l.LedgerId == ledgerId && l.CompanyId == companyId, ct)
+        var allGroups = GetEntities<GroupEntity>();
+        var ledger = GetEntities<LedgerEntity>()
+            .FirstOrDefault(l => l.LedgerId == ledgerId && l.CompanyId == companyId)
             ?? throw new ArgumentException($"Ledger with ID {ledgerId} does not exist in this company.", nameof(ledgerId));
+
+        if (ledger.Group == null)
+        {
+            ledger.Group = allGroups.FirstOrDefault(g => g.GroupId == ledger.GroupId);
+        }
 
         var startOfDay = fromDate.Date;
         var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
 
-        // Calculate opening balance as of fromDate
         decimal initialMasterNet = ledger.OpeningBalanceType == BalanceType.Debit
             ? ledger.OpeningBalance
             : -ledger.OpeningBalance;
 
-        var priorTotals = await _context.VoucherEntries
-            .AsNoTracking()
-            .Where(ve => ve.LedgerId == ledgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId && ve.Voucher.VoucherDate < startOfDay)
-            .GroupBy(_ => 1)
-            .Select(g => new
-            {
-                TotalDebit = g.Sum(x => x.Debit),
-                TotalCredit = g.Sum(x => x.Credit)
-            })
-            .FirstOrDefaultAsync(ct);
+        var allVouchers = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId && !v.IsDeleted)
+            .ToList();
 
-        decimal priorDebit = priorTotals?.TotalDebit ?? 0m;
-        decimal priorCredit = priorTotals?.TotalCredit ?? 0m;
+        var priorVoucherIds = allVouchers
+            .Where(v => v.VoucherDate < startOfDay)
+            .Select(v => v.VoucherId)
+            .ToHashSet();
+
+        var priorEntries = GetEntities<VoucherEntry>()
+            .Where(ve => ve.LedgerId == ledgerId && priorVoucherIds.Contains(ve.VoucherId))
+            .ToList();
+
+        decimal priorDebit = priorEntries.Sum(x => x.Debit);
+        decimal priorCredit = priorEntries.Sum(x => x.Credit);
         decimal openingNet = initialMasterNet + priorDebit - priorCredit;
 
-        // Fetch period vouchers that contain an entry for this ledger
-        var periodVouchers = await _context.Vouchers
-            .AsNoTracking()
-            .Include(v => v.VoucherType)
-            .Include(v => v.VoucherEntries)
-                .ThenInclude(e => e.Ledger)
-            .Where(v => v.CompanyId == companyId &&
-                        !v.IsDeleted &&
-                        v.VoucherDate >= startOfDay &&
-                        v.VoucherDate <= endOfDay &&
-                        v.VoucherEntries.Any(e => e.LedgerId == ledgerId))
-            .OrderBy(v => v.VoucherDate)
-            .ThenBy(v => v.VoucherNumber)
-            .ToListAsync(ct);
+        var periodVouchers = await _voucherRepo.GetVouchersByLedgerAsync(companyId, ledgerId, startOfDay, endOfDay, ct);
 
         var lines = new List<LedgerStatementLineDto>();
         decimal currentNet = openingNet;
@@ -404,34 +424,43 @@ public class AccountingService : IAccountingService
         };
     }
 
-    public async Task<TrialBalanceDto> GetTrialBalanceAsync(int companyId, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
+    public Task<TrialBalanceDto> GetTrialBalanceAsync(int companyId, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
     {
         var startOfDay = fromDate.Date;
         var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
 
-        // Fetch all active ledgers with their group
-        var ledgers = await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var allGroups = GetEntities<GroupEntity>();
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive)
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null)
+            {
+                l.Group = allGroups.FirstOrDefault(g => g.GroupId == l.GroupId);
+            }
+        }
+
+        ledgers = ledgers
             .OrderBy(l => l.Group != null ? l.Group.GroupName : string.Empty)
             .ThenBy(l => l.LedgerName)
-            .ToListAsync(ct);
+            .ToList();
 
-        // Fetch all voucher entries up to end of period
-        var allEntries = await _context.VoucherEntries
-            .AsNoTracking()
-            .Where(ve => ve.Voucher!.CompanyId == companyId &&
-                         !ve.Voucher.IsDeleted &&
-                         ve.Voucher.VoucherDate <= endOfDay)
+        var companyVouchers = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId && !v.IsDeleted && v.VoucherDate <= endOfDay)
+            .ToDictionary(v => v.VoucherId);
+
+        var allEntries = GetEntities<VoucherEntry>()
+            .Where(ve => companyVouchers.ContainsKey(ve.VoucherId))
             .Select(ve => new
             {
                 ve.LedgerId,
                 ve.Debit,
                 ve.Credit,
-                ve.Voucher!.VoucherDate
+                VoucherDate = companyVouchers[ve.VoucherId].VoucherDate
             })
-            .ToListAsync(ct);
+            .ToList();
 
         var priorLookup = allEntries
             .Where(e => e.VoucherDate < startOfDay)
@@ -475,7 +504,6 @@ public class AccountingService : IAccountingService
             decimal closingDebit = closingNet >= 0 ? closingNet : 0m;
             decimal closingCredit = closingNet < 0 ? Math.Abs(closingNet) : 0m;
 
-            // Only include if there is any balance or activity
             if (openingDebit != 0 || openingCredit != 0 || periodDr != 0 || periodCr != 0 || closingDebit != 0 || closingCredit != 0)
             {
                 items.Add(new TrialBalanceItemDto
@@ -502,7 +530,7 @@ public class AccountingService : IAccountingService
             }
         }
 
-        return new TrialBalanceDto
+        var report = new TrialBalanceDto
         {
             CompanyId = companyId,
             FromDate = fromDate,
@@ -515,16 +543,17 @@ public class AccountingService : IAccountingService
             TotalClosingDebit = totalClosingDebit,
             TotalClosingCredit = totalClosingCredit
         };
+
+        return Task.FromResult(report);
     }
 
     public async Task<VoucherType?> GetVoucherTypeByEnumAsync(VoucherTypeEnum type, CancellationToken ct = default)
     {
-        var voucherType = await _context.VoucherTypes
-            .FirstOrDefaultAsync(vt => vt.Type == type && vt.IsActive, ct);
+        var voucherType = GetEntities<VoucherType>()
+            .FirstOrDefault(vt => vt.Type == type && vt.IsActive);
 
         if (voucherType != null) return voucherType;
 
-        // Fallback: If not found in DB (e.g. fresh in-memory test), create default
         string name = type.ToString();
         string code = type switch
         {
@@ -559,7 +588,7 @@ public class AccountingService : IAccountingService
             Prefix = prefix,
             IsActive = true
         };
-        _context.VoucherTypes.Add(voucherType);
+        GetEntities<VoucherType>().Add(voucherType);
         await _unitOfWork.SaveChangesAsync(ct);
         return voucherType;
     }
@@ -579,11 +608,10 @@ public class AccountingService : IAccountingService
 
     private async Task<List<int>> GetGroupAndAllDescendantIdsAsync(int companyId, IEnumerable<string> groupNames, CancellationToken ct = default)
     {
-        var allCompanyGroups = await _context.Groups
-            .AsNoTracking()
+        var allCompanyGroups = GetEntities<GroupEntity>()
             .Where(g => g.CompanyId == companyId && g.IsActive)
             .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
-            .ToListAsync(ct);
+            .ToList();
 
         var roots = allCompanyGroups
             .Where(g => groupNames.Contains(g.GroupName, StringComparer.OrdinalIgnoreCase))
@@ -608,179 +636,214 @@ public class AccountingService : IAccountingService
             Collect(root);
         }
 
-        return result.ToList();
+        return await Task.FromResult(result.ToList());
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashAndBankLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Cash-in-Hand", "Bank Accounts" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCashLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Cash-in-Hand" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetBankLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var targetNames = new[] { "Bank Accounts", "Bank OD A/c", "Bank OCC A/c" };
-        var targetGroupIds = await _context.Groups
+        var groups = GetEntities<GroupEntity>();
+        var targetGroupIds = groups
             .Where(g => g.CompanyId == companyId && targetNames.Contains(g.GroupName))
             .Select(g => g.GroupId)
-            .ToListAsync(ct);
+            .ToList();
 
-        var childGroupIds = await _context.Groups
+        var childGroupIds = groups
             .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && targetGroupIds.Contains(g.ParentGroupId.Value))
             .Select(g => g.GroupId)
-            .ToListAsync(ct);
+            .ToList();
 
-        var allTargetGroupIds = targetGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = targetGroupIds.Concat(childGroupIds).Distinct().ToHashSet();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return await Task.FromResult(ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList());
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetCustomerPartyLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sundry Debtors", "Cash-in-Hand", "Bank Accounts" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Assets,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetSalesLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sales Accounts", "Direct Incomes", "Direct Income", "Indirect Incomes", "Indirect Income" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Income,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Income,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetSupplierPartyLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Sundry Creditors", "Cash-in-Hand", "Bank Accounts" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Liabilities,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Liabilities,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<LedgerSummaryDto>> GetPurchaseLedgersAsync(int companyId, CancellationToken ct = default)
     {
         var allTargetGroupIds = await GetGroupAndAllDescendantIdsAsync(companyId, new[] { "Purchase Accounts", "Direct Expenses", "Indirect Expenses" }, ct);
+        var groups = GetEntities<GroupEntity>();
 
-        return await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var ledgers = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .Select(l => new LedgerSummaryDto
-            {
-                LedgerId = l.LedgerId,
-                GroupId = l.GroupId,
-                LedgerName = l.LedgerName,
-                GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
-                GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Expenses,
-                OpeningBalance = l.OpeningBalance,
-                OpeningBalanceType = l.OpeningBalanceType,
-                IsActive = l.IsActive
-            })
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var l in ledgers)
+        {
+            if (l.Group == null) l.Group = groups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        return ledgers.Select(l => new LedgerSummaryDto
+        {
+            LedgerId = l.LedgerId,
+            GroupId = l.GroupId,
+            LedgerName = l.LedgerName,
+            GroupName = l.Group != null ? l.Group.GroupName : string.Empty,
+            GroupNature = l.Group != null ? l.Group.Nature : GroupNature.Expenses,
+            OpeningBalance = l.OpeningBalance,
+            OpeningBalanceType = l.OpeningBalanceType,
+            IsActive = l.IsActive
+        }).ToList();
     }
 
     public async Task<Voucher?> GetVoucherByIdAsync(int voucherId, CancellationToken ct = default)
@@ -790,7 +853,7 @@ public class AccountingService : IAccountingService
 
     public async Task<bool> DeleteVoucherAsync(int voucherId, CancellationToken ct = default)
     {
-        var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.VoucherId == voucherId, ct);
+        var voucher = GetEntities<Voucher>().FirstOrDefault(v => v.VoucherId == voucherId);
         if (voucher == null) return false;
 
         voucher.IsDeleted = true;
@@ -802,7 +865,7 @@ public class AccountingService : IAccountingService
         return true;
     }
 
-    public async Task<IReadOnlyList<Voucher>> GetVouchersByTypeAsync(
+    public Task<IReadOnlyList<Voucher>> GetVouchersByTypeAsync(
         int companyId,
         int financialYearId,
         VoucherTypeEnum type,
@@ -810,14 +873,19 @@ public class AccountingService : IAccountingService
         DateTime? toDate = null,
         CancellationToken ct = default)
     {
-        var query = _context.Vouchers
-            .AsNoTracking()
-            .Include(v => v.VoucherType)
-            .Include(v => v.VoucherEntries)
-                .ThenInclude(e => e.Ledger)
+        var allVoucherTypes = GetEntities<VoucherType>();
+        var allEntries = GetEntities<VoucherEntry>();
+        var allLedgers = GetEntities<LedgerEntity>();
+
+        var matchingTypeIds = allVoucherTypes
+            .Where(vt => vt.Type == type)
+            .Select(vt => vt.VoucherTypeId)
+            .ToHashSet();
+
+        var query = GetEntities<Voucher>()
             .Where(v => v.CompanyId == companyId &&
                         v.FinancialYearId == financialYearId &&
-                        v.VoucherType!.Type == type &&
+                        matchingTypeIds.Contains(v.VoucherTypeId) &&
                         !v.IsDeleted);
 
         if (fromDate.HasValue)
@@ -832,13 +900,31 @@ public class AccountingService : IAccountingService
             query = query.Where(v => v.VoucherDate <= end);
         }
 
-        return await query
+        var list = query
             .OrderByDescending(v => v.VoucherDate)
             .ThenByDescending(v => v.VoucherNumber)
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var v in list)
+        {
+            if (v.VoucherType == null)
+                v.VoucherType = allVoucherTypes.FirstOrDefault(vt => vt.VoucherTypeId == v.VoucherTypeId);
+
+            if (v.VoucherEntries.Count == 0)
+                v.VoucherEntries = allEntries.Where(e => e.VoucherId == v.VoucherId).ToList();
+
+            foreach (var e in v.VoucherEntries)
+            {
+                if (e.Ledger == null)
+                    e.Ledger = allLedgers.FirstOrDefault(l => l.LedgerId == e.LedgerId);
+            }
+        }
+
+        IReadOnlyList<Voucher> result = list;
+        return Task.FromResult(result);
     }
 
-    public async Task<DayBookReportDto> GetDayBookAsync(
+    public Task<DayBookReportDto> GetDayBookAsync(
         int companyId,
         DateTime fromDate,
         DateTime toDate,
@@ -848,11 +934,11 @@ public class AccountingService : IAccountingService
         var start = fromDate.Date;
         var end = toDate.Date.AddDays(1).AddTicks(-1);
 
-        var query = _context.Vouchers
-            .AsNoTracking()
-            .Include(v => v.VoucherType)
-            .Include(v => v.VoucherEntries)
-                .ThenInclude(e => e.Ledger)
+        var allVoucherTypes = GetEntities<VoucherType>();
+        var allEntries = GetEntities<VoucherEntry>();
+        var allLedgers = GetEntities<LedgerEntity>();
+
+        var query = GetEntities<Voucher>()
             .Where(v => v.CompanyId == companyId &&
                         !v.IsDeleted &&
                         v.VoucherDate >= start &&
@@ -860,13 +946,32 @@ public class AccountingService : IAccountingService
 
         if (voucherType.HasValue)
         {
-            query = query.Where(v => v.VoucherType!.Type == voucherType.Value);
+            var matchingTypeIds = allVoucherTypes
+                .Where(vt => vt.Type == voucherType.Value)
+                .Select(vt => vt.VoucherTypeId)
+                .ToHashSet();
+            query = query.Where(v => matchingTypeIds.Contains(v.VoucherTypeId));
         }
 
-        var vouchers = await query
+        var vouchers = query
             .OrderBy(v => v.VoucherDate)
             .ThenBy(v => v.VoucherId)
-            .ToListAsync(ct);
+            .ToList();
+
+        foreach (var v in vouchers)
+        {
+            if (v.VoucherType == null)
+                v.VoucherType = allVoucherTypes.FirstOrDefault(vt => vt.VoucherTypeId == v.VoucherTypeId);
+
+            if (v.VoucherEntries.Count == 0)
+                v.VoucherEntries = allEntries.Where(e => e.VoucherId == v.VoucherId).ToList();
+
+            foreach (var e in v.VoucherEntries)
+            {
+                if (e.Ledger == null)
+                    e.Ledger = allLedgers.FirstOrDefault(l => l.LedgerId == e.LedgerId);
+            }
+        }
 
         var items = new List<DayBookItemDto>();
         decimal totalDebit = 0m;
@@ -915,7 +1020,7 @@ public class AccountingService : IAccountingService
             });
         }
 
-        return new DayBookReportDto
+        var report = new DayBookReportDto
         {
             CompanyId = companyId,
             FromDate = fromDate.Date,
@@ -925,9 +1030,11 @@ public class AccountingService : IAccountingService
             TotalDebit = totalDebit,
             TotalCredit = totalCredit
         };
+
+        return Task.FromResult(report);
     }
 
-    public async Task<ProfitLossStatementDto> GetProfitAndLossAsync(
+    public Task<ProfitLossStatementDto> GetProfitAndLossAsync(
         int companyId,
         DateTime fromDate,
         DateTime toDate,
@@ -936,22 +1043,33 @@ public class AccountingService : IAccountingService
         var startOfDay = fromDate.Date;
         var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
 
-        // Fetch all ledgers that belong to groups affecting Profit & Loss
-        var plLedgers = await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
-            .Where(l => l.CompanyId == companyId && l.IsActive && l.Group != null && l.Group.AffectProfitLoss)
+        var allGroups = GetEntities<GroupEntity>();
+        var plLedgers = GetEntities<LedgerEntity>()
+            .Where(l => l.CompanyId == companyId && l.IsActive)
+            .ToList();
+
+        foreach (var l in plLedgers)
+        {
+            if (l.Group == null)
+                l.Group = allGroups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        plLedgers = plLedgers
+            .Where(l => l.Group != null && l.Group.AffectProfitLoss)
             .OrderBy(l => l.Group!.GroupName)
             .ThenBy(l => l.LedgerName)
-            .ToListAsync(ct);
+            .ToList();
 
-        // Fetch period entries
-        var periodEntries = await _context.VoucherEntries
-            .AsNoTracking()
-            .Where(ve => ve.Voucher!.CompanyId == companyId &&
-                         !ve.Voucher.IsDeleted &&
-                         ve.Voucher.VoucherDate >= startOfDay &&
-                         ve.Voucher.VoucherDate <= endOfDay)
+        var periodVoucherIds = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId &&
+                        !v.IsDeleted &&
+                        v.VoucherDate >= startOfDay &&
+                        v.VoucherDate <= endOfDay)
+            .Select(v => v.VoucherId)
+            .ToHashSet();
+
+        var periodEntries = GetEntities<VoucherEntry>()
+            .Where(ve => periodVoucherIds.Contains(ve.VoucherId))
             .GroupBy(ve => ve.LedgerId)
             .Select(g => new
             {
@@ -959,13 +1077,12 @@ public class AccountingService : IAccountingService
                 TotalDebit = g.Sum(x => x.Debit),
                 TotalCredit = g.Sum(x => x.Credit)
             })
-            .ToDictionaryAsync(x => x.LedgerId, ct);
+            .ToDictionary(x => x.LedgerId);
 
-        var allCompanyGroups = await _context.Groups
-            .AsNoTracking()
+        var allCompanyGroups = GetEntities<GroupEntity>()
             .Where(g => g.CompanyId == companyId)
             .Select(g => new { g.GroupId, g.GroupName, g.ParentGroupId })
-            .ToListAsync(ct);
+            .ToList();
         var groupMap = allCompanyGroups.ToDictionary(g => g.GroupId);
 
         bool IsDirectOrTradingGroup(int initialGroupId)
@@ -1047,7 +1164,7 @@ public class AccountingService : IAccountingService
             });
         }
 
-        return statement;
+        return Task.FromResult(statement);
     }
 
     public async Task<BalanceSheetDto> GetBalanceSheetAsync(
@@ -1057,11 +1174,8 @@ public class AccountingService : IAccountingService
     {
         var asOfEndOfDay = asOfDate.Date.AddDays(1).AddTicks(-1);
 
-        // Find active Financial Year covering asOfDate
-        var fy = await _context.FinancialYears
-            .AsNoTracking()
-            .Where(f => f.CompanyId == companyId && f.StartDate <= asOfDate.Date && f.EndDate >= asOfDate.Date)
-            .FirstOrDefaultAsync(ct);
+        var fy = GetEntities<FinancialYearEntity>()
+            .FirstOrDefault(f => f.CompanyId == companyId && f.StartDate <= asOfDate.Date && f.EndDate >= asOfDate.Date);
 
         DateTime fyStartDate = fy?.StartDate ?? new DateTime(asOfDate.Year, 4, 1);
         if (fyStartDate > asOfDate.Date)
@@ -1069,32 +1183,42 @@ public class AccountingService : IAccountingService
             fyStartDate = asOfDate.Date;
         }
 
-        // Pull dynamic Profit & Loss statement up to asOfDate
         var plStatement = await GetProfitAndLossAsync(companyId, fyStartDate, asOfDate.Date, ct);
 
-        // Fetch all Balance Sheet ledgers (where AffectProfitLoss is false)
-        var bsLedgers = await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
-            .Where(l => l.CompanyId == companyId && l.IsActive && l.Group != null && !l.Group.AffectProfitLoss)
+        var allGroups = GetEntities<GroupEntity>();
+        var bsLedgers = GetEntities<LedgerEntity>()
+            .Where(l => l.CompanyId == companyId && l.IsActive)
+            .ToList();
+
+        foreach (var l in bsLedgers)
+        {
+            if (l.Group == null)
+                l.Group = allGroups.FirstOrDefault(g => g.GroupId == l.GroupId);
+        }
+
+        bsLedgers = bsLedgers
+            .Where(l => l.Group != null && !l.Group.AffectProfitLoss)
             .OrderBy(l => l.Group!.GroupName)
             .ThenBy(l => l.LedgerName)
-            .ToListAsync(ct);
+            .ToList();
 
-        // Fetch cumulative entries up to asOfEndOfDay
-        var cumulativeEntries = await _context.VoucherEntries
-            .AsNoTracking()
-            .Where(ve => ve.Voucher!.CompanyId == companyId &&
-                         !ve.Voucher.IsDeleted &&
-                         ve.Voucher.VoucherDate <= asOfEndOfDay)
+        var cumulativeVoucherIds = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId &&
+                        !v.IsDeleted &&
+                        v.VoucherDate <= asOfEndOfDay)
+            .Select(v => v.VoucherId)
+            .ToHashSet();
+
+        var cumulativeEntries = GetEntities<VoucherEntry>()
+            .Where(ve => cumulativeVoucherIds.Contains(ve.VoucherId))
             .GroupBy(ve => ve.LedgerId)
-            .Select(g => new
-            {
-                LedgerId = g.Key,
-                TotalDebit = g.Sum(x => x.Debit),
-                TotalCredit = g.Sum(x => x.Credit)
-            })
-            .ToDictionaryAsync(x => x.LedgerId, ct);
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    TotalDebit = g.Sum(x => x.Debit),
+                    TotalCredit = g.Sum(x => x.Credit)
+                });
 
         var statement = new BalanceSheetDto
         {
@@ -1122,10 +1246,8 @@ public class AccountingService : IAccountingService
 
             bool isLiability = grp.Nature == GroupNature.Liabilities;
 
-            // In Liabilities, normal balance is Credit - Debit. In Assets, normal balance is Debit - Credit.
             decimal netBalance = isLiability ? (totalCredit - totalDebit) : (totalDebit - totalCredit);
 
-            // Skip zero balance accounts with zero activity
             if (netBalance == 0 && totalDebit == 0 && totalCredit == 0)
                 continue;
 
@@ -1161,51 +1283,57 @@ public class AccountingService : IAccountingService
         return statement;
     }
 
-    public async Task<OutstandingReportDto> GetOutstandingReportAsync(
+    public Task<OutstandingReportDto> GetOutstandingReportAsync(
         int companyId,
         DateTime asOfDate,
         bool isReceivables,
         CancellationToken ct = default)
     {
         var asOfEndOfDay = asOfDate.Date.AddDays(1).AddTicks(-1);
-
         string targetGroupName = isReceivables ? "Sundry Debtors" : "Sundry Creditors";
 
-        var parentGroupIds = await _context.Groups
-            .AsNoTracking()
+        var allGroups = GetEntities<GroupEntity>();
+        var parentGroupIds = allGroups
             .Where(g => g.CompanyId == companyId && g.GroupName == targetGroupName)
             .Select(g => g.GroupId)
-            .ToListAsync(ct);
+            .ToList();
 
-        var childGroupIds = await _context.Groups
-            .AsNoTracking()
+        var childGroupIds = allGroups
             .Where(g => g.CompanyId == companyId && g.ParentGroupId.HasValue && parentGroupIds.Contains(g.ParentGroupId.Value))
             .Select(g => g.GroupId)
-            .ToListAsync(ct);
+            .ToList();
 
-        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToList();
+        var allTargetGroupIds = parentGroupIds.Concat(childGroupIds).Distinct().ToHashSet();
 
-        var parties = await _context.Ledgers
-            .AsNoTracking()
-            .Include(l => l.Group)
+        var parties = GetEntities<LedgerEntity>()
             .Where(l => l.CompanyId == companyId && l.IsActive && allTargetGroupIds.Contains(l.GroupId))
             .OrderBy(l => l.LedgerName)
-            .ToListAsync(ct);
+            .ToList();
 
-        var ledgerIds = parties.Select(p => p.LedgerId).ToList();
+        foreach (var p in parties)
+        {
+            if (p.Group == null)
+                p.Group = allGroups.FirstOrDefault(g => g.GroupId == p.GroupId);
+        }
 
-        // Fetch cumulative entries up to asOfEndOfDay
-        var allEntries = await _context.VoucherEntries
-            .AsNoTracking()
-            .Include(ve => ve.Voucher)
-            .Where(ve => ve.Voucher!.CompanyId == companyId &&
-                         !ve.Voucher.IsDeleted &&
-                         ledgerIds.Contains(ve.LedgerId) &&
-                         ve.Voucher.VoucherDate <= asOfEndOfDay)
-            .OrderByDescending(ve => ve.Voucher!.VoucherDate)
-            .ToListAsync(ct);
+        var ledgerIds = parties.Select(p => p.LedgerId).ToHashSet();
+
+        var vouchers = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId && !v.IsDeleted && v.VoucherDate <= asOfEndOfDay)
+            .ToDictionary(v => v.VoucherId);
+
+        var allEntries = GetEntities<VoucherEntry>()
+            .Where(ve => ledgerIds.Contains(ve.LedgerId) && vouchers.ContainsKey(ve.VoucherId))
+            .ToList();
+
+        foreach (var ve in allEntries)
+        {
+            if (ve.Voucher == null)
+                ve.Voucher = vouchers[ve.VoucherId];
+        }
 
         var entriesByLedger = allEntries
+            .OrderByDescending(ve => ve.Voucher!.VoucherDate)
             .GroupBy(ve => ve.LedgerId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -1232,7 +1360,6 @@ public class AccountingService : IAccountingService
 
             decimal netOutstanding = isReceivables ? (totalDebit - totalCredit) : (totalCredit - totalDebit);
 
-            // Skip zero or negative (prepaid/overpaid) balances
             if (netOutstanding <= 0)
                 continue;
 
@@ -1246,9 +1373,7 @@ public class AccountingService : IAccountingService
                 BalanceType = totalDebit >= totalCredit ? BalanceType.Debit : BalanceType.Credit
             };
 
-            // FIFO Aging Allocation across vouchers in reverse chronological order
             decimal remaining = netOutstanding;
-
             var relevantEntries = partyEntries
                 .Where(e => (isReceivables && e.Debit > 0) || (!isReceivables && e.Credit > 0))
                 .OrderByDescending(e => e.Voucher!.VoucherDate);
@@ -1275,7 +1400,6 @@ public class AccountingService : IAccountingService
                 remaining -= allocAmount;
             }
 
-            // Any remainder comes from Opening Balance (which is older than 90 days)
             if (remaining > 0)
             {
                 partyDto.Aging.DaysOver90 += remaining;
@@ -1284,7 +1408,7 @@ public class AccountingService : IAccountingService
             report.Parties.Add(partyDto);
         }
 
-        return report;
+        return Task.FromResult(report);
     }
 
     public async Task<CashBankBookReportDto> GetCashBankBookAsync(int companyId, int? ledgerId, CashBankBookType bookType, DateTime fromDate, DateTime toDate, CancellationToken ct = default)
@@ -1292,15 +1416,20 @@ public class AccountingService : IAccountingService
         var startOfDay = fromDate.Date;
         var endOfDay = toDate.Date.AddDays(1).AddTicks(-1);
 
-        List<MoneyFlow.Core.Entities.Ledger> targetLedgers;
+        var allGroups = GetEntities<GroupEntity>();
+        List<LedgerEntity> targetLedgers;
+
         if (ledgerId.HasValue)
         {
-            var singleLedger = await _context.Ledgers
-                .AsNoTracking()
-                .Include(l => l.Group)
-                .FirstOrDefaultAsync(l => l.CompanyId == companyId && l.LedgerId == ledgerId.Value, ct);
+            var singleLedger = GetEntities<LedgerEntity>()
+                .FirstOrDefault(l => l.CompanyId == companyId && l.LedgerId == ledgerId.Value);
 
-            targetLedgers = singleLedger != null ? new List<MoneyFlow.Core.Entities.Ledger> { singleLedger } : new List<MoneyFlow.Core.Entities.Ledger>();
+            if (singleLedger != null && singleLedger.Group == null)
+            {
+                singleLedger.Group = allGroups.FirstOrDefault(g => g.GroupId == singleLedger.GroupId);
+            }
+
+            targetLedgers = singleLedger != null ? new List<LedgerEntity> { singleLedger } : new List<LedgerEntity>();
         }
         else
         {
@@ -1308,18 +1437,29 @@ public class AccountingService : IAccountingService
                 ? await GetCashLedgersAsync(companyId, ct)
                 : await GetBankLedgersAsync(companyId, ct);
 
-            var ledgerIds = availableLedgers.Select(l => l.LedgerId).ToList();
-            targetLedgers = await _context.Ledgers
-                .AsNoTracking()
-                .Include(l => l.Group)
+            var ledgerIds = availableLedgers.Select(l => l.LedgerId).ToHashSet();
+            targetLedgers = GetEntities<LedgerEntity>()
                 .Where(l => l.CompanyId == companyId && ledgerIds.Contains(l.LedgerId))
                 .OrderBy(l => l.LedgerName)
-                .ToListAsync(ct);
+                .ToList();
+
+            foreach (var l in targetLedgers)
+            {
+                if (l.Group == null)
+                    l.Group = allGroups.FirstOrDefault(g => g.GroupId == l.GroupId);
+            }
         }
 
-        var targetLedgerIds = targetLedgers.Select(l => l.LedgerId).ToList();
+        var targetLedgerIds = targetLedgers.Select(l => l.LedgerId).ToHashSet();
 
-        // Calculate opening balances as of fromDate
+        var companyVouchers = GetEntities<Voucher>()
+            .Where(v => v.CompanyId == companyId && !v.IsDeleted)
+            .ToDictionary(v => v.VoucherId);
+
+        var allEntries = GetEntities<VoucherEntry>()
+            .Where(ve => companyVouchers.ContainsKey(ve.VoucherId))
+            .ToList();
+
         decimal totalOpeningNet = 0m;
         var summaries = new List<CashBankAccountSummaryDto>();
 
@@ -1329,35 +1469,23 @@ public class AccountingService : IAccountingService
                 ? ledg.OpeningBalance
                 : -ledg.OpeningBalance;
 
-            var priorTotals = await _context.VoucherEntries
-                .AsNoTracking()
-                .Where(ve => ve.LedgerId == ledg.LedgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId && ve.Voucher.VoucherDate < startOfDay)
-                .GroupBy(_ => 1)
-                .Select(g => new
-                {
-                    TotalDebit = g.Sum(x => x.Debit),
-                    TotalCredit = g.Sum(x => x.Credit)
-                })
-                .FirstOrDefaultAsync(ct);
+            var priorEntries = allEntries
+                .Where(ve => ve.LedgerId == ledg.LedgerId && companyVouchers[ve.VoucherId].VoucherDate < startOfDay)
+                .ToList();
 
-            decimal priorDebit = priorTotals?.TotalDebit ?? 0m;
-            decimal priorCredit = priorTotals?.TotalCredit ?? 0m;
+            decimal priorDebit = priorEntries.Sum(x => x.Debit);
+            decimal priorCredit = priorEntries.Sum(x => x.Credit);
             decimal ledgOpeningNet = initialMasterNet + priorDebit - priorCredit;
             totalOpeningNet += ledgOpeningNet;
 
-            var periodTotals = await _context.VoucherEntries
-                .AsNoTracking()
-                .Where(ve => ve.LedgerId == ledg.LedgerId && !ve.Voucher!.IsDeleted && ve.Voucher.CompanyId == companyId && ve.Voucher.VoucherDate >= startOfDay && ve.Voucher.VoucherDate <= endOfDay)
-                .GroupBy(_ => 1)
-                .Select(g => new
-                {
-                    TotalDebit = g.Sum(x => x.Debit),
-                    TotalCredit = g.Sum(x => x.Credit)
-                })
-                .FirstOrDefaultAsync(ct);
+            var periodEntries = allEntries
+                .Where(ve => ve.LedgerId == ledg.LedgerId &&
+                             companyVouchers[ve.VoucherId].VoucherDate >= startOfDay &&
+                             companyVouchers[ve.VoucherId].VoucherDate <= endOfDay)
+                .ToList();
 
-            decimal periodDebit = periodTotals?.TotalDebit ?? 0m;
-            decimal periodCredit = periodTotals?.TotalCredit ?? 0m;
+            decimal periodDebit = periodEntries.Sum(x => x.Debit);
+            decimal periodCredit = periodEntries.Sum(x => x.Credit);
             decimal closingNet = ledgOpeningNet + periodDebit - periodCredit;
 
             summaries.Add(new CashBankAccountSummaryDto
@@ -1374,27 +1502,37 @@ public class AccountingService : IAccountingService
             });
         }
 
-        // Fetch period vouchers involving target ledgers
-        var periodVouchers = await _context.Vouchers
-            .AsNoTracking()
-            .Include(v => v.VoucherType)
-            .Include(v => v.VoucherEntries)
-                .ThenInclude(e => e.Ledger)
+        var allVoucherTypes = GetEntities<VoucherType>();
+        var allLedgers = GetEntities<LedgerEntity>();
+
+        var periodVouchers = GetEntities<Voucher>()
             .Where(v => v.CompanyId == companyId &&
                         !v.IsDeleted &&
                         v.VoucherDate >= startOfDay &&
-                        v.VoucherDate <= endOfDay &&
-                        v.VoucherEntries.Any(e => targetLedgerIds.Contains(e.LedgerId)))
+                        v.VoucherDate <= endOfDay)
             .OrderBy(v => v.VoucherDate)
             .ThenBy(v => v.VoucherNumber)
-            .ToListAsync(ct);
+            .ToList();
 
         var lines = new List<CashBankBookLineDto>();
         decimal currentNet = totalOpeningNet;
 
         foreach (var v in periodVouchers)
         {
+            if (v.VoucherType == null)
+                v.VoucherType = allVoucherTypes.FirstOrDefault(vt => vt.VoucherTypeId == v.VoucherTypeId);
+
+            if (v.VoucherEntries.Count == 0)
+                v.VoucherEntries = allEntries.Where(e => e.VoucherId == v.VoucherId).ToList();
+
+            foreach (var e in v.VoucherEntries)
+            {
+                if (e.Ledger == null)
+                    e.Ledger = allLedgers.FirstOrDefault(l => l.LedgerId == e.LedgerId);
+            }
+
             var myEntries = v.VoucherEntries.Where(e => targetLedgerIds.Contains(e.LedgerId)).ToList();
+            if (myEntries.Count == 0) continue;
 
             foreach (var entry in myEntries)
             {
@@ -1454,5 +1592,3 @@ public class AccountingService : IAccountingService
         };
     }
 }
-
-
