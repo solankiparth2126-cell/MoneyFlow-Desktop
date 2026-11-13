@@ -17,6 +17,17 @@ namespace MoneyFlow.Desktop.Controls.Lookup;
 /// </summary>
 public class MoneyFlowLookupPopup : Form
 {
+    /// <summary>
+    /// Tracks global popup ESC dismissal timestamp so parent forms never leak or execute module-exit on the same ESC stroke.
+    /// </summary>
+    public static DateTime LastClosedByEscUtc { get; private set; } = DateTime.MinValue;
+    public static bool WasAnyPopupJustClosedByEsc => (DateTime.UtcNow - LastClosedByEscUtc).TotalMilliseconds < 500;
+
+    public static void RecordEscClose()
+    {
+        LastClosedByEscUtc = DateTime.UtcNow;
+    }
+
     private readonly LookupConfig _config;
     private readonly ILookupProvider _provider;
     private readonly LookupKeyboardController _keyboardController = new();
@@ -741,6 +752,7 @@ public class MoneyFlowLookupPopup : Form
 
         if (keyData == Keys.Escape)
         {
+            RecordEscClose();
             ClosePopup(isCancelled: true);
             return true;
         }
@@ -785,6 +797,7 @@ public class MoneyFlowLookupPopup : Form
     {
         if (isCancelled)
         {
+            RecordEscClose();
             Cancelled?.Invoke();
         }
 

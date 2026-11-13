@@ -147,6 +147,7 @@ public class LookupKeyboardController
             case Keys.Escape:
                 onCancel?.Invoke();
                 e.Handled = true;
+                e.SuppressKeyPress = true;
                 return true;
         }
 

@@ -49,32 +49,12 @@ public class CloseModuleConfirmationDialog : Form
 
     public static bool ConfirmClose(IWin32Window? owner)
     {
-        Form? parentForm = (owner as Control)?.FindForm() ?? owner as Form ?? Form.ActiveForm;
-        if (parentForm != null && parentForm.Visible && parentForm.IsHandleCreated)
-        {
-            using var overlay = new Form
-            {
-                FormBorderStyle = FormBorderStyle.None,
-                BackColor = Color.FromArgb(15, 23, 42),
-                Opacity = 0.35,
-                ShowInTaskbar = false,
-                StartPosition = FormStartPosition.Manual,
-                Location = parentForm.PointToScreen(Point.Empty),
-                Size = parentForm.ClientSize,
-                Owner = parentForm
-            };
-            overlay.Show();
-
-            using var dlg = new CloseModuleConfirmationDialog();
-            var result = dlg.ShowDialog(overlay);
-            overlay.Close();
-            return result == DialogResult.Yes;
-        }
-        else
-        {
-            using var dlg = new CloseModuleConfirmationDialog();
-            return dlg.ShowDialog(owner) == DialogResult.Yes;
-        }
+        return MoneyFlowMessageBox.Show(
+            owner,
+            "Are you sure you want to close this screen? Any unsaved changes will be discarded.",
+            "Confirm Discard & Close",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question) == DialogResult.Yes;
     }
 
     private void InitializeComponent()

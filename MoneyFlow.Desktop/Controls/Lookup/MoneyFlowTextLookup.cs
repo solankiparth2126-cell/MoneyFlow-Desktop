@@ -23,6 +23,9 @@ public class MoneyFlowTextLookup : UserControl
     private bool _isFocused;
     private bool _suppressTextChange;
     private bool _suppressAutoOpenUntilLeave;
+    private DateTime _lastClosedByEscUtc = DateTime.MinValue;
+
+    public bool WasJustClosedByEsc => (DateTime.UtcNow - _lastClosedByEscUtc).TotalMilliseconds < 500;
 
     public event EventHandler? SelectedValueChanged;
     public event Action? CreateRequested;
@@ -160,6 +163,7 @@ public class MoneyFlowTextLookup : UserControl
 
     public void ClosePopup()
     {
+        _lastClosedByEscUtc = DateTime.UtcNow;
         if (_popup != null && _popup.Visible)
         {
             _suppressAutoOpenUntilLeave = true;
@@ -325,14 +329,28 @@ public class MoneyFlowTextLookup : UserControl
 
     private async Task HandleInnerKeyDownAsync(KeyEventArgs e)
     {
-        // Forward inner key to external listeners and UserControl.OnKeyDown
-        EditorKeyDown?.Invoke(this, e);
-        if (e.Handled || e.SuppressKeyPress) return;
+        // 0. Intercept Escape immediately when popup is open so parent forms NEVER see this key
+        if (e.KeyCode == Keys.Escape)
+        {
+            if (_popup != null && _popup.Visible)
+            {
+                _suppressAutoOpenUntilLeave = true;
+                _lastClosedByEscUtc = DateTime.UtcNow;
+                _popup.ClosePopup(isCancelled: true);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
 
-        OnKeyDown(e);
-        if (e.Handled || e.SuppressKeyPress) return;
+            if (WasJustClosedByEsc || MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+        }
 
-        // Navigation when popup is visible
+        // Navigation when popup is visible - prioritize popup list navigation over field navigation
         if (_popup != null && _popup.Visible)
         {
             if (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down || e.KeyCode == Keys.PageUp || e.KeyCode == Keys.PageDown)
@@ -350,16 +368,14 @@ public class MoneyFlowTextLookup : UserControl
                 e.SuppressKeyPress = true;
                 return;
             }
-
-            if (e.KeyCode == Keys.Escape)
-            {
-                _suppressAutoOpenUntilLeave = true;
-                _popup.ClosePopup(isCancelled: true);
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-                return;
-            }
         }
+
+        // Forward inner key to external listeners and UserControl.OnKeyDown
+        EditorKeyDown?.Invoke(this, e);
+        if (e.Handled || e.SuppressKeyPress) return;
+
+        OnKeyDown(e);
+        if (e.Handled || e.SuppressKeyPress) return;
 
         // 1. Enter Key Handling (when popup is closed)
         if (e.KeyCode == Keys.Enter)
@@ -476,7 +492,14 @@ public class MoneyFlowTextLookup : UserControl
             _popup.Cancelled += () =>
             {
                 _suppressAutoOpenUntilLeave = true;
-                _innerTextBox.Focus();
+                _lastClosedByEscUtc = DateTime.UtcNow;
+                BeginInvoke(new Action(() =>
+                {
+                    if (!IsDisposed && _innerTextBox.CanFocus)
+                    {
+                        _innerTextBox.Focus();
+                    }
+                }));
             };
         }
     }

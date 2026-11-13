@@ -1048,6 +1048,11 @@ public class GroupListForm : Form, IBackNavigable
 
     public bool HandleBackNavigation()
     {
+        if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+        {
+            return true;
+        }
+
         if (_isCreationViewActive)
         {
             if (_activeCreationForm != null)
@@ -1074,6 +1079,11 @@ public class GroupListForm : Form, IBackNavigable
 
         if (keyData == Keys.Escape)
         {
+            if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+            {
+                return true;
+            }
+
             if (HandleBackNavigation())
             {
                 return true;

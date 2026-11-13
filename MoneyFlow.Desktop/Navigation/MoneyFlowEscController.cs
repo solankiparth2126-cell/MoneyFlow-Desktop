@@ -58,6 +58,12 @@ public static class MoneyFlowEscController
             return true;
         }
 
+        // If any popup was just dismissed via ESC in the last 500ms, swallow this ESC completely
+        if (MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc || (lookupAncestor != null && lookupAncestor.WasJustClosedByEsc))
+        {
+            return true;
+        }
+
         // ── Rule 2: Inspect if active control is an editable input ──
         if (TryGetEditableInput(activeControl, out var inputHelper))
         {
@@ -72,7 +78,12 @@ public static class MoneyFlowEscController
         // ── Rule 3: Active field is empty OR non-input focused -> Show Close Confirmation ──
         bool confirmed = ConfirmationDialogProvider != null
             ? ConfirmationDialogProvider(hostForm)
-            : CloseModuleConfirmationDialog.ConfirmClose(hostForm);
+            : (MoneyFlowMessageBox.Show(
+                hostForm,
+                "Are you sure you want to close this screen? Any unsaved changes will be discarded.",
+                "Confirm Discard & Close",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question) == DialogResult.Yes);
 
         if (confirmed)
         {

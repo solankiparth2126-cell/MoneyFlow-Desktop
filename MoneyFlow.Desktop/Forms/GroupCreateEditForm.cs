@@ -575,6 +575,13 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         // 4. Escape -> close popup or cancel
         if (e.KeyCode == Keys.Escape)
         {
+            if (MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
             if (_fields[fieldIndex].Editor is MoneyFlowTextLookup lookup && lookup.IsPopupOpen)
             {
                 lookup.ClosePopup();
@@ -672,6 +679,12 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
     {
         if (keyData == Keys.Escape)
         {
+            if (MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc || HasOpenPopup())
+            {
+                CloseOpenPopup();
+                return true;
+            }
+
             HandleCancel();
             return true;
         }

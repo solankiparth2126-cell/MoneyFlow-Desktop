@@ -1377,6 +1377,11 @@ public class MainForm : Form, INavigationHost
 
     public bool NavigateBack()
     {
+        if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+        {
+            return true;
+        }
+
         if (_activeChildForm is IBackNavigable backNavigable && backNavigable.HandleBackNavigation())
         {
             return true;
@@ -2326,6 +2331,11 @@ public class MainForm : Form, INavigationHost
     {
         if (keyData == Keys.Escape && !IsOnGateway)
         {
+            if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+            {
+                return true;
+            }
+
             NavigateBack();
             return true;
         }

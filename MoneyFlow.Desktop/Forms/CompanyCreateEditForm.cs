@@ -1219,6 +1219,11 @@ public partial class CompanyCreateEditForm : Form
     {
         if (keyData == Keys.Escape)
         {
+            if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc)
+            {
+                return true;
+            }
+
             if (lookupState != null && lookupState.IsPopupOpen)
             {
                 lookupState.ClosePopup();

@@ -1323,6 +1323,12 @@ public partial class LedgerCreateEditForm : Form
     {
         if (keyData == Keys.Escape)
         {
+            if (MoneyFlow.Desktop.Controls.Lookup.MoneyFlowLookupPopup.WasAnyPopupJustClosedByEsc || (_cmbGroup != null && _cmbGroup.IsPopupOpen))
+            {
+                _cmbGroup?.ClosePopup();
+                return true;
+            }
+
             return MoneyFlowEscController.HandleEsc(
                 ActiveControl,
                 this,

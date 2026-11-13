@@ -109,6 +109,17 @@ public class MoneyFlowMessageBox : Form
         MessageBoxDefaultButton defaultButton)
     {
         Form? targetOwner = (owner as Control)?.FindForm() ?? owner as Form ?? Form.ActiveForm;
+        while (targetOwner != null && !targetOwner.TopLevel && targetOwner.Parent != null)
+        {
+            var next = targetOwner.Parent.FindForm();
+            if (next == null || next == targetOwner) break;
+            targetOwner = next;
+        }
+
+        if (targetOwner != null && !targetOwner.TopLevel)
+        {
+            targetOwner = Form.ActiveForm ?? Application.OpenForms.Cast<Form>().FirstOrDefault(f => f.TopLevel && f.Visible);
+        }
 
         // If running in headless / test environment, display directly without backdrop overlay
         bool isTestHost = AppDomain.CurrentDomain.FriendlyName.IndexOf("testhost", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -128,7 +139,7 @@ public class MoneyFlowMessageBox : Form
             StartPosition = FormStartPosition.Manual,
             Location = targetOwner.PointToScreen(Point.Empty),
             Size = targetOwner.ClientSize,
-            Owner = targetOwner
+            Owner = targetOwner.TopLevel ? targetOwner : null
         };
 
         try
