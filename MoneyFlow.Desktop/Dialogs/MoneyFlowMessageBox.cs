@@ -303,10 +303,19 @@ public class MoneyFlowMessageBox : Form
             BorderRadius = 22
         };
 
+        float badgeFontSize = badgeChar switch
+        {
+            "✓" => 18F,
+            "!" => 19F,
+            "?" => 18F,
+            "✕" => 17F,
+            _ => 17F
+        };
+
         var lblBadgeChar = new Label
         {
             Text = badgeChar,
-            Font = new Font("Segoe UI", badgeChar == "✓" ? 18F : 17F, FontStyle.Bold),
+            Font = new Font("Segoe UI", badgeFontSize, FontStyle.Bold),
             ForeColor = Color.White,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
@@ -559,7 +568,7 @@ public class MoneyFlowMessageBox : Form
                 return (Color.FromArgb(2, 132, 199), "?"); // Sky Blue
 
             case MessageBoxIcon.Warning:
-                return (Color.FromArgb(217, 119, 6), "⚠"); // Amber Warning
+                return (Color.FromArgb(217, 119, 6), "!"); // Amber Warning
 
             case MessageBoxIcon.Error:
                 return (Color.FromArgb(220, 38, 38), "✕"); // Red Error
@@ -567,8 +576,8 @@ public class MoneyFlowMessageBox : Form
             default:
                 if (combined.Contains("error") || combined.Contains("failed") || combined.Contains("exception"))
                     return (Color.FromArgb(220, 38, 38), "✕");
-                if (combined.Contains("warn") || combined.Contains("caution"))
-                    return (Color.FromArgb(217, 119, 6), "⚠");
+                if (combined.Contains("warn") || combined.Contains("caution") || combined.Contains("delete"))
+                    return (Color.FromArgb(217, 119, 6), "!");
                 if (combined.Contains("?") || combined.Contains("are you sure"))
                     return (Color.FromArgb(2, 132, 199), "?");
 
