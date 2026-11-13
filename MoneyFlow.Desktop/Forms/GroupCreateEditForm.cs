@@ -989,23 +989,25 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
     public void HandleCancel()
     {
-        Control? focused = ActiveControl;
-        if (focused == null && _activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+        if (HasOpenPopup())
         {
-            focused = _fields[_activeFieldIndex].Editor;
+            CloseOpenPopup();
+            return;
         }
 
-        MoneyFlowEscController.HandleEsc(
-            focused,
+        var res = MoneyFlowMessageBox.Show(
             this,
-            closeAction: () =>
-            {
-                _isDirty = false;
-                Cancelled?.Invoke();
-                Close();
-            },
-            hasOpenPopup: HasOpenPopup,
-            closePopupAction: CloseOpenPopup);
+            "Are you sure you want to close this screen? Any unsaved changes will be discarded.",
+            "Confirm Discard & Close",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
+
+        if (res == DialogResult.Yes)
+        {
+            _isDirty = false;
+            Cancelled?.Invoke();
+            Close();
+        }
     }
 
     public bool HandleBackNavigation()

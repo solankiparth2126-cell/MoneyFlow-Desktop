@@ -446,6 +446,31 @@ public class CompanyListForm : Form
             Height = 44
         };
         txtSearch.KeyDown += OnSearchKeyDown;
+
+        void SelectAllCompanySearch()
+        {
+            if (txtSearch.IsHandleCreated)
+            {
+                BeginInvoke(() =>
+                {
+                    if (txtSearch.Text.Length > 0)
+                        txtSearch.SelectAll();
+                });
+            }
+            else
+            {
+                txtSearch.SelectAll();
+            }
+        }
+
+        txtSearch.Click += (s, e) => SelectAllCompanySearch();
+        txtSearch.MouseUp += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                SelectAllCompanySearch();
+        };
+        txtSearch.Enter += (s, e) => SelectAllCompanySearch();
+
         pnlSearch.Controls.Add(txtSearch);
 
         // Ctrl+F shortcut indicator badge inside search box (styled rounded keyboard badge matching reference)

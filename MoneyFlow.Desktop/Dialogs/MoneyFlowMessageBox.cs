@@ -202,9 +202,10 @@ public class MoneyFlowMessageBox : Form
         // ═══════════════════════════════════════════════════════════════
         var pnlHeader = new Panel
         {
-            Dock = DockStyle.Top,
+            Location = new Point(0, 0),
             Height = 38,
-            BackColor = Color.FromArgb(27, 54, 93)
+            BackColor = Color.FromArgb(27, 54, 93),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
         };
 
         pnlHeader.Paint += (s, e) =>
@@ -248,7 +249,8 @@ public class MoneyFlowMessageBox : Form
             ForeColor = Color.White,
             Location = new Point(38, 9),
             AutoSize = true,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         lblTitle.MouseDown += DragHeader;
         pnlHeader.Controls.Add(lblTitle);
@@ -274,7 +276,6 @@ public class MoneyFlowMessageBox : Form
         btnClose.MouseLeave += (s, e) => btnClose.ForeColor = Color.FromArgb(203, 213, 225);
         btnClose.Click += (s, e) => HandleCloseAction();
         pnlHeader.Controls.Add(btnClose);
-        card.Controls.Add(pnlHeader);
 
         pnlHeader.Resize += (s, e) =>
         {
@@ -282,29 +283,13 @@ public class MoneyFlowMessageBox : Form
         };
 
         // ═══════════════════════════════════════════════════════════════
-        //  2. FOOTER BAR (54px #F8FAFC with Buttons)
-        // ═══════════════════════════════════════════════════════════════
-        var pnlFooter = new Panel
-        {
-            Dock = DockStyle.Bottom,
-            Height = 54,
-            BackColor = Color.FromArgb(248, 250, 252)
-        };
-
-        pnlFooter.Paint += (s, e) =>
-        {
-            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
-            e.Graphics.DrawLine(pen, 0, 0, pnlFooter.Width, 0);
-        };
-
-        // ═══════════════════════════════════════════════════════════════
-        //  3. BODY CONTENT AREA (Middle)
+        //  2. BODY CONTENT AREA (Middle, starts at Y = 38 below Header)
         // ═══════════════════════════════════════════════════════════════
         var pnlBody = new Panel
         {
-            Dock = DockStyle.Fill,
+            Location = new Point(0, 38),
             BackColor = Color.White,
-            Padding = new Padding(24, 20, 24, 16)
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
         };
 
         // Resolve Badge Color and Symbol based on icon and context
@@ -313,7 +298,7 @@ public class MoneyFlowMessageBox : Form
         var badgeCircle = new Guna2Panel
         {
             Size = new Size(44, 44),
-            Location = new Point(24, 24),
+            Location = new Point(24, 18),
             FillColor = badgeColor,
             BorderRadius = 22
         };
@@ -343,20 +328,44 @@ public class MoneyFlowMessageBox : Form
             Text = _message,
             Font = fontMeasure,
             ForeColor = Color.FromArgb(15, 23, 42),
-            Location = new Point(82, 22),
-            Size = new Size(dialogWidth - 110, Math.Max(measuredSize.Height + 6, 44)),
+            Location = new Point(82, 18),
+            Size = new Size(dialogWidth - 110, Math.Max(measuredSize.Height + 10, 44)),
             AutoSize = false,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            UseMnemonic = false
         };
         pnlBody.Controls.Add(lblMessage);
 
-        int bodyHeight = Math.Max(76, lblMessage.Bottom + 16);
+        int bodyHeight = Math.Max(80, lblMessage.Bottom + 20);
+        pnlBody.Size = new Size(dialogWidth, bodyHeight);
+
+        pnlHeader.Size = new Size(dialogWidth, 38);
+
+        // ═══════════════════════════════════════════════════════════════
+        //  3. FOOTER BAR (54px #F8FAFC with Buttons, starts at Y = 38 + bodyHeight)
+        // ═══════════════════════════════════════════════════════════════
+        var pnlFooter = new Panel
+        {
+            Location = new Point(0, 38 + bodyHeight),
+            Size = new Size(dialogWidth, 54),
+            BackColor = Color.FromArgb(248, 250, 252),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+        };
+
+        pnlFooter.Paint += (s, e) =>
+        {
+            using var pen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawLine(pen, 0, 0, pnlFooter.Width, 0);
+        };
+
         int totalHeight = 38 + bodyHeight + 54;
-        Size = new Size(dialogWidth, totalHeight);
+        ClientSize = new Size(dialogWidth, totalHeight);
 
         // Build Buttons
         BuildButtons(pnlFooter);
 
+        // Add panels to card with absolute coordinates (No Dock overlapping issues)
+        card.Controls.Add(pnlHeader);
         card.Controls.Add(pnlBody);
         card.Controls.Add(pnlFooter);
 
@@ -565,6 +574,60 @@ public class MoneyFlowMessageBox : Form
 
                 return (Color.FromArgb(2, 132, 199), "ℹ");
         }
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        if (_defaultButton == MessageBoxDefaultButton.Button2 && _btnSecondary != null && _btnSecondary.CanFocus)
+        {
+            _btnSecondary.Focus();
+        }
+        else if (_btnPrimary != null && _btnPrimary.CanFocus)
+        {
+            _btnPrimary.Focus();
+        }
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Enter)
+        {
+            if (_defaultButton == MessageBoxDefaultButton.Button2 && _btnSecondary != null)
+            {
+                DialogResult = _btnSecondary.DialogResult;
+                Close();
+                return true;
+            }
+            if (_btnPrimary != null)
+            {
+                DialogResult = _btnPrimary.DialogResult;
+                Close();
+                return true;
+            }
+        }
+
+        if (keyData == Keys.Escape)
+        {
+            HandleCloseAction();
+            return true;
+        }
+
+        if (keyData == Keys.Y && _buttons == MessageBoxButtons.YesNo)
+        {
+            DialogResult = DialogResult.Yes;
+            Close();
+            return true;
+        }
+
+        if (keyData == Keys.N && _buttons == MessageBoxButtons.YesNo)
+        {
+            DialogResult = DialogResult.No;
+            Close();
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     private void HandleCloseAction()

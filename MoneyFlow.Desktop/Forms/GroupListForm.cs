@@ -216,87 +216,190 @@ public class GroupListForm : Form, IBackNavigable
         // ── Search Panel (Top of Main Area) ──
         var searchPanel = new Panel
         {
+            Name = "SearchPanel",
             Dock = DockStyle.Top,
             Height = 44,
-            BackColor = Color.White,
-            Padding = new Padding(8, 6, 8, 6)
-        };
-        searchPanel.Paint += (s, e) =>
-        {
-            using var pen = new Pen(Color.FromArgb(203, 213, 225), 1);
-            e.Graphics.DrawRectangle(pen, 0, 0, searchPanel.Width - 1, searchPanel.Height - 1);
+            BackColor = Color.White
         };
 
         var lblSearch = new Label
         {
-            Text = "Search:",
-            Location = new Point(12, 11),
+            Name = "lblSearch",
+            Text = "&Search:",
             AutoSize = true,
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42)
+            ForeColor = Color.FromArgb(27, 54, 93),
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
         };
+        lblSearch.Click += (s, e) => FocusSearchBox();
         searchPanel.Controls.Add(lblSearch);
 
         txtSearch = new TextBox
         {
-            Location = new Point(72, 7),
-            Width = 360,
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
-            BorderStyle = BorderStyle.FixedSingle,
-            ForeColor = Color.FromArgb(15, 23, 42)
+            Name = "txtSearch",
+            Font = new Font("Segoe UI", 9.75F, FontStyle.Regular),
+            BorderStyle = BorderStyle.None,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(15, 23, 42),
+            PlaceholderText = "Type to search group name, alias, nature..."
         };
+
+        void SelectAllSearchText()
+        {
+            if (txtSearch.IsHandleCreated)
+            {
+                BeginInvoke(() =>
+                {
+                    if (txtSearch.TextLength > 0)
+                    {
+                        txtSearch.SelectAll();
+                    }
+                });
+            }
+            else
+            {
+                txtSearch.SelectAll();
+            }
+        }
+
+        txtSearch.Click += (s, e) => SelectAllSearchText();
+        txtSearch.MouseUp += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                SelectAllSearchText();
+            }
+        };
+        txtSearch.Enter += (s, e) => SelectAllSearchText();
+        txtSearch.GotFocus += (s, e) => searchPanel.Invalidate();
+        txtSearch.LostFocus += (s, e) => searchPanel.Invalidate();
+
         txtSearch.TextChanged += async (s, e) => await OnSearchChangedAsync();
         txtSearch.KeyDown += (s, e) =>
         {
+            if (e.Alt && (e.KeyCode == Keys.S || e.KeyCode == Keys.F))
+            {
+                SelectAllSearchText();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
             if (e.KeyCode == Keys.Down && dgvGroups.Rows.Count > 0)
             {
                 dgvGroups.Focus();
                 e.Handled = true;
             }
         };
-        txtSearch.HandleCreated += (s, e) =>
-        {
-            SendMessage(txtSearch.Handle, EM_SETCUEBANNER, 1, "Type to search group name, alias, nature...");
-        };
         searchPanel.Controls.Add(txtSearch);
 
         var btnClear = new Button
         {
+            Name = "btnClear",
             Text = "Clear",
-            Location = new Point(440, 7),
-            Size = new Size(64, 28),
-            BackColor = Color.FromArgb(240, 242, 245),
+            Size = new Size(62, 28),
+            BackColor = Color.FromArgb(241, 245, 249),
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42),
+            ForeColor = Color.FromArgb(71, 85, 105),
             Cursor = Cursors.Hand
         };
+        btnClear.FlatAppearance.BorderSize = 1;
         btnClear.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        btnClear.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 232, 240);
         btnClear.Click += (s, e) =>
         {
             txtSearch.Clear();
-            txtSearch.Focus();
+            FocusSearchBox();
         };
         searchPanel.Controls.Add(btnClear);
 
         // Positioned on the boundary between main area and actions sidebar
         btnToggleActions = pnlRightActions.ToggleButton;
         btnToggleActions.Size = new Size(28, 28);
-        btnToggleActions.Location = new Point(searchPanel.Width - 36, 7);
         btnToggleActions.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         btnToggleActions.Click += (s, e) => ToggleActionsPanel();
         searchPanel.Controls.Add(btnToggleActions);
 
-        searchPanel.Resize += (s, e) =>
+        const int searchBoxPadX = 8;
+        const int searchBoxPadY = 5;
+
+        searchPanel.Paint += (s, e) =>
         {
-            int maxSearchW = Math.Max(180, Math.Min(420, searchPanel.Width - 340));
-            txtSearch.Width = maxSearchW;
-            btnClear.Location = new Point(txtSearch.Right + 8, 7);
-            if (btnToggleActions != null)
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Outer 1px subtle panel boundary
+            using var panelPen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawRectangle(panelPen, 0, 0, searchPanel.Width - 1, searchPanel.Height - 1);
+
+            // Modern input box border around txtSearch
+            var boxRect = new Rectangle(
+                txtSearch.Left - searchBoxPadX,
+                txtSearch.Top - searchBoxPadY,
+                txtSearch.Width + (searchBoxPadX * 2),
+                txtSearch.Height + (searchBoxPadY * 2));
+
+            using var fillBrush = new SolidBrush(Color.White);
+            e.Graphics.FillRectangle(fillBrush, boxRect);
+
+            bool isFocused = txtSearch.Focused;
+            Color boxBorderColor = isFocused ? Color.FromArgb(27, 54, 93) : Color.FromArgb(203, 213, 225);
+            using var boxPen = new Pen(boxBorderColor, isFocused ? 1.5f : 1f);
+            e.Graphics.DrawRectangle(boxPen, boxRect);
+        };
+
+        searchPanel.MouseDown += (s, e) =>
+        {
+            var boxRect = new Rectangle(
+                txtSearch.Left - searchBoxPadX,
+                txtSearch.Top - searchBoxPadY,
+                txtSearch.Width + (searchBoxPadX * 2),
+                txtSearch.Height + (searchBoxPadY * 2));
+
+            if (boxRect.Contains(e.Location))
             {
-                btnToggleActions.Location = new Point(searchPanel.Width - btnToggleActions.Width - 8, 7);
+                txtSearch.Focus();
+                SelectAllSearchText();
             }
         };
+
+        void LayoutSearchPanel()
+        {
+            if (searchPanel.Width <= 0 || searchPanel.Height <= 0) return;
+
+            lblSearch.Location = new Point(14, (searchPanel.Height - lblSearch.PreferredHeight) / 2);
+
+            int txtLeft = lblSearch.Right + 12 + searchBoxPadX;
+            int txtTop = (searchPanel.Height - txtSearch.PreferredHeight) / 2;
+
+            int rightBoundary = searchPanel.Width - 16;
+            if (btnToggleActions != null && btnToggleActions.Visible)
+            {
+                rightBoundary = btnToggleActions.Left - 12;
+            }
+
+            int availableWidth = rightBoundary - txtLeft - searchBoxPadX - 8 - btnClear.Width - 16;
+            int searchWidth = Math.Clamp(availableWidth, 180, 480);
+
+            txtSearch.Location = new Point(txtLeft, txtTop);
+            txtSearch.Width = searchWidth;
+
+            int boxRight = txtSearch.Right + searchBoxPadX;
+            btnClear.Location = new Point(boxRight + 8, (searchPanel.Height - btnClear.Height) / 2);
+
+            if (btnToggleActions != null)
+            {
+                btnToggleActions.Location = new Point(
+                    searchPanel.Width - btnToggleActions.Width - 8,
+                    (searchPanel.Height - btnToggleActions.Height) / 2);
+            }
+
+            searchPanel.Invalidate();
+        }
+
+        searchPanel.Resize += (s, e) => LayoutSearchPanel();
+        searchPanel.HandleCreated += (s, e) => LayoutSearchPanel();
 
         // Gap between SearchPanel and GridCard (10px)
         var pnlSearchGridGap = new Panel
@@ -626,7 +729,18 @@ public class GroupListForm : Form, IBackNavigable
         if (txtSearch.CanFocus)
         {
             txtSearch.Focus();
-            txtSearch.SelectAll();
+            if (txtSearch.IsHandleCreated)
+            {
+                BeginInvoke(() =>
+                {
+                    if (txtSearch.TextLength > 0)
+                        txtSearch.SelectAll();
+                });
+            }
+            else
+            {
+                txtSearch.SelectAll();
+            }
         }
     }
 
@@ -928,7 +1042,7 @@ public class GroupListForm : Form, IBackNavigable
                 EnsureSelectedRowVisible();
             }
         }
-        else if (e.Alt && e.KeyCode == Keys.F)
+        else if (e.Alt && (e.KeyCode == Keys.S || e.KeyCode == Keys.F))
         {
             e.Handled = true;
             FocusSearchBox();

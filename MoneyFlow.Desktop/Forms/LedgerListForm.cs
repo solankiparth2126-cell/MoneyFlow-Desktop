@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -209,90 +210,193 @@ public class LedgerListForm : Form, IBackNavigable
             BackColor = Color.Transparent
         };
 
-        // ── Search Panel (Top of Main Area, Height 44px) ──
+        // ── Search Panel (Top of Main Area) ──
         var searchPanel = new Panel
         {
+            Name = "SearchPanel",
             Dock = DockStyle.Top,
             Height = 44,
-            BackColor = Color.White,
-            Padding = new Padding(8, 6, 8, 6)
-        };
-        searchPanel.Paint += (s, e) =>
-        {
-            using var pen = new Pen(Color.FromArgb(203, 213, 225), 1);
-            e.Graphics.DrawRectangle(pen, 0, 0, searchPanel.Width - 1, searchPanel.Height - 1);
+            BackColor = Color.White
         };
 
         var lblSearch = new Label
         {
-            Text = "Search:",
-            Location = new Point(12, 11),
+            Name = "lblSearch",
+            Text = "&Search:",
             AutoSize = true,
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42)
+            ForeColor = Color.FromArgb(27, 54, 93),
+            BackColor = Color.Transparent,
+            Cursor = Cursors.Hand
         };
+        lblSearch.Click += (s, e) => FocusSearchBox();
         searchPanel.Controls.Add(lblSearch);
 
         _txtSearch = new TextBox
         {
-            Location = new Point(72, 7),
-            Width = 360,
-            Font = new Font("Segoe UI", 10F, FontStyle.Regular),
-            BorderStyle = BorderStyle.FixedSingle,
-            ForeColor = Color.FromArgb(15, 23, 42)
+            Name = "txtSearch",
+            Font = new Font("Segoe UI", 9.75F, FontStyle.Regular),
+            BorderStyle = BorderStyle.None,
+            BackColor = Color.White,
+            ForeColor = Color.FromArgb(15, 23, 42),
+            PlaceholderText = "Type to search ledger name, alias, group, nature..."
         };
+
+        void SelectAllSearchText()
+        {
+            if (_txtSearch.IsHandleCreated)
+            {
+                BeginInvoke(() =>
+                {
+                    if (_txtSearch.TextLength > 0)
+                    {
+                        _txtSearch.SelectAll();
+                    }
+                });
+            }
+            else
+            {
+                _txtSearch.SelectAll();
+            }
+        }
+
+        _txtSearch.Click += (s, e) => SelectAllSearchText();
+        _txtSearch.MouseUp += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                SelectAllSearchText();
+            }
+        };
+        _txtSearch.Enter += (s, e) => SelectAllSearchText();
+        _txtSearch.GotFocus += (s, e) => searchPanel.Invalidate();
+        _txtSearch.LostFocus += (s, e) => searchPanel.Invalidate();
+
         _txtSearch.TextChanged += async (s, e) => await OnSearchChangedAsync();
         _txtSearch.KeyDown += (s, e) =>
         {
+            if (e.Alt && (e.KeyCode == Keys.S || e.KeyCode == Keys.F))
+            {
+                SelectAllSearchText();
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+
             if (e.KeyCode == Keys.Down && _dgvLedgers.Rows.Count > 0)
             {
                 _dgvLedgers.Focus();
                 e.Handled = true;
             }
         };
-        _txtSearch.HandleCreated += (s, e) =>
-        {
-            SendMessage(_txtSearch.Handle, EM_SETCUEBANNER, 1, "Type to search ledger name, alias, group, nature...");
-        };
         searchPanel.Controls.Add(_txtSearch);
 
         _btnClear = new Button
         {
+            Name = "btnClear",
             Text = "Clear",
-            Location = new Point(440, 7),
-            Size = new Size(64, 28),
-            BackColor = Color.FromArgb(240, 242, 245),
+            Size = new Size(62, 28),
+            BackColor = Color.FromArgb(241, 245, 249),
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-            ForeColor = Color.FromArgb(15, 23, 42),
+            ForeColor = Color.FromArgb(71, 85, 105),
             Cursor = Cursors.Hand
         };
+        _btnClear.FlatAppearance.BorderSize = 1;
         _btnClear.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+        _btnClear.FlatAppearance.MouseOverBackColor = Color.FromArgb(226, 232, 240);
         _btnClear.Click += (s, e) =>
         {
             _txtSearch.Clear();
-            _txtSearch.Focus();
+            FocusSearchBox();
         };
         searchPanel.Controls.Add(_btnClear);
 
         // Sidebar toggle button on far right of SearchPanel
         _btnToggleActions = _pnlRightActions.ToggleButton;
         _btnToggleActions.Size = new Size(28, 28);
-        _btnToggleActions.Location = new Point(searchPanel.Width - 36, 7);
         _btnToggleActions.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _btnToggleActions.Click += (s, e) => ToggleActionsPanel();
         searchPanel.Controls.Add(_btnToggleActions);
 
-        searchPanel.Resize += (s, e) =>
+        const int searchBoxPadX = 8;
+        const int searchBoxPadY = 5;
+
+        searchPanel.Paint += (s, e) =>
         {
-            int maxSearchW = Math.Max(180, Math.Min(420, searchPanel.Width - 340));
-            _txtSearch.Width = maxSearchW;
-            _btnClear.Location = new Point(_txtSearch.Right + 8, 7);
-            if (_btnToggleActions != null)
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+            // Outer 1px subtle panel boundary
+            using var panelPen = new Pen(Color.FromArgb(226, 232, 240), 1);
+            e.Graphics.DrawRectangle(panelPen, 0, 0, searchPanel.Width - 1, searchPanel.Height - 1);
+
+            // Modern input box border around _txtSearch
+            var boxRect = new Rectangle(
+                _txtSearch.Left - searchBoxPadX,
+                _txtSearch.Top - searchBoxPadY,
+                _txtSearch.Width + (searchBoxPadX * 2),
+                _txtSearch.Height + (searchBoxPadY * 2));
+
+            using var fillBrush = new SolidBrush(Color.White);
+            e.Graphics.FillRectangle(fillBrush, boxRect);
+
+            bool isFocused = _txtSearch.Focused;
+            Color boxBorderColor = isFocused ? Color.FromArgb(27, 54, 93) : Color.FromArgb(203, 213, 225);
+            using var boxPen = new Pen(boxBorderColor, isFocused ? 1.5f : 1f);
+            e.Graphics.DrawRectangle(boxPen, boxRect);
+        };
+
+        searchPanel.MouseDown += (s, e) =>
+        {
+            var boxRect = new Rectangle(
+                _txtSearch.Left - searchBoxPadX,
+                _txtSearch.Top - searchBoxPadY,
+                _txtSearch.Width + (searchBoxPadX * 2),
+                _txtSearch.Height + (searchBoxPadY * 2));
+
+            if (boxRect.Contains(e.Location))
             {
-                _btnToggleActions.Location = new Point(searchPanel.Width - _btnToggleActions.Width - 8, 7);
+                _txtSearch.Focus();
+                SelectAllSearchText();
             }
         };
+
+        void LayoutSearchPanel()
+        {
+            if (searchPanel.Width <= 0 || searchPanel.Height <= 0) return;
+
+            lblSearch.Location = new Point(14, (searchPanel.Height - lblSearch.PreferredHeight) / 2);
+
+            int txtLeft = lblSearch.Right + 12 + searchBoxPadX;
+            int txtTop = (searchPanel.Height - _txtSearch.PreferredHeight) / 2;
+
+            int rightBoundary = searchPanel.Width - 16;
+            if (_btnToggleActions != null && _btnToggleActions.Visible)
+            {
+                rightBoundary = _btnToggleActions.Left - 12;
+            }
+
+            int availableWidth = rightBoundary - txtLeft - searchBoxPadX - 8 - _btnClear.Width - 16;
+            int searchWidth = Math.Clamp(availableWidth, 180, 480);
+
+            _txtSearch.Location = new Point(txtLeft, txtTop);
+            _txtSearch.Width = searchWidth;
+
+            int boxRight = _txtSearch.Right + searchBoxPadX;
+            _btnClear.Location = new Point(boxRight + 8, (searchPanel.Height - _btnClear.Height) / 2);
+
+            if (_btnToggleActions != null)
+            {
+                _btnToggleActions.Location = new Point(
+                    searchPanel.Width - _btnToggleActions.Width - 8,
+                    (searchPanel.Height - _btnToggleActions.Height) / 2);
+            }
+
+            searchPanel.Invalidate();
+        }
+
+        searchPanel.Resize += (s, e) => LayoutSearchPanel();
+        searchPanel.HandleCreated += (s, e) => LayoutSearchPanel();
 
         // Gap between SearchPanel and GridCard (10px)
         var pnlSearchGridGap = new Panel
@@ -652,7 +756,18 @@ public class LedgerListForm : Form, IBackNavigable
         if (_txtSearch.CanFocus)
         {
             _txtSearch.Focus();
-            _txtSearch.SelectAll();
+            if (_txtSearch.IsHandleCreated)
+            {
+                BeginInvoke(() =>
+                {
+                    if (_txtSearch.TextLength > 0)
+                        _txtSearch.SelectAll();
+                });
+            }
+            else
+            {
+                _txtSearch.SelectAll();
+            }
         }
     }
 
@@ -870,7 +985,7 @@ public class LedgerListForm : Form, IBackNavigable
                 EnsureSelectedRowVisible();
             }
         }
-        else if (e.Alt && e.KeyCode == Keys.F)
+        else if (e.Alt && (e.KeyCode == Keys.S || e.KeyCode == Keys.F))
         {
             e.Handled = true;
             FocusSearchBox();

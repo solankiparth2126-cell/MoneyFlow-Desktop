@@ -64,18 +64,7 @@ public static class MoneyFlowEscController
             return true;
         }
 
-        // ── Rule 2: Inspect if active control is an editable input ──
-        if (TryGetEditableInput(activeControl, out var inputHelper))
-        {
-            if (inputHelper.HasValue)
-            {
-                // First ESC: Clear current field only, keep focus & cursor visible
-                inputHelper.ClearValue();
-                return true;
-            }
-        }
-
-        // ── Rule 3: Active field is empty OR non-input focused -> Show Close Confirmation ──
+        // ── Rule 2: Show Close Confirmation ──
         bool confirmed = ConfirmationDialogProvider != null
             ? ConfirmationDialogProvider(hostForm)
             : (MoneyFlowMessageBox.Show(
