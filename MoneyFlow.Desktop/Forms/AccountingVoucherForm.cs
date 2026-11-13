@@ -90,7 +90,7 @@ public class AccountingVoucherForm : BaseVoucherForm, IVoucherHost
         // Check for unsaved accounting changes before switching
         if (!bypassConfirm && _currentView != null && _currentView.HasUnsavedChanges())
         {
-            var result = MessageBox.Show(
+            var result = MoneyFlowMessageBox.Show(
                 $"You have unsaved changes in the current {_currentView.VoucherTitle}.\nSwitching voucher type will discard these changes.\n\nDo you want to discard your changes and switch to {GetTitleForType(targetType)}?",
                 "Discard Changes?",
                 MessageBoxButtons.YesNo,
@@ -265,7 +265,7 @@ public class AccountingVoucherForm : BaseVoucherForm, IVoucherHost
     {
         if (e.CloseReason == CloseReason.UserClosing && _currentView != null && _currentView.HasUnsavedChanges())
         {
-            var result = MessageBox.Show(
+            var result = MoneyFlowMessageBox.Show(
                 $"You have unsaved changes in {_currentView.VoucherTitle}.\nDo you want to discard your changes and quit?",
                 "Discard Changes?",
                 MessageBoxButtons.YesNo,

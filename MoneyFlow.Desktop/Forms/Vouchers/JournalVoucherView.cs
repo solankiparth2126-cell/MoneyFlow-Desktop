@@ -381,7 +381,7 @@ public class JournalVoucherView : UserControl, IVoucherView
         _btnCancel = _host.CreateActionButton("Esc: Quit", false, () => _host.CloseHost());
         _btnSave = _host.CreateActionButton("Ctrl+A: Accept", true, async () => await SaveVoucherAsync(closeAfterSave: true));
         _btnNew = _host.CreateActionButton("Clear", false, () => ResetForm());
-        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MoneyFlowMessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         flowRibbon.Controls.AddRange(new Control[] { _btnCancel, _btnSave, _btnNew, _btnPrint });
 
@@ -437,7 +437,7 @@ public class JournalVoucherView : UserControl, IVoucherView
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _host.CloseHost();
                 return;
             }
@@ -474,7 +474,7 @@ public class JournalVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to initialize Journal Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to initialize Journal Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -612,13 +612,13 @@ public class JournalVoucherView : UserControl, IVoucherView
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (_journalVoucherType == null)
             {
-                MessageBox.Show("Journal voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Journal voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -647,7 +647,7 @@ public class JournalVoucherView : UserControl, IVoucherView
 
                 if (debit > 0 && credit > 0)
                 {
-                    MessageBox.Show($"Row {i + 1}: An entry cannot have both Debit and Credit amounts.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MoneyFlowMessageBox.Show($"Row {i + 1}: An entry cannot have both Debit and Credit amounts.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -664,7 +664,7 @@ public class JournalVoucherView : UserControl, IVoucherView
 
             if (entries.Count < 2)
             {
-                MessageBox.Show("A journal voucher requires at least two accounting entries (at least one Debit and one Credit).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("A journal voucher requires at least two accounting entries (at least one Debit and one Credit).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -673,7 +673,7 @@ public class JournalVoucherView : UserControl, IVoucherView
 
             if (totalDebit != totalCredit || totalDebit <= 0)
             {
-                MessageBox.Show($"Voucher is not balanced.\nTotal Debit: ₹{totalDebit:N2}\nTotal Credit: ₹{totalCredit:N2}\nDifference: ₹{Math.Abs(totalDebit - totalCredit):N2}", "Balance Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show($"Voucher is not balanced.\nTotal Debit: ₹{totalDebit:N2}\nTotal Credit: ₹{totalCredit:N2}\nDifference: ₹{Math.Abs(totalDebit - totalCredit):N2}", "Balance Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -692,7 +692,7 @@ public class JournalVoucherView : UserControl, IVoucherView
 
             var savedVoucher = await _accountingService.SaveVoucherAsync(company.CompanyId, voucherDto);
 
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Journal Voucher '{savedVoucher.VoucherNumber}' of ₹{totalDebit:N2} saved successfully.",
                 "Journal Voucher Saved",
                 MessageBoxButtons.OK,
@@ -710,7 +710,7 @@ public class JournalVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save Journal Voucher:\n{ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to save Journal Voucher:\n{ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {

@@ -356,7 +356,7 @@ public class BankReconciliationForm : Form
         }
         else
         {
-            MessageBox.Show("No Bank Ledgers found in the active company. Please create a Bank Account ledger first.", "BRS", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("No Bank Ledgers found in the active company. Please create a Bank Account ledger first.", "BRS", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
@@ -395,7 +395,7 @@ public class BankReconciliationForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load reconciliation data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to load reconciliation data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -489,12 +489,12 @@ public class BankReconciliationForm : Form
         {
             btnSave.Enabled = false;
             await _brsService.UpdateBankClearanceAsync(compId, updates);
-            MessageBox.Show("Bank reconciliation changes saved successfully.", "BRS Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("Bank reconciliation changes saved successfully.", "BRS Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
             await LoadReconciliationAsync();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save reconciliation: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to save reconciliation: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -506,7 +506,7 @@ public class BankReconciliationForm : Form
     {
         if (_currentReport == null || dgvTransactions.Rows.Count == 0)
         {
-            MessageBox.Show("No data available to export.", "BRS", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("No data available to export.", "BRS", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -537,7 +537,7 @@ public class BankReconciliationForm : Form
             sb.AppendLine($"\"{lblBankBalance.Text}\"");
 
             File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-            MessageBox.Show("BRS exported successfully.", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("BRS exported successfully.", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 

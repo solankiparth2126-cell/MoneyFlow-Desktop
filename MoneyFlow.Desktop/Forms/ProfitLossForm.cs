@@ -181,7 +181,7 @@ public class ProfitLossForm : Form
         _btnExportCsv.Click += (s, e) => ExportToCsv();
 
         _btnPrint = new Button { Text = "Print (Ctrl+P)", Width = 110, Height = 35, BackColor = Color.FromArgb(230, 240, 252) };
-        _btnPrint.Click += (s, e) => MessageBox.Show(this, "Profit & Loss Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        _btnPrint.Click += (s, e) => MoneyFlowMessageBox.Show(this, "Profit & Loss Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         pnlActions.Controls.Add(_btnClose);
         pnlActions.Controls.Add(_btnExportCsv);
@@ -240,7 +240,7 @@ public class ProfitLossForm : Form
             var company = _companyContext.CurrentCompany;
             if (company == null)
             {
-                MessageBox.Show(this, "Please select an active company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show(this, "Please select an active company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Close();
                 return;
             }
@@ -267,7 +267,7 @@ public class ProfitLossForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Error loading Profit & Loss Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error loading Profit & Loss Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -293,7 +293,7 @@ public class ProfitLossForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to load Profit & Loss Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Failed to load Profit & Loss Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -484,7 +484,7 @@ public class ProfitLossForm : Form
     {
         if (_currentStatement == null)
         {
-            MessageBox.Show(this, "No statement data to export.", "Empty", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "No statement data to export.", "Empty", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -513,7 +513,7 @@ public class ProfitLossForm : Form
             }
 
             File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-            MessageBox.Show(this, $"Exported Profit & Loss Statement successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, $"Exported Profit & Loss Statement successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 

@@ -272,12 +272,12 @@ public class CompanySplitDialog : Form
     {
         if (string.IsNullOrWhiteSpace(txtNewCompanyName.Text))
         {
-            MessageBox.Show("Please enter a valid company name for the new split company.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter a valid company name for the new split company.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             txtNewCompanyName.Focus();
             return;
         }
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             $"Are you sure you want to split company '{_sourceCompany.CompanyName}' from {dtpSplitDate.Value:dd-MMM-yyyy}?\n\n" +
             "This will create a new isolated company with carried forward opening balances.",
             "Confirm Split Company",
@@ -310,7 +310,7 @@ public class CompanySplitDialog : Form
 
             DateTime createdFyTo = CreatedCompany.FinancialYearFrom.AddYears(1).AddDays(-1);
 
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Company split completed successfully!\n\n" +
                 $"New Company: {CreatedCompany.CompanyName}\n" +
                 $"Company Number: {CreatedCompany.CompanyNumber}\n" +
@@ -328,7 +328,7 @@ public class CompanySplitDialog : Form
             progressBar.Visible = false;
             lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
             lblStatus.Text = $"Error: {ex.Message}";
-            MessageBox.Show($"Failed to split company:\n{ex.Message}", "Split Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to split company:\n{ex.Message}", "Split Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             btnSplit.Enabled = true;
             btnCancel.Enabled = true;
         }

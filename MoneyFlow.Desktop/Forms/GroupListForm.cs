@@ -652,7 +652,7 @@ public class GroupListForm : Form, IBackNavigable
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load group master data: {ex.Message}", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to load group master data: {ex.Message}", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -830,7 +830,7 @@ public class GroupListForm : Form, IBackNavigable
         int groupId = Convert.ToInt32(dgvGroups.SelectedRows[0].Cells["GroupId"].Value);
         string name = dgvGroups.SelectedRows[0].Cells["GroupName"].Value?.ToString() ?? "Group";
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             $"Delete selected group '{name}'?\n\nThis will remove the group from the chart of accounts.",
             "Confirm Delete",
             MessageBoxButtons.YesNo,
@@ -848,7 +848,7 @@ public class GroupListForm : Form, IBackNavigable
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Cannot delete group: {ex.Message}", "Delete Prevented", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                MoneyFlowMessageBox.Show($"Cannot delete group: {ex.Message}", "Delete Prevented", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
             }
         }
     }

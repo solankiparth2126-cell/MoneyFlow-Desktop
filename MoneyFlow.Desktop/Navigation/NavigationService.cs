@@ -35,7 +35,7 @@ public class NavigationService : INavigationService
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
         {
-            MessageBox.Show(owner, "Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(owner, "Please select or create a company first.", "Company Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
             OpenCompanyList(owner);
             return false;
         }
@@ -48,7 +48,7 @@ public class NavigationService : INavigationService
 
         if (_companyContext.CurrentFinancialYear == null)
         {
-            MessageBox.Show(owner, "Please select or set a financial year first.", "Financial Year Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(owner, "Please select or set a financial year first.", "Financial Year Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
             OpenFinancialYearList(owner);
             return false;
         }
@@ -80,11 +80,11 @@ public class NavigationService : INavigationService
     {
         if (!_companyContext.IsCompanyOpen)
         {
-            MessageBox.Show(owner, "No company is currently open.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(owner, "No company is currently open.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             owner,
             $"Are you sure you want to close company '{_companyContext.CurrentCompany?.CompanyName}'?",
             "Close Company",
@@ -407,7 +407,7 @@ public class NavigationService : INavigationService
         else
         {
             if (!EnsureCompanyOpen(owner)) return;
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 owner,
                 $"{text} is scheduled in upcoming phases per the Master Prompt.",
                 "MoneyFlow Desktop Accounting",
@@ -456,7 +456,7 @@ public class NavigationService : INavigationService
             case GlobalSearchCategory.Voucher:
                 if (result.EntityId.HasValue)
                 {
-                    MessageBox.Show(
+                    MoneyFlowMessageBox.Show(
                         owner,
                         $"{result.Title}\n{result.Subtitle}\nAmount: {result.FormattedAmount}",
                         "Voucher Quick View",

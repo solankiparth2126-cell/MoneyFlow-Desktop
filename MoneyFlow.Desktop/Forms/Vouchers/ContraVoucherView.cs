@@ -412,7 +412,7 @@ public class ContraVoucherView : UserControl, IVoucherView
         _btnCancel = _host.CreateActionButton("Esc: Quit", false, () => _host.CloseHost());
         _btnSave = _host.CreateActionButton("Ctrl+A: Accept", true, async () => await SaveVoucherAsync(closeAfterSave: true));
         _btnNew = _host.CreateActionButton("Clear", false, () => ResetForm());
-        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MoneyFlowMessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         flowRibbon.Controls.AddRange(new Control[] { _btnCancel, _btnSave, _btnNew, _btnPrint });
 
@@ -466,7 +466,7 @@ public class ContraVoucherView : UserControl, IVoucherView
 
         if (company == null || fy == null)
         {
-            MessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -499,7 +499,7 @@ public class ContraVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to initialize Contra Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to initialize Contra Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -647,19 +647,19 @@ public class ContraVoucherView : UserControl, IVoucherView
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (_contraVoucherType == null)
             {
-                MessageBox.Show("Contra voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Contra voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (_cmbDestinationAccount.SelectedValue is not int destinationLedgerId || destinationLedgerId <= 0)
             {
-                MessageBox.Show("Please select a receiving destination Cash/Bank account.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please select a receiving destination Cash/Bank account.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _cmbDestinationAccount.Focus();
                 return;
             }
@@ -679,13 +679,13 @@ public class ContraVoucherView : UserControl, IVoucherView
 
                 if (sourceLedgerId == destinationLedgerId)
                 {
-                    MessageBox.Show($"Row {i + 1}: Destination and Source accounts cannot be the same ledger.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MoneyFlowMessageBox.Show($"Row {i + 1}: Destination and Source accounts cannot be the same ledger.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (!decimal.TryParse(row.Cells["ColAmount"].Value?.ToString(), out var amount) || amount <= 0)
                 {
-                    MessageBox.Show($"Row {i + 1}: Please enter a valid transfer amount greater than 0.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MoneyFlowMessageBox.Show($"Row {i + 1}: Please enter a valid transfer amount greater than 0.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -705,7 +705,7 @@ public class ContraVoucherView : UserControl, IVoucherView
 
             if (entries.Count == 0 || totalCredit <= 0)
             {
-                MessageBox.Show("Please enter at least one source (Credit) line entry with amount.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please enter at least one source (Credit) line entry with amount.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -731,7 +731,7 @@ public class ContraVoucherView : UserControl, IVoucherView
 
             var createdVoucher = await _accountingService.SaveVoucherAsync(company.CompanyId, voucherDto);
 
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Contra Voucher created successfully.\nVoucher No: {createdVoucher.VoucherNumber}\nAmount: ₹{totalCredit:N2}",
                 "Success",
                 MessageBoxButtons.OK,
@@ -750,7 +750,7 @@ public class ContraVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Error saving Contra voucher: {ex.Message}", "Save Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Error saving Contra voucher: {ex.Message}", "Save Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {

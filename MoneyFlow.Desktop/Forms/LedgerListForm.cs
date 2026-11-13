@@ -674,7 +674,7 @@ public class LedgerListForm : Form, IBackNavigable
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load ledger master data: {ex.Message}", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to load ledger master data: {ex.Message}", "Database Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -773,7 +773,7 @@ public class LedgerListForm : Form, IBackNavigable
         int ledgerId = Convert.ToInt32(_dgvLedgers.SelectedRows[0].Cells["LedgerId"].Value);
         string name = _dgvLedgers.SelectedRows[0].Cells["LedgerName"].Value?.ToString() ?? "Ledger";
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             $"Delete selected ledger '{name}'?\n\nThis will remove the ledger from the chart of accounts.",
             "Confirm Delete Ledger",
             MessageBoxButtons.YesNo,
@@ -791,7 +791,7 @@ public class LedgerListForm : Form, IBackNavigable
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Cannot delete ledger: {ex.Message}", "Delete Prevented", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+            MoneyFlowMessageBox.Show($"Cannot delete ledger: {ex.Message}", "Delete Prevented", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
         }
     }
 

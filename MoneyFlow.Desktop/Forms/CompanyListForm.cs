@@ -1413,7 +1413,7 @@ public class CompanyListForm : Form
 
     private void SelectRemoteCompany()
     {
-        MessageBox.Show(
+        MoneyFlowMessageBox.Show(
             this,
             "Remote Company discovery is configured for Local File Storage mode.\r\nTo select a network company, please use 'Specify Path' to choose a mapped network directory.",
             "Remote Company",

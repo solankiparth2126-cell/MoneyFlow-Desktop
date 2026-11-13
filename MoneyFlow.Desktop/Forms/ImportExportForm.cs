@@ -402,11 +402,11 @@ public class ImportExportForm : Form
             {
                 var template = await _importExportService.GenerateTemplateCsvAsync(entityType);
                 await File.WriteAllTextAsync(sfd.FileName, template, Encoding.UTF8);
-                MessageBox.Show($"Sample template successfully saved to:\n{sfd.FileName}", "Template Downloaded", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MoneyFlowMessageBox.Show($"Sample template successfully saved to:\n{sfd.FileName}", "Template Downloaded", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save template: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Failed to save template: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -415,14 +415,14 @@ public class ImportExportForm : Form
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
         {
-            MessageBox.Show("Please select an active company first.", "No Active Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select an active company first.", "No Active Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         string filePath = _txtImportFilePath.Text.Trim();
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
         {
-            MessageBox.Show("Please browse and select a valid CSV file first.", "File Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please browse and select a valid CSV file first.", "File Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -481,7 +481,7 @@ public class ImportExportForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to analyze file: {ex.Message}", "Analysis Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to analyze file: {ex.Message}", "Analysis Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -494,12 +494,12 @@ public class ImportExportForm : Form
     {
         if (_currentPreview == null || !_currentPreview.CanExecute)
         {
-            MessageBox.Show("Please run an analysis that passes validation before importing.", "Validation Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please run an analysis that passes validation before importing.", "Validation Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         var dupAction = GetSelectedDuplicateAction();
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             $"Are you sure you want to import {_currentPreview.ValidCount} new records into company '{_companyContext.CurrentCompany?.CompanyName}'?\n\nDuplicate Policy: {dupAction}",
             "Confirm Import Execution",
             MessageBoxButtons.YesNo,
@@ -519,7 +519,7 @@ public class ImportExportForm : Form
 
             if (result.Success)
             {
-                MessageBox.Show(
+                MoneyFlowMessageBox.Show(
                     $"Import successfully executed!\n\nInserted: {result.InsertedCount}\nUpdated: {result.UpdatedCount}\nSkipped: {result.SkippedCount}",
                     "Import Complete",
                     MessageBoxButtons.OK,
@@ -534,12 +534,12 @@ public class ImportExportForm : Form
             else
             {
                 string msg = string.Join("\n", result.Messages);
-                MessageBox.Show($"Import failed:\n{msg}", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Import failed:\n{msg}", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Execution error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Execution error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -551,7 +551,7 @@ public class ImportExportForm : Form
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
         {
-            MessageBox.Show("Please select an active company first.", "No Active Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select an active company first.", "No Active Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -588,11 +588,11 @@ public class ImportExportForm : Form
                 var content = await _importExportService.ExportDataAsync(_companyContext.CurrentCompany.CompanyId, options);
                 await File.WriteAllTextAsync(sfd.FileName, content, Encoding.UTF8);
 
-                MessageBox.Show($"Data successfully exported to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MoneyFlowMessageBox.Show($"Data successfully exported to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Export failed: {ex.Message}", "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Export failed: {ex.Message}", "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

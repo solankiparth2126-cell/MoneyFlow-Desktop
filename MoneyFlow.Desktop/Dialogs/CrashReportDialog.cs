@@ -124,7 +124,7 @@ public class CrashReportDialog : Form
         btnCopy.Click += (s, e) =>
         {
             Clipboard.SetText(GetDiagnosticReport());
-            MessageBox.Show(this, "Diagnostic details copied to clipboard.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "Diagnostic details copied to clipboard.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
 
         var btnOpenLogs = new Button
@@ -150,12 +150,12 @@ public class CrashReportDialog : Form
                 }
                 else
                 {
-                    MessageBox.Show(this, $"Log directory does not exist yet:\n{_logDirectory}", "Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MoneyFlowMessageBox.Show(this, $"Log directory does not exist yet:\n{_logDirectory}", "Logs", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, $"Could not open log folder: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show(this, $"Could not open log folder: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         };
 

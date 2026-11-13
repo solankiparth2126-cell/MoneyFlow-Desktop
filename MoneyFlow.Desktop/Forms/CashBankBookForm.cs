@@ -500,7 +500,7 @@ public class CashBankBookForm : Form
     {
         if (!_companyContext.IsCompanyOpen || _companyContext.CurrentCompany == null)
         {
-            MessageBox.Show(this, "Please open a company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show(this, "Please open a company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Close();
             return;
         }
@@ -553,7 +553,7 @@ public class CashBankBookForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Error loading accounts: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error loading accounts: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -589,7 +589,7 @@ public class CashBankBookForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to load book statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Failed to load book statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -697,14 +697,14 @@ public class CashBankBookForm : Form
         sb.AppendLine($"Running Balance: ₹{line.RunningBalance:N2} {(line.RunningType == BalanceType.Debit ? "Dr" : "Cr")}");
         sb.AppendLine($"Narration: {line.Narration}");
 
-        MessageBox.Show(this, sb.ToString(), $"Voucher Audit Detail — {line.VoucherNumber}", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MoneyFlowMessageBox.Show(this, sb.ToString(), $"Voucher Audit Detail — {line.VoucherNumber}", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void ExportToCsv()
     {
         if (_currentReport == null || _currentReport.Lines.Count == 0)
         {
-            MessageBox.Show(this, "No transactions to export.", "Empty Register", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "No transactions to export.", "Empty Register", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -735,7 +735,7 @@ public class CashBankBookForm : Form
             sb.AppendLine($",,,,Closing Balance:,{_currentReport.ClosingBalance:F2} {_currentReport.ClosingType}");
 
             File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-            MessageBox.Show(this, $"Exported {_currentReport.Lines.Count} entries successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, $"Exported {_currentReport.Lines.Count} entries successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 
@@ -743,7 +743,7 @@ public class CashBankBookForm : Form
     {
         if (_currentReport == null || _currentReport.Lines.Count == 0)
         {
-            MessageBox.Show(this, "No transactions to print.", "Empty Register", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "No transactions to print.", "Empty Register", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -838,7 +838,7 @@ public class CashBankBookForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Print Preview failed: {ex.Message}", "Print Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Print Preview failed: {ex.Message}", "Print Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

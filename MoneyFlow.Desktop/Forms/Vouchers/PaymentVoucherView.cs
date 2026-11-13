@@ -416,7 +416,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
         _btnQuit = _host.CreateActionButton("Esc: Quit", false, () => _host.CloseHost());
         _btnAccept = _host.CreateActionButton("Ctrl+A: Accept", true, async () => await OnSaveVoucherAsync(closeOnSuccess: true));
         _btnClear = _host.CreateActionButton("Clear", false, () => ResetForm());
-        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MoneyFlowMessageBox.Show("Voucher print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         flowRibbon.Controls.AddRange(new Control[] { _btnQuit, _btnAccept, _btnClear, _btnPrint });
         _pnlBalanceBar.Controls.Add(flowRibbon);
@@ -469,7 +469,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
 
         if (company == null || fy == null)
         {
-            MessageBox.Show("Please select an active company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select an active company and financial year first.", "Context Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -516,7 +516,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to initialize payment voucher: {ex.Message}", "Initialization Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to initialize payment voucher: {ex.Message}", "Initialization Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -636,13 +636,13 @@ public class PaymentVoucherView : UserControl, IVoucherView
         var fy = _host.CompanyContext.CurrentFinancialYear;
         if (company == null || fy == null || _paymentVoucherType == null)
         {
-            MessageBox.Show("Company and Financial Year must be active.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Company and Financial Year must be active.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (_cmbAccount.SelectedValue == null || !(_cmbAccount.SelectedValue is int creditLedgerId))
         {
-            MessageBox.Show("Please select a valid Cash/Bank paying account.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select a valid Cash/Bank paying account.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _cmbAccount.Focus();
             return;
         }
@@ -683,7 +683,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
 
         if (entries.Count == 0 || totalDebit <= 0)
         {
-            MessageBox.Show("Please enter at least one debit line item with an amount greater than 0.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter at least one debit line item with an amount greater than 0.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -710,7 +710,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
 
             var saved = await _accountingService.SaveVoucherAsync(company.CompanyId, createDto);
 
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Payment voucher {saved.VoucherNumber} of {totalDebit:N2} saved successfully.",
                 "Voucher Saved",
                 MessageBoxButtons.OK,
@@ -729,7 +729,7 @@ public class PaymentVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to save voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {

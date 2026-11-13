@@ -445,7 +445,7 @@ public class SalesVoucherView : UserControl, IVoucherView
         _btnCancel = _host.CreateActionButton("Esc: Quit", false, () => _host.CloseHost());
         _btnSave = _host.CreateActionButton("Ctrl+A: Accept", true, async () => await SaveVoucherAsync(closeAfterSave: true));
         _btnNew = _host.CreateActionButton("Clear", false, () => ResetForm());
-        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MessageBox.Show("Invoice print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        _btnPrint = _host.CreateActionButton("Ctrl+P: Print", false, () => MoneyFlowMessageBox.Show("Invoice print preview ready.", "Executive Ledger Print", MessageBoxButtons.OK, MessageBoxIcon.Information));
 
         flowRibbon.Controls.AddRange(new Control[] { _btnCancel, _btnSave, _btnNew, _btnPrint });
 
@@ -489,7 +489,7 @@ public class SalesVoucherView : UserControl, IVoucherView
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("No active company or financial year selected.", "Executive Ledger", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _host.CloseHost();
                 return;
             }
@@ -522,7 +522,7 @@ public class SalesVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to initialize Sales Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to initialize Sales Voucher: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -648,26 +648,26 @@ public class SalesVoucherView : UserControl, IVoucherView
 
             if (company == null || fy == null)
             {
-                MessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Active company or financial year is missing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (_salesVoucherType == null)
             {
-                MessageBox.Show("Sales voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show("Sales voucher type not found.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (_cmbParty.SelectedValue is not int partyLedgerId || partyLedgerId <= 0)
             {
-                MessageBox.Show("Please select a Customer / Party account to debit.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please select a Customer / Party account to debit.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _cmbParty.Focus();
                 return;
             }
 
             if (_cmbSalesLedger.SelectedValue is not int salesLedgerId || salesLedgerId <= 0)
             {
-                MessageBox.Show("Please select a Sales account to credit.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please select a Sales account to credit.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _cmbSalesLedger.Focus();
                 return;
             }
@@ -696,7 +696,7 @@ public class SalesVoucherView : UserControl, IVoucherView
 
             if (netTotal <= 0)
             {
-                MessageBox.Show("Please enter at least one line item with a valid amount.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please enter at least one line item with a valid amount.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -739,7 +739,7 @@ public class SalesVoucherView : UserControl, IVoucherView
 
             var savedVoucher = await _accountingService.SaveVoucherAsync(company.CompanyId, voucherDto);
 
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Sales Invoice '{savedVoucher.VoucherNumber}' of ₹{netTotal:N2} saved successfully.",
                 "Sales Invoice Saved",
                 MessageBoxButtons.OK,
@@ -759,7 +759,7 @@ public class SalesVoucherView : UserControl, IVoucherView
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save Sales Invoice:\n{ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to save Sales Invoice:\n{ex.Message}", "Save Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {

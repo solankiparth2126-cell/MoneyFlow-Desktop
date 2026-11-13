@@ -138,7 +138,7 @@ public class FinancialYearCreateForm : Form
     {
         if (dtpStartDate.Value >= dtpEndDate.Value)
         {
-            MessageBox.Show("Start Date must be earlier than End Date.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Start Date must be earlier than End Date.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -154,7 +154,7 @@ public class FinancialYearCreateForm : Form
             };
 
             var created = await _fyService.CreateFinancialYearAsync(_companyId, dto);
-            MessageBox.Show($"Financial Year '{created.YearName}' created successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show($"Financial Year '{created.YearName}' created successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             IsSaved = true;
             this.DialogResult = DialogResult.OK;
@@ -162,7 +162,7 @@ public class FinancialYearCreateForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Unable to create Financial Year:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Unable to create Financial Year:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             btnSave.Enabled = true;
         }
     }

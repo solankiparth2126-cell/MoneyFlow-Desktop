@@ -192,7 +192,7 @@ public class LedgerStatementForm : Form
         _btnExportCsv.Click += (s, e) => ExportToCsv();
 
         _btnPrint = new Button { Text = "Print (Ctrl+P)", Width = 110, Height = 35, BackColor = Color.FromArgb(230, 240, 252) };
-        _btnPrint.Click += (s, e) => MessageBox.Show(this, "Ledger Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        _btnPrint.Click += (s, e) => MoneyFlowMessageBox.Show(this, "Ledger Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         pnlActions.Controls.Add(_btnClose);
         pnlActions.Controls.Add(_btnExportCsv);
@@ -276,7 +276,7 @@ public class LedgerStatementForm : Form
             var company = _companyContext.CurrentCompany;
             if (company == null)
             {
-                MessageBox.Show(this, "Please select an active company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show(this, "Please select an active company first.", "No Company", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 Close();
                 return;
             }
@@ -302,7 +302,7 @@ public class LedgerStatementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Error initializing Ledger Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error initializing Ledger Statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -358,7 +358,7 @@ public class LedgerStatementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to load ledger statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Failed to load ledger statement: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -426,14 +426,14 @@ public class LedgerStatementForm : Form
         sb.AppendLine($"Running Balance: ₹{line.RunningBalance:N2} {(line.RunningType == BalanceType.Debit ? "Dr" : "Cr")}");
         sb.AppendLine($"Narration: {line.Narration}");
 
-        MessageBox.Show(this, sb.ToString(), $"Transaction Detail — {line.VoucherNumber}", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MoneyFlowMessageBox.Show(this, sb.ToString(), $"Transaction Detail — {line.VoucherNumber}", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void ExportToCsv()
     {
         if (_currentStatement == null || _currentStatement.Lines.Count == 0)
         {
-            MessageBox.Show(this, "No ledger entries to export.", "Empty", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "No ledger entries to export.", "Empty", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -463,7 +463,7 @@ public class LedgerStatementForm : Form
             sb.AppendLine($",Closing Balance:,{_currentStatement.ClosingBalance:F2} {_currentStatement.ClosingType}");
 
             File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-            MessageBox.Show(this, $"Exported {_currentStatement.Lines.Count} entries successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, $"Exported {_currentStatement.Lines.Count} entries successfully to:\n{sfd.FileName}", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 

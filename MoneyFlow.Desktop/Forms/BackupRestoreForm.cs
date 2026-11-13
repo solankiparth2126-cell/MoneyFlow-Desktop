@@ -658,7 +658,7 @@ public class BackupRestoreForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed loading companies: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed loading companies: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -666,14 +666,14 @@ public class BackupRestoreForm : Form
     {
         if (_cmbBackupCompany.SelectedItem is not CompanyComboItem selectedCompany)
         {
-            MessageBox.Show("Please select a company to backup.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select a company to backup.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         string targetDir = _txtBackupDirectory.Text.Trim();
         if (string.IsNullOrWhiteSpace(targetDir))
         {
-            MessageBox.Show("Please specify a target directory.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please specify a target directory.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -700,7 +700,7 @@ public class BackupRestoreForm : Form
             _rtbBackupLog.AppendText($"• Size: {result.FileSizeBytes / 1024.0:F2} KB\n");
             _rtbBackupLog.AppendText($"• Format: {result.BackupType}\n");
 
-            MessageBox.Show(this, $"Backup created successfully!\n\nFile: {result.FileName}\nSaved to: {result.FullPath}", "Backup Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, $"Backup created successfully!\n\nFile: {result.FileName}\nSaved to: {result.FullPath}", "Backup Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             await LoadHistoryAsync();
         }
@@ -708,7 +708,7 @@ public class BackupRestoreForm : Form
         {
             _rtbBackupLog.SelectionColor = Color.FromArgb(231, 76, 60);
             _rtbBackupLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}\n");
-            MessageBox.Show(this, $"Backup creation failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Backup creation failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -721,7 +721,7 @@ public class BackupRestoreForm : Form
         string path = _txtRestoreFilePath.Text.Trim();
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            MessageBox.Show("Please select a valid backup file.", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select a valid backup file.", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -763,7 +763,7 @@ public class BackupRestoreForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed inspecting backup: {ex.Message}", "Inspection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed inspecting backup: {ex.Message}", "Inspection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -776,7 +776,7 @@ public class BackupRestoreForm : Form
         string path = _txtRestoreFilePath.Text.Trim();
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
-            MessageBox.Show("Please select a valid backup file.", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select a valid backup file.", "File Not Found", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -788,7 +788,7 @@ public class BackupRestoreForm : Form
         {
             if (string.IsNullOrWhiteSpace(newName))
             {
-                MessageBox.Show("Please enter a name for the restored company.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please enter a name for the restored company.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
         }
@@ -796,12 +796,12 @@ public class BackupRestoreForm : Form
         {
             if (_cmbTargetCompany.SelectedItem is not CompanyComboItem selectedTarget)
             {
-                MessageBox.Show("Please select the target company to overwrite.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please select the target company to overwrite.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             targetCompId = selectedTarget.CompanyId;
 
-            var confirmOverwrite = MessageBox.Show(
+            var confirmOverwrite = MoneyFlowMessageBox.Show(
                 $"WARNING: You are about to OVERWRITE all accounting records in '{selectedTarget.CompanyName}'.\n\nAll existing vouchers, ledgers, and transactions in this company will be PERMANENTLY replaced with the backup data.\n\nAre you absolutely sure you want to proceed?",
                 "CONFIRM OVERWRITE RESTORE",
                 MessageBoxButtons.YesNo,
@@ -811,7 +811,7 @@ public class BackupRestoreForm : Form
             if (confirmOverwrite != DialogResult.Yes) return;
         }
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             $"Restore archive '{Path.GetFileName(path)}'?\nDestination: {(isNew ? $"New Company: {newName}" : "Overwrite Selected Company")}",
             "Confirm Restore",
             MessageBoxButtons.YesNo,
@@ -838,7 +838,7 @@ public class BackupRestoreForm : Form
             {
                 _rtbRestoreLog.SelectionColor = Color.FromArgb(46, 204, 113);
                 _rtbRestoreLog.AppendText($"[{DateTime.Now:HH:mm:ss}] SUCCESS: {result.Message}\n");
-                MessageBox.Show(this, result.Message, "Restore Completed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MoneyFlowMessageBox.Show(this, result.Message, "Restore Completed", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 await LoadCompaniesAsync();
             }
@@ -846,14 +846,14 @@ public class BackupRestoreForm : Form
             {
                 _rtbRestoreLog.SelectionColor = Color.FromArgb(231, 76, 60);
                 _rtbRestoreLog.AppendText($"[{DateTime.Now:HH:mm:ss}] FAILED: {result.Message}\n");
-                MessageBox.Show(this, result.Message, "Restore Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show(this, result.Message, "Restore Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         catch (Exception ex)
         {
             _rtbRestoreLog.SelectionColor = Color.FromArgb(231, 76, 60);
             _rtbRestoreLog.AppendText($"[{DateTime.Now:HH:mm:ss}] ERROR: {ex.Message}\n");
-            MessageBox.Show(this, $"Error during restoration: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error during restoration: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -889,7 +889,7 @@ public class BackupRestoreForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed reading backup history: {ex.Message}", "History Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed reading backup history: {ex.Message}", "History Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -902,7 +902,7 @@ public class BackupRestoreForm : Form
         var manifest = await _backupRestoreService.ReadManifestAsync(info.FullPath);
         if (manifest != null)
         {
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"Backup File: {info.FileName}\n" +
                 $"Company: {manifest.CompanyName}\n" +
                 $"Financial Year: {manifest.FinancialYearLabel}\n" +
@@ -916,7 +916,7 @@ public class BackupRestoreForm : Form
         }
         else
         {
-            MessageBox.Show("Backup archive could not be verified or is corrupted.", "Integrity Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show("Backup archive could not be verified or is corrupted.", "Integrity Check Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

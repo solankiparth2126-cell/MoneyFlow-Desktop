@@ -567,7 +567,7 @@ public class ApplicationStartupDialog : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed creating selected data path: {ex.Message}", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show(this, $"Failed creating selected data path: {ex.Message}", "Configuration Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 

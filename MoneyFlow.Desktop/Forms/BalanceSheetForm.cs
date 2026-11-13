@@ -186,7 +186,7 @@ public class BalanceSheetForm : Form
         _btnExportCsv.Click += (s, e) => ExportToCsv();
 
         _btnPrint = new Button { Text = "Print (Ctrl+P)", Width = 110, Height = 35, BackColor = Color.FromArgb(230, 240, 252) };
-        _btnPrint.Click += (s, e) => MessageBox.Show(this, "Balance Sheet Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        _btnPrint.Click += (s, e) => MoneyFlowMessageBox.Show(this, "Balance Sheet Statement ready for printing / preview.", "Print Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         pnlActions.Controls.Add(_btnClose);
         pnlActions.Controls.Add(_btnExportCsv);
@@ -299,7 +299,7 @@ public class BalanceSheetForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Error calculating Balance Sheet: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error calculating Balance Sheet: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
@@ -429,7 +429,7 @@ public class BalanceSheetForm : Form
     {
         if (_currentStatement == null)
         {
-            MessageBox.Show(this, "No data available to export.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "No data available to export.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -467,11 +467,11 @@ public class BalanceSheetForm : Form
             sb.AppendLine($"\"BALANCE STATUS\",\"{(_currentStatement.IsBalanced ? "BALANCED" : "UNBALANCED")}\",,\"DIFFERENCE\",\"{_currentStatement.Difference:N2}\"");
 
             File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-            MessageBox.Show(this, "Balance Sheet exported to CSV successfully.", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show(this, "Balance Sheet exported to CSV successfully.", "Export Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Error exporting CSV: {ex.Message}", "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Error exporting CSV: {ex.Message}", "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

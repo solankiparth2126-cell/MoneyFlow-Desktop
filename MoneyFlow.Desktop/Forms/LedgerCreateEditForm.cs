@@ -1391,7 +1391,7 @@ public partial class LedgerCreateEditForm : Form
         var name = _txtName.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBox.Show("Please enter a ledger name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter a ledger name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtName.Focus();
             return;
         }
@@ -1399,7 +1399,7 @@ public partial class LedgerCreateEditForm : Form
         var groupId = (int?)_cmbGroup.SelectedValue ?? 0;
         if (groupId <= 0)
         {
-            MessageBox.Show("Please select an under group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select an under group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _cmbGroup.Focus();
             return;
         }
@@ -1410,7 +1410,7 @@ public partial class LedgerCreateEditForm : Form
             (!DateTime.TryParseExact(effDateStr, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) &&
              !DateTime.TryParse(effDateStr, out _)))
         {
-            MessageBox.Show("Please enter a valid Effective From date (e.g. DD-MM-YYYY).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter a valid Effective From date (e.g. DD-MM-YYYY).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtEffectiveFrom.Focus();
             return;
         }
@@ -1487,7 +1487,7 @@ public partial class LedgerCreateEditForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save ledger: {ex.Message}", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show($"Failed to save ledger: {ex.Message}", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {
@@ -1564,7 +1564,7 @@ public partial class LedgerCreateEditForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load ledger data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to load ledger data: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1573,7 +1573,7 @@ public partial class LedgerCreateEditForm : Form
         var name = _txtName.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBox.Show("Please enter a ledger name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter a ledger name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtName.Focus();
             return;
         }
@@ -1581,7 +1581,7 @@ public partial class LedgerCreateEditForm : Form
         var groupId = (int?)_cmbGroup.SelectedValue ?? 0;
         if (groupId <= 0)
         {
-            MessageBox.Show("Please select an under group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please select an under group.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _cmbGroup.Focus();
             return;
         }
@@ -1592,7 +1592,7 @@ public partial class LedgerCreateEditForm : Form
             (!DateTime.TryParseExact(effDateStr, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) &&
              !DateTime.TryParse(effDateStr, out _)))
         {
-            MessageBox.Show("Please enter a valid Effective From date (e.g. DD-MM-YYYY).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Please enter a valid Effective From date (e.g. DD-MM-YYYY).", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtEffectiveFrom.Focus();
             return;
         }
@@ -1650,7 +1650,7 @@ public partial class LedgerCreateEditForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save ledger: {ex.Message}", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show($"Failed to save ledger: {ex.Message}", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {

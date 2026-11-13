@@ -202,7 +202,7 @@ public class FinancialYearListForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Cannot Set Active FY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show(ex.Message, "Cannot Set Active FY", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -226,7 +226,7 @@ public class FinancialYearListForm : Form
         int? id = GetSelectedFYId();
         if (!id.HasValue) return;
 
-        var confirm = MessageBox.Show(
+        var confirm = MoneyFlowMessageBox.Show(
             "Closing a Financial Year locks all accounting postings in that period.\n\nAre you sure you want to close this Financial Year?",
             "Confirm Lock Financial Year",
             MessageBoxButtons.YesNo,

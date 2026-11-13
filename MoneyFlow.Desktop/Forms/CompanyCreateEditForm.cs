@@ -1274,7 +1274,7 @@ public partial class CompanyCreateEditForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Failed to load company details:\n{ex.Message}", "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Failed to load company details:\n{ex.Message}", "Load Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -1375,7 +1375,7 @@ public partial class CompanyCreateEditForm : Form
                 await _companyService.UpdateCompanyAsync(updateDto);
                 if (this.Visible)
                 {
-                    MessageBox.Show(this, "Company details updated successfully.", "Company Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MoneyFlowMessageBox.Show(this, "Company details updated successfully.", "Company Updated", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             else
@@ -1402,7 +1402,7 @@ public partial class CompanyCreateEditForm : Form
                 await _companyService.CreateCompanyAsync(createDto);
                 if (this.Visible)
                 {
-                    MessageBox.Show(this, $"Company '{name}' created successfully with Chart of Accounts.", "Company Created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MoneyFlowMessageBox.Show(this, $"Company '{name}' created successfully with Chart of Accounts.", "Company Created", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
 
@@ -1413,7 +1413,7 @@ public partial class CompanyCreateEditForm : Form
         catch (Exception ex)
         {
             var msg = ex.InnerException != null ? $"{ex.Message}\n\nDetails: {ex.InnerException.Message}" : ex.Message;
-            MessageBox.Show(this, $"Failed to save company:\n{msg}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show(this, $"Failed to save company:\n{msg}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {

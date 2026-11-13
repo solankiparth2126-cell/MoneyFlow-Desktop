@@ -493,7 +493,7 @@ public class UserManagementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed loading users: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed loading users: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -516,7 +516,7 @@ public class UserManagementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed loading roles: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed loading roles: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -569,7 +569,7 @@ public class UserManagementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed loading permissions: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed loading permissions: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -581,7 +581,7 @@ public class UserManagementForm : Form
 
         if (string.Equals(selectedRole, "Administrator", StringComparison.OrdinalIgnoreCase))
         {
-            MessageBox.Show("The Administrator role always has full permissions.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("The Administrator role always has full permissions.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -606,13 +606,13 @@ public class UserManagementForm : Form
             };
 
             await _securityService.UpdateRolePermissionsAsync(dto);
-            MessageBox.Show($"Permissions for role '{role.RoleName}' successfully updated ({checkedKeys.Count} permissions granted).", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show($"Permissions for role '{role.RoleName}' successfully updated ({checkedKeys.Count} permissions granted).", "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             await LoadAuditLogsAsync();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed saving permissions: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed saving permissions: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -670,7 +670,7 @@ public class UserManagementForm : Form
         {
             if (string.IsNullOrWhiteSpace(txtU.Text) || string.IsNullOrWhiteSpace(txtP.Text))
             {
-                MessageBox.Show("Username and Password are required.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Username and Password are required.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -695,7 +695,7 @@ public class UserManagementForm : Form
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to create user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Failed to create user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
 
@@ -772,7 +772,7 @@ public class UserManagementForm : Form
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed updating user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Failed updating user: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
 
@@ -802,7 +802,7 @@ public class UserManagementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show(ex.Message, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -833,19 +833,19 @@ public class UserManagementForm : Form
         {
             if (string.IsNullOrWhiteSpace(txtP.Text) || txtP.Text.Length < 4)
             {
-                MessageBox.Show("Password must be at least 4 characters.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Password must be at least 4 characters.", "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             try
             {
                 await _securityService.ResetPasswordAsync(user.UserId, txtP.Text);
-                MessageBox.Show($"Password for '{user.Username}' has been reset successfully.", "Password Reset", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MoneyFlowMessageBox.Show($"Password for '{user.Username}' has been reset successfully.", "Password Reset", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 dlg.Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
 
@@ -884,7 +884,7 @@ public class UserManagementForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed loading audit logs: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed loading audit logs: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -892,7 +892,7 @@ public class UserManagementForm : Form
     {
         if (_dgvAudit.Rows.Count == 0)
         {
-            MessageBox.Show("No audit records to export.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MoneyFlowMessageBox.Show("No audit records to export.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -924,11 +924,11 @@ public class UserManagementForm : Form
                 }
 
                 File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
-                MessageBox.Show($"Audit log exported successfully to:\n{sfd.FileName}", "Export Completed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MoneyFlowMessageBox.Show($"Audit log exported successfully to:\n{sfd.FileName}", "Export Completed", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Export error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MoneyFlowMessageBox.Show($"Export error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

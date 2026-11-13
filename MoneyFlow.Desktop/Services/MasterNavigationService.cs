@@ -108,7 +108,7 @@ public class MasterNavigationService
                 break;
 
             default:
-                MessageBox.Show(
+                MoneyFlowMessageBox.Show(
                     owner,
                     $"Direct master creation for {masterType} is accessible via ERP Masters navigation.",
                     "Master Creation",
@@ -150,7 +150,7 @@ public class MasterNavigationService
                 break;
 
             default:
-                MessageBox.Show(
+                MoneyFlowMessageBox.Show(
                     owner,
                     $"Full directory for {masterType} is displayed with search filtering in the dropdown.",
                     $"{masterType} Directory",

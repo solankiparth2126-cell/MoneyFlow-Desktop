@@ -563,7 +563,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             // Validate Name field if on field 0
             if (fieldIndex == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
             {
-                MessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MoneyFlowMessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 SetActiveField(0);
                 return;
             }
@@ -738,7 +738,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
 
                 if (_activeFieldIndex == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
                 {
-                    MessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MoneyFlowMessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     SetActiveField(0);
                     return true;
                 }
@@ -834,7 +834,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         {
             _isInitializing = false;
             _isDirty = false;
-            MessageBox.Show($"Failed to load group data: {ex.Message}", "Data Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to load group data: {ex.Message}", "Data Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -880,7 +880,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         if (string.IsNullOrWhiteSpace(name))
         {
             _isSaving = false;
-            MessageBox.Show("Group name is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Group name is required.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             SetActiveField(0);
             return;
         }
@@ -894,7 +894,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         if (isDuplicate)
         {
             _isSaving = false;
-            MessageBox.Show("Group already exists.", "Duplicate Group", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MoneyFlowMessageBox.Show("Group already exists.", "Duplicate Group", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             SetActiveField(0);
             return;
         }
@@ -942,7 +942,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to save group: {ex.Message}", "Save Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MoneyFlowMessageBox.Show($"Failed to save group: {ex.Message}", "Save Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetActiveField(0);
         }
         finally

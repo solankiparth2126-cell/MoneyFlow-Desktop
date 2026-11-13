@@ -154,7 +154,7 @@ static class Program
         }
         catch
         {
-            MessageBox.Show(
+            MoneyFlowMessageBox.Show(
                 $"A critical error occurred and crash dialog could not be displayed:\n\n{ex.Message}\n\n{ex.StackTrace}",
                 "Critical Error",
                 MessageBoxButtons.OK,
