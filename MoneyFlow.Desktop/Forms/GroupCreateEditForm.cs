@@ -782,6 +782,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbSubLedger.SelectionCommitted += (s, e) => MoveToNextField(3);
         cmbSubLedger.EditorKeyDown += (s, e) => HandleEditorKeyDown(3, e);
         cmbSubLedger.KeyDown += (s, e) => HandleEditorKeyDown(3, e);
+        cmbSubLedger.BackNavigationRequested += (s, e) => MoveToPreviousField(3);
         fldSubLedger = new MoneyFlowField("Group behaves like a sub-ledger", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -797,6 +798,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbNettBalances.SelectionCommitted += (s, e) => MoveToNextField(4);
         cmbNettBalances.EditorKeyDown += (s, e) => HandleEditorKeyDown(4, e);
         cmbNettBalances.KeyDown += (s, e) => HandleEditorKeyDown(4, e);
+        cmbNettBalances.BackNavigationRequested += (s, e) => MoveToPreviousField(4);
         fldNettBalances = new MoneyFlowField("Nett Debit/Credit Balances for Reporting", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -812,6 +814,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbCalculation.SelectionCommitted += (s, e) => MoveToNextField(5);
         cmbCalculation.EditorKeyDown += (s, e) => HandleEditorKeyDown(5, e);
         cmbCalculation.KeyDown += (s, e) => HandleEditorKeyDown(5, e);
+        cmbCalculation.BackNavigationRequested += (s, e) => MoveToPreviousField(5);
         fldCalculation = new MoneyFlowField("Used for calculation (eg: taxes, discounts)", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -834,6 +837,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbMethodToAllocate.SelectionCommitted += (s, e) => MoveToNextField(6);
         cmbMethodToAllocate.EditorKeyDown += (s, e) => HandleEditorKeyDown(6, e);
         cmbMethodToAllocate.KeyDown += (s, e) => HandleEditorKeyDown(6, e);
+        cmbMethodToAllocate.BackNavigationRequested += (s, e) => MoveToPreviousField(6);
         fldMethodToAllocate = new MoneyFlowField("Method to allocate when used in purchase invoice", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -855,6 +859,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbNature.SelectionCommitted += (s, e) => MoveToNextField(7);
         cmbNature.EditorKeyDown += (s, e) => HandleEditorKeyDown(7, e);
         cmbNature.KeyDown += (s, e) => HandleEditorKeyDown(7, e);
+        cmbNature.BackNavigationRequested += (s, e) => MoveToPreviousField(7);
         fldNature = new MoneyFlowField("Nature of Group", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -870,6 +875,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         cmbAffectsPL.SelectionCommitted += (s, e) => MoveToNextField(8);
         cmbAffectsPL.EditorKeyDown += (s, e) => HandleEditorKeyDown(8, e);
         cmbAffectsPL.KeyDown += (s, e) => HandleEditorKeyDown(8, e);
+        cmbAffectsPL.BackNavigationRequested += (s, e) => MoveToPreviousField(8);
         fldAffectsPL = new MoneyFlowField("Does it affect Gross / Net Profit / Loss", labelWidth, rowHeight: 32)
         {
             Location = new Point(8, curY)
@@ -1449,7 +1455,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         SyncRightListToHighlighted();
         pnlRightList.Visible = false;
         txtUnder.Focus();
-        UpdateKeyboardStatus("Ready");
+        UpdateKeyboardStatus();
     }
 
     private void CancelUnderSelectionAndGoBack()
@@ -1459,7 +1465,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         SetSelectedParentGroup(_preLookupSelectedGroupId);
         pnlRightList.Visible = false;
         MoveToPreviousField(2);
-        UpdateKeyboardStatus("Ready");
+        UpdateKeyboardStatus();
     }
 
     public void SetSelectedParentGroup(int? groupId)
@@ -1574,6 +1580,24 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
                 {
                     txtRightSearch.Focus();
                     txtRightSearch.SelectAll();
+                }
+            }));
+        }
+        else
+        {
+            BeginInvoke(new Action(() =>
+            {
+                if (index >= 0 && index < _fields.Count && _fields[index].Editor != null && _fields[index].Editor.CanFocus)
+                {
+                    _fields[index].Editor.Focus();
+                    if (_fields[index].Editor is MoneyFlowTextLookup lookup)
+                    {
+                        lookup.SelectAll();
+                    }
+                    else if (_fields[index].Editor is TextBoxBase tb)
+                    {
+                        tb.SelectAll();
+                    }
                 }
             }));
         }
@@ -1769,13 +1793,25 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         // ═══════════════════════════════════════════════════════════════
         //  UNDER LOOKUP KEYBOARD INTERCEPTION
         // ═══════════════════════════════════════════════════════════════
-        bool isUnderActive = (_activeFieldIndex == 2) || (txtRightSearch != null && txtRightSearch.Focused) || (lstRightGroups != null && lstRightGroups.Focused);
+        bool isUnderActive = (_activeFieldIndex == 2) || (pnlRightList != null && pnlRightList.Visible) || (txtRightSearch != null && txtRightSearch.Focused) || (lstRightGroups != null && lstRightGroups.Focused);
 
         if (isUnderActive)
         {
             if (keyData == (Keys.Tab | Keys.Shift) || keyData == (Keys.Enter | Keys.Shift))
             {
                 CancelUnderSelectionAndGoBack();
+                return true;
+            }
+
+            if (keyData == Keys.Tab && !keyData.HasFlag(Keys.Shift))
+            {
+                CommitHighlightedParentGroup();
+                return true;
+            }
+
+            if (keyData == Keys.Enter && !keyData.HasFlag(Keys.Alt) && !keyData.HasFlag(Keys.Control) && !keyData.HasFlag(Keys.Shift))
+            {
+                CommitHighlightedParentGroup();
                 return true;
             }
 
@@ -1895,47 +1931,41 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
                 return true;
             }
 
-            if (ActiveControl == btnCancel)
+            int cur = GetCurrentFieldIndex();
+            if (cur > 0)
             {
-                FocusSaveButton();
+                MoveToPreviousField(cur);
                 return true;
             }
-            if (ActiveControl == btnSave)
-            {
-                MoveToPreviousField(_fields.Count);
-                return true;
-            }
-            if (_activeFieldIndex >= 0)
-            {
-                MoveToPreviousField(_activeFieldIndex);
-                return true;
-            }
+            return true;
         }
 
         // Tab -> Next Field
         if (keyData == Keys.Tab)
         {
-            if (_activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+            int cur = GetCurrentFieldIndex();
+            if (cur >= 0 && cur < _fields.Count)
             {
-                var curEditor = _fields[_activeFieldIndex].Editor;
+                if (cur == 2 || (pnlRightList != null && pnlRightList.Visible))
+                {
+                    CommitHighlightedParentGroup();
+                    return true;
+                }
+
+                var curEditor = _fields[cur].Editor;
                 if (curEditor is MoneyFlowTextLookup lookup && lookup.IsPopupOpen)
                 {
                     lookup.CloseLookup();
                 }
 
-                MoveToNextField(_activeFieldIndex);
-                return true;
-            }
+                if (cur == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
+                {
+                    MoneyFlowMessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    SetActiveField(0);
+                    return true;
+                }
 
-            if (ActiveControl == btnSave)
-            {
-                btnCancel.Focus();
-                return true;
-            }
-
-            if (ActiveControl == btnCancel)
-            {
-                SetActiveField(0);
+                MoveToNextField(cur);
                 return true;
             }
         }
@@ -1943,33 +1973,52 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
         // Plain Enter on active field editor -> advance to next field
         if (keyData == Keys.Enter && !keyData.HasFlag(Keys.Alt) && !keyData.HasFlag(Keys.Control))
         {
-            if (_activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+            int cur = GetCurrentFieldIndex();
+            if (cur >= 0 && cur < _fields.Count)
             {
-                var curEditor = _fields[_activeFieldIndex].Editor;
+                if (cur == 2 || (pnlRightList != null && pnlRightList.Visible))
+                {
+                    CommitHighlightedParentGroup();
+                    return true;
+                }
+
+                var curEditor = _fields[cur].Editor;
                 if (curEditor is MoneyFlowTextLookup lookup && lookup.IsPopupOpen)
                 {
                     return base.ProcessCmdKey(ref msg, keyData);
                 }
 
-                if (_activeFieldIndex == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
+                if (cur == 0 && string.IsNullOrWhiteSpace(txtGroupName.Text))
                 {
                     MoneyFlowMessageBox.Show("Please enter a valid Group Name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     SetActiveField(0);
                     return true;
                 }
 
-                if (_activeFieldIndex == 2)
-                {
-                    CommitHighlightedParentGroup();
-                    return true;
-                }
-
-                MoveToNextField(_activeFieldIndex);
+                MoveToNextField(cur);
                 return true;
             }
         }
 
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private int GetCurrentFieldIndex()
+    {
+        if (_activeFieldIndex >= 0 && _activeFieldIndex < _fields.Count)
+        {
+            return _activeFieldIndex;
+        }
+
+        for (int i = 0; i < _fields.Count; i++)
+        {
+            if (_fields[i].IsActive || _fields[i].ContainsFocus)
+            {
+                return i;
+            }
+        }
+
+        return 0;
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Auto, ExactSpelling = true)]
@@ -2108,7 +2157,7 @@ public partial class GroupCreateEditForm : Form, IBackNavigable
             _isDirty = false;
 
             SetActiveField(0);
-            UpdateKeyboardStatus("Ready");
+            UpdateKeyboardStatus();
         }
         catch (Exception ex)
         {

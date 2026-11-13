@@ -379,6 +379,7 @@ public class MoneyFlowTextLookup : UserControl
 
     public event KeyEventHandler? EditorKeyDown;
     public event EventHandler? SelectionCommitted;
+    public event EventHandler? BackNavigationRequested;
 
     public TextBox InnerTextBox => _innerTextBox;
 
@@ -597,6 +598,7 @@ public class MoneyFlowTextLookup : UserControl
                 _lastClosedByEscUtc = DateTime.UtcNow;
                 BeginInvoke(new Action(() =>
                 {
+                    BackNavigationRequested?.Invoke(this, EventArgs.Empty);
                     var parent = FindForm();
                     parent?.SelectNextControl(this, false, true, true, true);
                 }));

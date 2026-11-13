@@ -183,7 +183,14 @@ public class MoneyFlowField : Panel
 
     public void SetActive(bool active)
     {
-        if (_isActive == active) return;
+        if (_isActive == active)
+        {
+            if (active && _editor != null && _editor.CanFocus)
+            {
+                FocusEditor();
+            }
+            return;
+        }
 
         _isActive = active;
 
@@ -194,28 +201,7 @@ public class MoneyFlowField : Panel
             _editorContainer.Visible = true;
             _editorContainer.BringToFront();
 
-            if (_editor != null)
-            {
-                if (_editor is MoneyFlowTextLookup lookup)
-                {
-                    lookup.Focus();
-                    lookup.SelectAll();
-                }
-                else if (_editor is TextBoxBase tb)
-                {
-                    tb.Focus();
-                    tb.SelectAll();
-                }
-                else if (_editor is ComboBox cb)
-                {
-                    cb.Focus();
-                    cb.SelectAll();
-                }
-                else
-                {
-                    _editor.Focus();
-                }
-            }
+            FocusEditor();
 
             Activated?.Invoke(this, EventArgs.Empty);
         }
@@ -233,6 +219,30 @@ public class MoneyFlowField : Panel
             }
 
             Deactivated?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void FocusEditor()
+    {
+        if (_editor == null) return;
+        if (_editor is MoneyFlowTextLookup lookup)
+        {
+            lookup.Focus();
+            lookup.SelectAll();
+        }
+        else if (_editor is TextBoxBase tb)
+        {
+            tb.Focus();
+            tb.SelectAll();
+        }
+        else if (_editor is ComboBox cb)
+        {
+            cb.Focus();
+            cb.SelectAll();
+        }
+        else
+        {
+            _editor.Focus();
         }
     }
 
