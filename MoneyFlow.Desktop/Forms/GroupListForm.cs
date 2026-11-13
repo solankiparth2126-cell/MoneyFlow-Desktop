@@ -847,7 +847,13 @@ public class GroupListForm : Form, IBackNavigable
         _activeCreationForm?.Dispose();
         pnlCreationContainer.Controls.Clear();
 
-        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, null, parentGroupId)
+        var comp = _companyContext.CurrentCompany;
+        string compName = comp?.CompanyName ?? "Acme Global Corp";
+        string fyText = comp != null 
+            ? $"FY {comp.FinancialYearFrom:yyyy}-{comp.FinancialYearFrom.AddYears(1):yy}" 
+            : "FY 2024-25";
+
+        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, null, parentGroupId, compName, fyText)
         {
             TopLevel = false,
             FormBorderStyle = FormBorderStyle.None,
@@ -885,7 +891,13 @@ public class GroupListForm : Form, IBackNavigable
         _activeCreationForm?.Dispose();
         pnlCreationContainer.Controls.Clear();
 
-        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, groupId)
+        var comp = _companyContext.CurrentCompany;
+        string compName = comp?.CompanyName ?? "Acme Global Corp";
+        string fyText = comp != null 
+            ? $"FY {comp.FinancialYearFrom:yyyy}-{comp.FinancialYearFrom.AddYears(1):yy}" 
+            : "FY 2024-25";
+
+        _activeCreationForm = new GroupCreateEditForm(_groupService, _companyContext.CurrentCompany.CompanyId, groupId, null, compName, fyText)
         {
             TopLevel = false,
             FormBorderStyle = FormBorderStyle.None,

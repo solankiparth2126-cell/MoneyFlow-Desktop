@@ -150,7 +150,7 @@ public class MoneyFlowField : Panel
 
     public void UpdateEditorWidth(int width)
     {
-        if (_editorContainer != null && width > 100)
+        if (_editorContainer != null && width >= 50)
         {
             _editorContainer.Width = width;
         }

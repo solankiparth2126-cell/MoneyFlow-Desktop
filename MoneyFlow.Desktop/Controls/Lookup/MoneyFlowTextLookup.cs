@@ -52,8 +52,9 @@ public class MoneyFlowTextLookup : UserControl
         {
             _isFocused = true;
             Invalidate();
+            _innerTextBox.SelectAll();
 
-            if (AutoOpenOnFocus && !_suppressAutoOpenUntilLeave && (_popup == null || !_popup.Visible))
+            if (EnablePopup && AutoOpenOnFocus && !_suppressAutoOpenUntilLeave && (_popup == null || !_popup.Visible))
             {
                 // Delay slightly to allow normal focus routing to complete
                 await Task.Yield();
@@ -79,16 +80,50 @@ public class MoneyFlowTextLookup : UserControl
         _innerTextBox.KeyDown += async (s, e) => await HandleInnerKeyDownAsync(e);
         _innerTextBox.Click += async (s, e) =>
         {
-            if (_popup == null || !_popup.Visible)
+            if (IsBinaryChoice)
+            {
+                _innerTextBox.SelectAll();
+                return;
+            }
+
+            if (EnablePopup && (_popup == null || !_popup.Visible))
             {
                 await OpenLookupAsync();
+            }
+        };
+
+        _innerTextBox.KeyPress += (s, e) =>
+        {
+            if (IsBinaryChoice)
+            {
+                if (e.KeyChar == 'y' || e.KeyChar == 'Y')
+                {
+                    SetBinaryValue("Yes");
+                    e.Handled = true;
+                }
+                else if (e.KeyChar == 'n' || e.KeyChar == 'N')
+                {
+                    SetBinaryValue("No");
+                    e.Handled = true;
+                }
+                else if (e.KeyChar == ' ')
+                {
+                    string cur = SelectedValue?.ToString() ?? "No";
+                    SetBinaryValue(string.Equals(cur, "Yes", StringComparison.OrdinalIgnoreCase) ? "No" : "Yes");
+                    e.Handled = true;
+                }
+                else if (!char.IsControl(e.KeyChar))
+                {
+                    e.Handled = true;
+                }
             }
         };
 
         _innerTextBox.TextChanged += async (s, e) =>
         {
             if (_suppressTextChange) return;
-            if (_isFocused)
+            if (IsBinaryChoice) return;
+            if (_isFocused && EnablePopup)
             {
                 if (_popup == null || !_popup.Visible)
                 {
@@ -107,7 +142,12 @@ public class MoneyFlowTextLookup : UserControl
         Click += async (s, e) =>
         {
             _innerTextBox.Focus();
-            if (_popup == null || !_popup.Visible)
+            if (IsBinaryChoice)
+            {
+                _innerTextBox.SelectAll();
+                return;
+            }
+            if (EnablePopup && (_popup == null || !_popup.Visible))
             {
                 await OpenLookupAsync();
             }
@@ -118,6 +158,8 @@ public class MoneyFlowTextLookup : UserControl
     }
 
     public bool AutoOpenOnFocus { get; set; } = true;
+    public bool EnablePopup { get; set; } = true;
+    public bool IsBinaryChoice { get; set; }
     public bool DrawBorder { get; set; } = true;
 
     private bool _showDropdownArrow;
@@ -213,7 +255,20 @@ public class MoneyFlowTextLookup : UserControl
                 _suppressTextChange = false;
                 SelectedValueChanged?.Invoke(this, EventArgs.Empty);
             }
+            else
+            {
+                _suppressTextChange = true;
+                _innerTextBox.Text = value.ToString() ?? string.Empty;
+                _suppressTextChange = false;
+                SelectedValueChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
+    }
+
+    public void SetBinaryValue(string val)
+    {
+        SelectedValue = val;
+        _innerTextBox.SelectAll();
     }
 
     [System.Diagnostics.CodeAnalysis.AllowNull]
@@ -370,6 +425,39 @@ public class MoneyFlowTextLookup : UserControl
             }
         }
 
+        // Binary choice handling (Yes / No)
+        if (IsBinaryChoice)
+        {
+            if (e.KeyCode == Keys.Y)
+            {
+                SetBinaryValue("Yes");
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+            if (e.KeyCode == Keys.N)
+            {
+                SetBinaryValue("No");
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+            if (e.KeyCode == Keys.Space || e.KeyCode == Keys.Up || e.KeyCode == Keys.Down)
+            {
+                string cur = SelectedValue?.ToString() ?? "No";
+                SetBinaryValue(string.Equals(cur, "Yes", StringComparison.OrdinalIgnoreCase) ? "No" : "Yes");
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+            if (e.KeyCode == Keys.Back || e.KeyCode == Keys.Delete)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                return;
+            }
+        }
+
         // Forward inner key to external listeners and UserControl.OnKeyDown
         EditorKeyDown?.Invoke(this, e);
         if (e.Handled || e.SuppressKeyPress) return;
@@ -425,7 +513,7 @@ public class MoneyFlowTextLookup : UserControl
 
     public async Task OpenLookupAsync(string? initialSearch = null)
     {
-        if (_provider == null) return;
+        if (!EnablePopup || IsBinaryChoice || _provider == null) return;
 
         EnsurePopupCreated();
         if (_popup == null) return;
@@ -435,6 +523,7 @@ public class MoneyFlowTextLookup : UserControl
 
     public void OpenPopup(string? initialSearch = null)
     {
+        if (!EnablePopup || IsBinaryChoice) return;
         OpenLookupAsync(initialSearch).GetAwaiter().GetResult();
     }
 
@@ -499,6 +588,17 @@ public class MoneyFlowTextLookup : UserControl
                     {
                         _innerTextBox.Focus();
                     }
+                }));
+            };
+
+            _popup.ShiftTabRequested += () =>
+            {
+                _suppressAutoOpenUntilLeave = true;
+                _lastClosedByEscUtc = DateTime.UtcNow;
+                BeginInvoke(new Action(() =>
+                {
+                    var parent = FindForm();
+                    parent?.SelectNextControl(this, false, true, true, true);
                 }));
             };
         }

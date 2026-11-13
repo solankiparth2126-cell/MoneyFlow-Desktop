@@ -742,8 +742,18 @@ public class MoneyFlowLookupPopup : Form
         }
     }
 
+    public event Action? ShiftTabRequested;
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (keyData == (Keys.Tab | Keys.Shift) || keyData == (Keys.Enter | Keys.Shift))
+        {
+            RecordEscClose();
+            ClosePopup(isCancelled: true);
+            ShiftTabRequested?.Invoke();
+            return true;
+        }
+
         if (keyData == Keys.Tab || keyData == Keys.Enter)
         {
             SelectCurrentItem();
